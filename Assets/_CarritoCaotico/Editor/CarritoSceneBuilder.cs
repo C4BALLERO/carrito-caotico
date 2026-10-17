@@ -438,9 +438,8 @@ namespace CarritoCaotico.EditorTools
             foreach (var aisle in Aisles)
             {
                 string label = "Pasillo " + aisle.label;
-                AddSign(signs, label, new Vector3(aisle.x, 3.05f, -ShelfOuterZ - 0.4f), 0f, 4.4f);
-                AddSign(signs, label, new Vector3(aisle.x, 3.05f, ShelfOuterZ + 0.4f), 180f, 4.4f);
-                AddSign(signs, label, new Vector3(aisle.x, 3.05f, 0f), 0f, 4.4f);
+                AddSign(signs, label, new Vector3(aisle.x, 3.3f, -ShelfOuterZ - 0.4f), 0f, 4.4f);
+                AddSign(signs, label, new Vector3(aisle.x, 3.3f, ShelfOuterZ + 0.4f), 180f, 4.4f);
             }
         }
 
