@@ -36,13 +36,13 @@ No usa assets externos: todo se construye con primitivas, materiales de color pl
 5. En el menú superior, ejecuta **Carrito → Construir escena de prueba**.
 6. Pulsa **Play**.
 
-El generador crea dos escenas en `Assets/_CarritoCaotico/Scenes/`: `CarritoCaotico_Prueba.unity` (clásica) y `CarritoCaotico_Halloween.unity`. Las dos se añaden al principio de *Build Settings*.
+El generador crea dos escenas en `Assets/_CarritoCaotico/00_Scenes/`: `CarritoCaotico_Prueba.unity` (clásica) y `CarritoCaotico_Halloween.unity`. Las dos se añaden al principio de *Build Settings*.
 
 ### Regenerar la escena de forma segura
 
 Si la escena ya existe, el menú ofrece tres opciones:
 
-- **Regenerar (con copia):** guarda una copia con fecha en `Assets/_CarritoCaotico/Scenes/Backups/` y después la reconstruye.
+- **Regenerar (con copia):** guarda una copia con fecha en `Assets/_CarritoCaotico/00_Scenes/Backups/` y después la reconstruye.
 - **Cancelar:** no cambia nada.
 - **Abrir la existente:** abre la escena sin modificarla.
 
@@ -239,42 +239,51 @@ Una unidad entregada cuenta como correcta o como sobrante, nunca como ambas.
 
 ```
 Assets/_CarritoCaotico/
-├── Scripts/                 (CarritoCaotico.Runtime.asmdef)
-│   ├── GameInput.cs         Lectura de teclado/mandos con el New Input System
-│   ├── Product.cs           12 tipos de producto (enum estable), catálogo y producto físico
-│   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
-│   ├── CameraController.cs  Cámara en tercera persona con órbita, suavizado y anticolisión
-│   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
-│   ├── CartContents.cs      Trigger de la canasta: contenido sin duplicados y peso
-│   ├── ShoppingRules.cs     Lógica pura: generación de la lista y evaluación del recibo
-│   ├── ShoppingList.cs      Lista del Agarrador: requeridas, conseguidas y faltantes
-│   ├── GameTimer.cs         Cuenta regresiva de 120 s
-│   ├── Checkout.cs          Zona de entrega junto a la caja
-│   ├── GameManager.cs       Estados (Menú, Preparación, En juego, Compra entregada, Tiempo agotado), pausa y niveles
-│   ├── GameSession.cs       Nivel actual y progreso guardado entre recargas de escena
-│   ├── LevelProgression.cs  Dificultad por nivel y esquemas de control
-│   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
-│   ├── RivalShopper.cs      IA de un comprador rival
-│   ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial) y menú de pausa
-│   ├── TutorialController.cs  Tutorial guiado de 10 pasos
-│   ├── StoreCatalog.cs      Supermercados: escenas, nombres, consejos e imágenes de carga
-│   ├── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
-│   ├── SlipperyZone.cs      Charcos resbaladizos
-│   ├── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
-│   └── GameUI.cs            HUD, lista, mensajes y recibo
+├── 00_Scenes/               (generado) CarritoCaotico_Prueba.unity, CarritoCaotico_Halloween.unity y Backups/
+├── 01_Scripts/              (CarritoCaotico.Runtime.asmdef)
+│   ├── Core/
+│   │   ├── GameManager.cs       Estados (Menú, Preparación, En juego, Compra entregada, Tiempo agotado), pausa y niveles
+│   │   ├── GameSession.cs       Nivel actual y progreso guardado entre recargas de escena
+│   │   ├── GameTimer.cs         Cuenta regresiva de la partida
+│   │   └── LevelProgression.cs  Dificultad por nivel y esquemas de control
+│   ├── Input/
+│   │   └── GameInput.cs         Lectura de teclado/mandos con el New Input System
+│   ├── Cart/
+│   │   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
+│   │   ├── CartContents.cs      Trigger de la canasta: contenido sin duplicados y peso
+│   │   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
+│   │   └── CameraController.cs  Cámara en tercera persona con órbita, suavizado y anticolisión
+│   ├── Shopping/
+│   │   ├── Product.cs           Tipos de producto (enum estable), catálogo y producto físico
+│   │   ├── ShoppingList.cs      Lista del Agarrador: requeridas, conseguidas y faltantes
+│   │   ├── ShoppingRules.cs     Lógica pura: generación de la lista y evaluación del recibo
+│   │   ├── Checkout.cs          Zona de entrega junto a la caja
+│   │   └── StoreCatalog.cs      Supermercados: escenas, nombres, consejos e imágenes de carga
+│   ├── Rivals/
+│   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
+│   │   └── RivalShopper.cs      IA de un comprador rival
+│   ├── Obstacles/
+│   │   ├── SlipperyZone.cs      Charcos resbaladizos
+│   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
+│   └── UI/
+│       ├── GameUI.cs            HUD, lista, mensajes y recibo
+│       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial) y menú de pausa
+│       ├── TutorialController.cs  Tutorial guiado
+│       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
+├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
+├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
+├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   └── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo) y texturas de UI
-├── Tests/
-│   ├── EditMode/            Pruebas de reglas de la lista y de la evaluación
-│   └── PlayMode/            Pruebas de integración sobre la escena generada
-├── Materials/               (generado) materiales M_* y materiales físicos PM_*
-├── Prefabs/                 (generado) Producto_*.prefab, uno por tipo
-├── UI/                      (generado) texturas de esquinas redondeadas, círculo y check
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
-└── Scenes/                  (generado) CarritoCaotico_Prueba.unity y Backups/
+└── Tests/
+    ├── EditMode/            Pruebas de reglas de la lista y de la evaluación
+    └── PlayMode/            Pruebas de integración sobre la escena generada
 ```
+
+Las carpetas siguen la numeración de la asignatura (`00_Scenes`, `01_Scripts`, `02_Prefabs`, `03_Materials`, `04_Fonts`/`04_Shaders`, `05_Audio`, `06_Models`, `07_Sprites`). Las que aún no tienen contenido se crean cuando hagan falta. `Editor` y `Resources` conservan su nombre porque Unity los trata de forma especial. Los scripts se agrupan por responsabilidad, no por tipo técnico.
 
 ## Interfaz
 

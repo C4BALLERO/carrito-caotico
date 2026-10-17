@@ -12,7 +12,7 @@ namespace CarritoCaotico.Tests
     /// <summary>Un jugador con teclado y el otro con mando.</summary>
     public class CarritoGamepadTests
     {
-        const string ScenePath = "Assets/_CarritoCaotico/Scenes/CarritoCaotico_Prueba.unity";
+        const string ScenePath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Prueba.unity";
 
         PadAssignment previousMode;
         InputSettings.EditorInputBehaviorInPlayMode previousBehavior;

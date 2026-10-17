@@ -15,7 +15,7 @@ namespace CarritoCaotico.Tests
     /// </summary>
     public class CarritoPlayModeTests
     {
-        const string ScenePath = "Assets/_CarritoCaotico/Scenes/CarritoCaotico_Prueba.unity";
+        const string ScenePath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Prueba.unity";
 
         GameManager manager;
         GameTimer timer;

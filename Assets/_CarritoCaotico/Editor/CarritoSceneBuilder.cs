@@ -22,10 +22,10 @@ namespace CarritoCaotico.EditorTools
     public static class CarritoSceneBuilder
     {
         public const string RootFolder = "Assets/_CarritoCaotico";
-        public const string ScenesFolder = RootFolder + "/Scenes";
+        public const string ScenesFolder = RootFolder + "/00_Scenes";
         public const string BackupFolder = ScenesFolder + "/Backups";
-        public const string MaterialsFolder = RootFolder + "/Materials";
-        public const string PrefabsFolder = RootFolder + "/Prefabs";
+        public const string MaterialsFolder = RootFolder + "/03_Materials";
+        public const string PrefabsFolder = RootFolder + "/02_Prefabs";
         public const string ScenePath = ScenesFolder + "/CarritoCaotico_Prueba.unity";
 
         public const string LoadingFolder = RootFolder + "/Resources/Carga";
