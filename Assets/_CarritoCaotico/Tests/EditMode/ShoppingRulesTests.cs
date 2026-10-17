@@ -32,11 +32,11 @@ namespace CarritoCaotico.Tests
         }
 
         [Test]
-        public void Generate_EventuallyUsesAllSixTypes()
+        public void Generate_EventuallyUsesAllTypes()
         {
             var seen = new HashSet<ProductType>();
             var list = new Dictionary<ProductType, int>();
-            for (int seed = 1; seed <= 200; seed++)
+            for (int seed = 1; seed <= 400; seed++)
             {
                 ShoppingRules.GenerateList(new System.Random(seed), 3, 5, 2, list);
                 seen.UnionWith(list.Keys);

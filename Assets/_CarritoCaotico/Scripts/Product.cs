@@ -14,7 +14,13 @@ namespace CarritoCaotico
         Cereal = 2,
         Huevos = 3,
         PapelHigienico = 4,
-        Lata = 5
+        Lata = 5,
+        Pan = 6,
+        Manzana = 7,
+        Platano = 8,
+        Queso = 9,
+        Agua = 10,
+        Detergente = 11
     }
 
     /// <summary>Datos por defecto de cada tipo de producto.</summary>
@@ -32,6 +38,12 @@ namespace CarritoCaotico
                 case ProductType.Huevos: return "Huevos";
                 case ProductType.PapelHigienico: return "Papel higiénico";
                 case ProductType.Lata: return "Lata";
+                case ProductType.Pan: return "Pan";
+                case ProductType.Manzana: return "Manzana";
+                case ProductType.Platano: return "Plátano";
+                case ProductType.Queso: return "Queso";
+                case ProductType.Agua: return "Agua";
+                case ProductType.Detergente: return "Detergente";
                 default: return type.ToString();
             }
         }
@@ -47,6 +59,12 @@ namespace CarritoCaotico
                 case ProductType.Huevos: return 0.6f;
                 case ProductType.PapelHigienico: return 0.4f;
                 case ProductType.Lata: return 0.35f;
+                case ProductType.Pan: return 0.5f;
+                case ProductType.Manzana: return 0.2f;
+                case ProductType.Platano: return 0.9f;
+                case ProductType.Queso: return 1.5f;
+                case ProductType.Agua: return 1.5f;
+                case ProductType.Detergente: return 3.0f;
                 default: return 1f;
             }
         }
