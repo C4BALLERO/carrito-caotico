@@ -11,8 +11,8 @@ namespace CarritoCaotico.Tests
     /// <summary>Pruebas del tutorial, el supermercado de Halloween, los obstáculos y la pantalla de carga.</summary>
     public class CarritoStoreTests
     {
-        const string ClassicPath = "Assets/_CarritoCaotico/Scenes/CarritoCaotico_Prueba.unity";
-        const string HalloweenPath = "Assets/_CarritoCaotico/Scenes/CarritoCaotico_Halloween.unity";
+        const string ClassicPath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Prueba.unity";
+        const string HalloweenPath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Halloween.unity";
 
         GameManager manager;
 

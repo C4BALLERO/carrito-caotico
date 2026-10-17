@@ -12,7 +12,7 @@ namespace CarritoCaotico.Tests
     /// <summary>Pruebas del menú, la pausa, los compradores rivales y el cambio de controles.</summary>
     public class CarritoFeatureTests
     {
-        const string ScenePath = "Assets/_CarritoCaotico/Scenes/CarritoCaotico_Prueba.unity";
+        const string ScenePath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Prueba.unity";
 
         GameManager manager;
 
