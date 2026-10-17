@@ -1,0 +1,25 @@
+# Normaliza finales de línea en texto
+* text=auto
+
+*.cs text diff=csharp
+*.asmdef text
+*.json text
+*.md text
+
+# Archivos YAML de Unity: sin conversión para evitar diffs falsos
+*.unity text eol=lf linguist-generated
+*.prefab text eol=lf linguist-generated
+*.mat text eol=lf linguist-generated
+*.asset text eol=lf linguist-generated
+*.meta text eol=lf linguist-generated
+*.controller text eol=lf
+*.anim text eol=lf
+
+# Binarios
+*.png binary
+*.jpg binary
+*.psd binary
+*.fbx binary
+*.wav binary
+*.mp3 binary
+*.ttf binary
