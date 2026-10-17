@@ -21,6 +21,7 @@ namespace CarritoCaotico
     /// Interfaz de la partida. Durante el juego solo se ve la Lista del Agarrador (con el reloj y
     /// el nivel integrados) y avisos breves. Los controles se explican en el tutorial, en la
     /// tarjeta de preparación y en el menú de pausa. El estado nunca se comunica solo con color.
+    /// En LAN el PC del Empujador no ve la lista: solo el reloj y el progreso total.
     /// </summary>
     public class GameUI : MonoBehaviour
     {
@@ -38,6 +39,9 @@ namespace CarritoCaotico
         [SerializeField] GameObject hudRoot;
 
         [Header("Lista del Agarrador")]
+        [Tooltip("Tarjeta de la lista: en LAN se encoge en el PC del Empujador.")]
+        [SerializeField] RectTransform listPanel;
+        [SerializeField] Text listTitleText;
         [SerializeField] Text listSubtitleText;
         [SerializeField] Text timerText;
         [SerializeField] Image timerBackground;
@@ -92,6 +96,18 @@ namespace CarritoCaotico
         float messageHideTime = -1f;
         int shownSeconds = -1;
 
+        // Disposición LAN: el Empujador solo ve reloj y progreso.
+        bool hideList;
+        bool layoutCaptured;
+        NetRole layoutRole = NetRole.Ninguno;
+        Vector2 panelSize;
+        Vector2 progressTextPosition;
+        Vector2 progressTrackPosition;
+        string listTitle;
+
+        /// <summary>true en el PC del Empujador en LAN: la lista no se muestra.</summary>
+        public bool IsListHidden => hideList;
+
         bool IsTutorial => gameManager != null && gameManager.IsTutorial;
 
         void OnEnable()
@@ -143,6 +159,7 @@ namespace CarritoCaotico
         {
             if (receiptPanel != null) receiptPanel.SetActive(false);
             if (messagePanel != null) messagePanel.SetActive(false);
+            ApplyLanLayout(GameInput.LanRole);
             if (timer != null) OnSecondsChanged(Mathf.CeilToInt(timer.Remaining));
             RefreshList();
             ApplyScheme(GameInput.Scheme);
@@ -233,7 +250,7 @@ namespace CarritoCaotico
                 ShoppingListRow row = listRows[i];
                 if (row == null || row.root == null) continue;
 
-                bool visible = i < entries.Count;
+                bool visible = !hideList && i < entries.Count;
                 if (row.root.activeSelf != visible) row.root.SetActive(visible);
                 if (!visible) continue;
 
@@ -294,7 +311,7 @@ namespace CarritoCaotico
             }
 
             listExtraText.text = builder.ToString();
-            listExtraText.gameObject.SetActive(builder.Length > 0);
+            listExtraText.gameObject.SetActive(!hideList && builder.Length > 0);
         }
 
         void RefreshSubtitle()
@@ -311,7 +328,8 @@ namespace CarritoCaotico
             int count = rivals != null ? Mathf.Max(configured, rivals.ActiveCount) : configured;
             int taken = rivals != null ? rivals.TakenCount : 0;
             string rivalsLine = count == 0 ? "sin rivales" : $"{count} {(count == 1 ? "rival" : "rivales")} · {taken} robados";
-            listSubtitleText.text = $"Nivel {level} · {StoreCatalog.DisplayName(gameManager.Store)} · {rivalsLine}";
+            string view = GameInput.LanRole == NetRole.Empujador ? $" · {GameInput.ViewToggleLabel}: vista" : "";
+            listSubtitleText.text = $"Nivel {level} · {StoreCatalog.DisplayName(gameManager.Store)} · {rivalsLine}{view}";
         }
 
         // ---------- Estados y avisos ----------
@@ -325,7 +343,13 @@ namespace CarritoCaotico
             switch (state)
             {
                 case GameState.EnJuego:
-                    if (!IsTutorial) ShowMessage("¡A comprar! Comuníquense y lleguen a la caja", 2.5f, MessageKind.Info);
+                    if (!IsTutorial)
+                    {
+                        string start = GameInput.LanRole == NetRole.Empujador ? "¡A comprar! Escucha al Agarrador y llega a la caja"
+                            : GameInput.LanRole == NetRole.Agarrador ? "¡A comprar! Guía al Empujador hasta cada producto"
+                            : "¡A comprar! Comuníquense y lleguen a la caja";
+                        ShowMessage(start, 2.5f, MessageKind.Info);
+                    }
                     if (timer != null) OnSecondsChanged(Mathf.CeilToInt(timer.Remaining));
                     RefreshSubtitle();
                     break;
@@ -339,6 +363,8 @@ namespace CarritoCaotico
 
         void OnLevelConfigured(LevelConfig config)
         {
+            // Con Intercambiado, en LAN los PC cambian de puesto.
+            ApplyLanLayout(GameInput.LanRole);
             ApplyScheme(config.Scheme);
             RefreshSubtitle();
 
@@ -351,6 +377,15 @@ namespace CarritoCaotico
                 string scheme = config.Scheme == ControlScheme.Normal
                     ? "Agarrador: lee la lista y guía al Empujador."
                     : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b>";
+                if (GameInput.IsLan)
+                {
+                    string you = GameInput.LanRole == NetRole.Empujador
+                        ? "Eres el <b>Empujador</b>: solo el Agarrador ve la lista. ¡Escúchalo!"
+                        : "Eres el <b>Agarrador</b>: lee la lista y guía al Empujador.";
+                    scheme = config.Scheme == ControlScheme.Intercambiado ? $"<b>¡Cambio de puesto!</b> {you}"
+                        : config.Scheme == ControlScheme.Invertido ? $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b> {you}"
+                        : you;
+                }
                 preparationHintText.text = $"{GameTimer.Format(config.Duration)} · {rivalsLine}\n{scheme}";
             }
         }
@@ -392,8 +427,46 @@ namespace CarritoCaotico
             string note = scheme == ControlScheme.Invertido ? "  <i>(direcciones al revés)</i>" : "";
             string pusherDevice = GameInput.PusherUsesGamepad ? " (mando)" : " (teclado)";
             string grabberDevice = GameInput.GrabberUsesGamepad ? " (mando)" : " (teclado)";
-            return $"<b>Empujador{pusherDevice}:</b> {p[0]} acelerar · {p[1]} frenar · {p[2]} girar · {p[3]} derrapar · {GameInput.CameraLabel} cámara{note}\n" +
-                   $"<b>Agarrador{grabberDevice}:</b> {g[0]} mover brazo · {g[1]} agarrar / soltar · {g[2]} lanzar{note}";
+            string pusher = $"<b>Empujador{pusherDevice}:</b> {p[0]} acelerar · {p[1]} frenar · {p[2]} girar · {p[3]} derrapar · {GameInput.CameraLabel} cámara{note}";
+            string grabber = $"<b>Agarrador{grabberDevice}:</b> {g[0]} mover brazo · {g[1]} agarrar / soltar · {g[2]} lanzar{note}";
+
+            // En LAN cada PC solo muestra los controles de su jugador.
+            switch (GameInput.LanRole)
+            {
+                case NetRole.Empujador:
+                    return pusher + $"\n<b>Vista:</b> {GameInput.ViewToggleLabel} cambia entre 1ª y 3ª persona · la lista solo la ve el Agarrador";
+                case NetRole.Agarrador:
+                    return grabber + $" · {GameInput.CameraLabel} cámara\n<b>Tú tienes la lista:</b> guía al Empujador, que juega en el otro PC";
+                default:
+                    return pusher + "\n" + grabber;
+            }
+        }
+
+        /// <summary>
+        /// LAN: el PC del Empujador oculta las filas de la lista y encoge la tarjeta (reloj y
+        /// progreso total). El del Agarrador y el juego en un PC muestran la lista completa.
+        /// </summary>
+        void ApplyLanLayout(NetRole role)
+        {
+            if (layoutCaptured && role == layoutRole) return;
+            if (!layoutCaptured)
+            {
+                layoutCaptured = true;
+                if (listPanel != null) panelSize = listPanel.sizeDelta;
+                if (listProgressText != null) progressTextPosition = listProgressText.rectTransform.anchoredPosition;
+                if (listProgressFill != null && listProgressFill.parent is RectTransform track) progressTrackPosition = track.anchoredPosition;
+                if (listTitleText != null) listTitle = listTitleText.text;
+            }
+            layoutRole = role;
+            hideList = role == NetRole.Empujador;
+
+            if (listTitleText != null) listTitleText.text = hideList ? "Empujador · sin lista" : listTitle;
+            if (listPanel != null) listPanel.sizeDelta = hideList ? new Vector2(panelSize.x, 200f) : panelSize;
+            if (listProgressText != null)
+                listProgressText.rectTransform.anchoredPosition = hideList ? new Vector2(progressTextPosition.x, -124f) : progressTextPosition;
+            if (listProgressFill != null && listProgressFill.parent is RectTransform progressTrack)
+                progressTrack.anchoredPosition = hideList ? new Vector2(progressTrackPosition.x, -160f) : progressTrackPosition;
+            RefreshList();
         }
 
         void OnDevicesChanged()

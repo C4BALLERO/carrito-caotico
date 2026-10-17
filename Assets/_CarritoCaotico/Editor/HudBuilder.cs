@@ -102,6 +102,7 @@ namespace CarritoCaotico.EditorTools
             BuildReceipt(root, refs);
             BuildPause(root, refs, menuRefs);
             BuildMenu(root, menuRefs, store);
+            BuildLanPanel(root, menuRefs);
 
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
@@ -170,6 +171,8 @@ namespace CarritoCaotico.EditorTools
             Image bar = Box(track.transform, "Relleno", Success, circleSprite: false, ppu: 3f);
             Anchor(bar.rectTransform, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
 
+            refs["listPanel"] = (RectTransform)fill.transform.parent;
+            refs["listTitleText"] = title;
             refs["listSubtitleText"] = subtitle;
             refs["timerText"] = timerText;
             refs["timerBackground"] = timerPill;
@@ -480,7 +483,7 @@ namespace CarritoCaotico.EditorTools
             Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -176f), new Vector2(-10f, -10f));
             Text title = Label(band.transform, "Titulo", "Carrito Caótico", 86, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(title.rectTransform, new Vector2(0f, 0.32f), Vector2.one, Vector2.zero, Vector2.zero);
-            Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo local para dos  ·  Better Together", 26, theme.MenuSubtitle, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo para dos  ·  en un PC o en LAN  ·  Better Together", 26, theme.MenuSubtitle, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(subtitle.rectTransform, Vector2.zero, new Vector2(1f, 0.36f), new Vector2(0f, 12f), Vector2.zero);
 
             // Selectores de supermercado, nivel y mando.
@@ -490,7 +493,8 @@ namespace CarritoCaotico.EditorTools
 
             Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -634f), new Vector2(420f, 92f), 40, 1f);
             Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -634f), new Vector2(240f, 92f), 30, 1f);
-            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -742f), new Vector2(240f, 58f), 24, 1.5f);
+            Button lan = CardButton(card.transform, "Boton_LAN", "Jugar en LAN", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-110f, -742f), new Vector2(300f, 58f), 24, 1.5f);
+            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(170f, -742f), new Vector2(200f, 58f), 24, 1.5f);
 
             Text roles = Label(card.transform, "Roles",
                 "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
@@ -517,6 +521,89 @@ namespace CarritoCaotico.EditorTools
             refs["padText"] = padText;
             refs["padDetailText"] = padDetail;
             refs["quitButton"] = quit;
+            refs["rolesText"] = roles;
+            refs["lanButton"] = lan;
+            refs["lanButtonText"] = lan.GetComponentInChildren<Text>(true);
+        }
+
+        // ======================================================================
+        // Panel LAN: crear partida o unirse por IP
+        // ======================================================================
+
+        static void BuildLanPanel(Transform root, Dictionary<string, object> refs)
+        {
+            Transform overlay = Overlay(root, "Panel_LAN", new Color(0.06f, 0.09f, 0.16f, 0.72f));
+            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(980f, 820f), Card, 1f);
+            Transform c = card.transform;
+
+            Text title = Label(c, "Titulo", "Jugar en LAN  ·  dos PC", 54, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(title.rectTransform, new Vector2(20f, -24f), new Vector2(940f, 70f));
+            Text intro = Label(c, "Intro",
+                "Cada jugador en su PC y en la misma red. El <b>Empujador</b> puede jugar en primera persona (V); el <b>Agarrador</b> juega en tercera persona y es el único que ve la lista.",
+                21, MutedInk, TextAnchor.UpperCenter, FontStyle.Normal);
+            Place(intro.rectTransform, new Vector2(50f, -96f), new Vector2(880f, 60f));
+            intro.horizontalOverflow = HorizontalWrapMode.Wrap;
+            intro.lineSpacing = 1.15f;
+
+            // Crear partida (rol) y unirse (IP): solo sin conexión.
+            var setupGo = new GameObject("Configurar", typeof(RectTransform));
+            setupGo.transform.SetParent(c, false);
+            Anchor((RectTransform)setupGo.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Transform setup = setupGo.transform;
+
+            var (previousRole, roleText, nextRole, localAddress) = Selector(setup, "CREAR PARTIDA  ·  TU ROL", -176f, "Tú: Empujador", 360f);
+            Button host = CardButton(setup, "Boton_Crear", "Crear partida", null, Warning, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -320f), new Vector2(380f, 76f), 30, 1f);
+
+            Text joinCaption = Label(setup, "Titulo_Unirse", "UNIRSE A LA PARTIDA DE OTRO PC", 19, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(joinCaption.rectTransform, new Vector2(20f, -424f), new Vector2(940f, 26f));
+            InputField address = AddressField(setup, new Vector2(-130f, -458f), new Vector2(460f, 76f));
+            Button join = CardButton(setup, "Boton_Unirse", "Unirse", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(240f, -458f), new Vector2(220f, 76f), 30, 1f);
+
+            Text status = Label(c, "Estado", "", 24, Ink, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Place(status.rectTransform, new Vector2(40f, -556f), new Vector2(900f, 120f));
+            status.horizontalOverflow = HorizontalWrapMode.Wrap;
+            status.lineSpacing = 1.2f;
+
+            Button cancel = CardButton(c, "Boton_Cancelar", "Cancelar", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -706f), new Vector2(280f, 70f), 26, 1.5f);
+            Button back = CardButton(c, "Boton_Volver", "Volver", "Esc", Card, Ink, new Vector2(0.5f, 1f), new Vector2(170f, -706f), new Vector2(240f, 70f), 26, 1.5f);
+
+            overlay.gameObject.SetActive(false);
+            refs["lanPanel"] = overlay.gameObject;
+            refs["lanSetupGroup"] = setupGo;
+            refs["lanPreviousRoleButton"] = previousRole;
+            refs["lanNextRoleButton"] = nextRole;
+            refs["lanRoleText"] = roleText;
+            refs["lanLocalAddressText"] = localAddress;
+            refs["lanHostButton"] = host;
+            refs["lanAddressField"] = address;
+            refs["lanJoinButton"] = join;
+            refs["lanStatusText"] = status;
+            refs["lanCancelButton"] = cancel;
+            refs["lanCancelText"] = cancel.GetComponentInChildren<Text>(true);
+            refs["lanBackButton"] = back;
+        }
+
+        /// <summary>Campo de texto "clay" para escribir la IP del anfitrión.</summary>
+        static InputField AddressField(Transform parent, Vector2 position, Vector2 size)
+        {
+            Image body = CardBox(parent, "Campo_IP", new Vector2(0.5f, 1f), position, size, KeyCap, 1.5f);
+            GameObject root = body.transform.parent.gameObject;
+            var field = root.AddComponent<InputField>();
+
+            Text text = Label(body.transform, "Texto", "", 30, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Anchor(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(18f, 0f), new Vector2(-18f, 0f));
+            text.supportRichText = false;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Text placeholder = Label(body.transform, "Ejemplo", "IP del anfitrión (192.168.1.20)", 24, MutedInk, TextAnchor.MiddleLeft, FontStyle.Italic);
+            Anchor(placeholder.rectTransform, Vector2.zero, Vector2.one, new Vector2(18f, 0f), new Vector2(-18f, 0f));
+
+            field.textComponent = text;
+            field.placeholder = placeholder;
+            field.targetGraphic = body;
+            field.characterLimit = 40;
+            field.lineType = InputField.LineType.SingleLine;
+            field.contentType = InputField.ContentType.Standard;
+            return field;
         }
 
         /// <summary>Selector "&lt; valor &gt;" con título y línea de detalle.</summary>
