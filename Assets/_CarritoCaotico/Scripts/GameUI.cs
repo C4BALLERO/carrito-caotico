@@ -34,6 +34,25 @@ namespace CarritoCaotico
         [SerializeField] CartContents cartContents;
         [SerializeField] GrabberArm grabber;
         [SerializeField] Checkout checkout;
+        [SerializeField] RivalManager rivals;
+
+        [Header("Contenedores")]
+        [Tooltip("Paneles de juego: se ocultan en el menú principal.")]
+        [SerializeField] GameObject hudRoot;
+
+        [Header("Nivel y rivales")]
+        [SerializeField] Text levelText;
+        [SerializeField] Text rivalsText;
+
+        [Header("Controles (cambian con el esquema)")]
+        [Tooltip("Acelerar, frenar, girar, derrapar.")]
+        [SerializeField] Text[] pusherKeyLabels = Array.Empty<Text>();
+        [Tooltip("Mover, agarrar, lanzar.")]
+        [SerializeField] Text[] grabberKeyLabels = Array.Empty<Text>();
+        [SerializeField] Image pusherChip;
+        [SerializeField] Text pusherChipText;
+        [SerializeField] Image grabberChip;
+        [SerializeField] Text grabberChipText;
 
         [Header("Temporizador")]
         [SerializeField] Text timerText;
@@ -62,7 +81,9 @@ namespace CarritoCaotico
         [SerializeField] Text messageText;
         [SerializeField] Image messageBackground;
         [SerializeField] GameObject preparationPanel;
+        [SerializeField] Text preparationTitleText;
         [SerializeField] Text preparationCountText;
+        [SerializeField] Text preparationHintText;
 
         [Header("Recibo")]
         [SerializeField] GameObject receiptPanel;
@@ -79,6 +100,8 @@ namespace CarritoCaotico
         [SerializeField] Text receiptResultText;
         [SerializeField] Image receiptResultBadge;
         [SerializeField] Button restartButton;
+        [SerializeField] Button nextLevelButton;
+        [SerializeField] Button menuButton;
 
         [Header("Paleta (contraste mínimo 4.5:1 para texto)")]
         [SerializeField] Color ink = new Color32(15, 23, 42, 255);
@@ -112,8 +135,16 @@ namespace CarritoCaotico
             {
                 gameManager.StateChanged += OnStateChanged;
                 gameManager.GameEnded += ShowReceipt;
+                gameManager.LevelConfigured += OnLevelConfigured;
+            }
+            if (rivals != null)
+            {
+                rivals.Changed += RefreshRivals;
+                rivals.ProductTaken += OnRivalTookProduct;
             }
             if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
+            if (nextLevelButton != null) nextLevelButton.onClick.AddListener(OnNextLevelClicked);
+            if (menuButton != null) menuButton.onClick.AddListener(OnMenuClicked);
         }
 
         void OnDisable()
@@ -127,8 +158,16 @@ namespace CarritoCaotico
             {
                 gameManager.StateChanged -= OnStateChanged;
                 gameManager.GameEnded -= ShowReceipt;
+                gameManager.LevelConfigured -= OnLevelConfigured;
+            }
+            if (rivals != null)
+            {
+                rivals.Changed -= RefreshRivals;
+                rivals.ProductTaken -= OnRivalTookProduct;
             }
             if (restartButton != null) restartButton.onClick.RemoveListener(OnRestartClicked);
+            if (nextLevelButton != null) nextLevelButton.onClick.RemoveListener(OnNextLevelClicked);
+            if (menuButton != null) menuButton.onClick.RemoveListener(OnMenuClicked);
         }
 
         void Start()
@@ -139,6 +178,13 @@ namespace CarritoCaotico
             RefreshCargo();
             RefreshList();
             RefreshHand();
+            RefreshRivals();
+            ApplyScheme(GameInput.Scheme);
+            if (gameManager != null)
+            {
+                if (gameManager.CurrentConfig != null) OnLevelConfigured(gameManager.CurrentConfig);
+                OnStateChanged(gameManager.State);
+            }
         }
 
         void Update()
@@ -350,6 +396,8 @@ namespace CarritoCaotico
         void OnStateChanged(GameState state)
         {
             if (preparationPanel != null) preparationPanel.SetActive(state == GameState.Preparacion);
+            if (hudRoot != null) hudRoot.SetActive(state != GameState.Menu);
+            if (state == GameState.Menu && receiptPanel != null) receiptPanel.SetActive(false);
 
             switch (state)
             {
@@ -400,6 +448,8 @@ namespace CarritoCaotico
             SetText(receiptExtraText, receipt.Extra.ToString());
             SetText(receiptScoreText, receipt.Score.ToString());
 
+            if (nextLevelButton != null)
+                nextLevelButton.gameObject.SetActive(gameManager != null && gameManager.CanAdvance);
             if (receiptResultText != null) receiptResultText.text = receipt.ResultLabel;
             if (receiptResultBadge != null)
             {
@@ -455,6 +505,81 @@ namespace CarritoCaotico
         void OnRestartClicked()
         {
             if (gameManager != null) gameManager.Restart();
+        }
+
+        void OnNextLevelClicked()
+        {
+            if (gameManager != null) gameManager.NextLevel();
+        }
+
+        void OnMenuClicked()
+        {
+            if (gameManager != null) gameManager.GoToMenu();
+        }
+
+        // ---------- Nivel, rivales y controles ----------
+
+        void OnLevelConfigured(LevelConfig config)
+        {
+            if (levelText != null) levelText.text = $"NIVEL {config.Level}";
+            ApplyScheme(config.Scheme);
+
+            if (preparationTitleText != null) preparationTitleText.text = $"Nivel {config.Level} · ¡Prepárense!";
+            if (preparationHintText != null)
+            {
+                string rivalsLine = config.RivalCount == 0
+                    ? "sin compradores rivales"
+                    : config.RivalCount == 1 ? "1 comprador rival" : $"{config.RivalCount} compradores rivales";
+                string scheme = config.Scheme == ControlScheme.Normal
+                    ? "Agarrador: lee la lista y guía al Empujador."
+                    : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b> Miren las teclas de cada panel.";
+                preparationHintText.text = $"{GameTimer.Format(config.Duration)} · {rivalsLine}\n{scheme}";
+            }
+            RefreshRivals();
+        }
+
+        void RefreshRivals()
+        {
+            if (rivalsText == null) return;
+            int configured = gameManager != null && gameManager.CurrentConfig != null ? gameManager.CurrentConfig.RivalCount : 0;
+            int count = rivals != null ? Mathf.Max(configured, rivals.ActiveCount) : configured;
+            int taken = rivals != null ? rivals.TakenCount : 0;
+            rivalsText.text = count == 0 ? "Sin rivales" : $"{count} {(count == 1 ? "rival" : "rivales")}  ·  {taken} robados";
+        }
+
+        void OnRivalTookProduct(Product product)
+        {
+            if (shoppingList == null || shoppingList.GetRequired(product.Type) == 0) return;
+            ShowMessage($"¡Un rival se llevó {product.DisplayName}!", 2f, MessageKind.Warning);
+        }
+
+        void ApplyScheme(ControlScheme scheme)
+        {
+            SetLabels(pusherKeyLabels, GameInput.PusherKeyLabels(scheme));
+            SetLabels(grabberKeyLabels, GameInput.GrabberKeyLabels(scheme));
+
+            bool changed = scheme != ControlScheme.Normal;
+            string badge = scheme == ControlScheme.Intercambiado ? "¡Cambiados!" : "¡Al revés!";
+            if (pusherChip != null) pusherChip.color = changed ? warning : Color.white;
+            if (grabberChip != null) grabberChip.color = changed ? warning : Color.white;
+            if (pusherChipText != null)
+            {
+                pusherChipText.text = changed ? badge : "Jugador 1";
+                pusherChipText.color = changed ? ink : (Color)new Color32(37, 99, 235, 255);
+            }
+            if (grabberChipText != null)
+            {
+                grabberChipText.text = changed ? badge : "Jugador 2";
+                grabberChipText.color = changed ? ink : (Color)new Color32(124, 58, 237, 255);
+            }
+        }
+
+        static void SetLabels(Text[] targets, string[] labels)
+        {
+            for (int i = 0; i < targets.Length && i < labels.Length; i++)
+            {
+                if (targets[i] != null) targets[i].text = labels[i];
+            }
         }
     }
 }

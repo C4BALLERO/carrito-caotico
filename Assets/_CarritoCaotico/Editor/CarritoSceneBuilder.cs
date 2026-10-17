@@ -176,9 +176,11 @@ namespace CarritoCaotico.EditorTools
             var manager = systems.AddComponent<GameManager>();
             var timer = systems.AddComponent<GameTimer>();
             var shoppingList = systems.AddComponent<ShoppingList>();
-            Count("Sistemas (GameManager, GameTimer, ShoppingList)");
+            var rivalManager = systems.AddComponent<RivalManager>();
+            Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager)");
+            RivalShopper rivalPrefab = CreateRivalPrefab();
 
-            GameUI ui = HudBuilder.Build(uiFont);
+            var (ui, menu) = HudBuilder.Build(uiFont);
             Stats.TryGetValue("Elementos de UI", out int signElements);
             Stats["Elementos de UI"] = signElements + HudBuilder.ElementCount;
             Count("Interfaz (Canvas, EventSystem)");
@@ -190,10 +192,14 @@ namespace CarritoCaotico.EditorTools
             SetRefs(cameraController, ("target", cart.Controller.transform), ("targetBody", cart.Body));
             SetRefs(manager,
                 ("timer", timer), ("shoppingList", shoppingList), ("cartContents", cart.Contents),
-                ("cart", cart.Controller), ("grabber", cart.Arm), ("cameraController", cameraController));
+                ("cart", cart.Controller), ("grabber", cart.Arm), ("cameraController", cameraController),
+                ("rivals", rivalManager));
             SetRefs(ui,
                 ("gameManager", manager), ("timer", timer), ("shoppingList", shoppingList),
-                ("cartContents", cart.Contents), ("grabber", cart.Arm), ("checkout", checkout));
+                ("cartContents", cart.Contents), ("grabber", cart.Arm), ("checkout", checkout),
+                ("rivals", rivalManager));
+            SetRefs(menu, ("gameManager", manager));
+            ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
@@ -299,6 +305,7 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Carton", new Color32(196, 145, 92, 255));
             GetMaterial("PisoMojado", Yellow);
             GetMaterial("Cartel", Paper);
+            GetMaterial("Rival", new Color32(235, 235, 235, 255));
             foreach (ProductType type in ProductCatalog.AllTypes)
                 GetMaterial("Stock_" + type, Color.Lerp(ProductModels.MainColor(type), new Color(0.45f, 0.45f, 0.45f), 0.35f));
         }
@@ -662,6 +669,80 @@ namespace CarritoCaotico.EditorTools
             return new CartParts { Controller = controller, Body = body, Contents = contents, Arm = grabber };
         }
 
+        // ---------- Compradores rivales ----------
+
+        /// <summary>Prefab del comprador rival: cuerpo tintable, cabeza y carrito pequeño delante.</summary>
+        static RivalShopper CreateRivalPrefab()
+        {
+            var root = new GameObject("Comprador_Rival");
+            var body = root.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = false;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            capsule.height = 1.8f;
+            capsule.radius = 0.32f;
+            Transform t = root.transform;
+
+            GameObject torso = Prim(PrimitiveType.Capsule, "Cuerpo", t, new Vector3(0f, 0.75f, 0f), new Vector3(0.5f, 0.75f, 0.5f), "Rival", false);
+            Prim(PrimitiveType.Sphere, "Cabeza", t, new Vector3(0f, 1.66f, 0f), Vector3.one * 0.32f, "Piel", false);
+
+            Transform cartRoot = Empty("Carrito_Rival", t, new Vector3(0f, 0f, 0.65f)).transform;
+            Prim(PrimitiveType.Cube, "Fondo", cartRoot, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.05f, 0.62f), "Metal", false);
+            Prim(PrimitiveType.Cube, "Pared_Frontal", cartRoot, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), "Metal", false);
+            Prim(PrimitiveType.Cube, "Pared_Izq", cartRoot, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
+            Prim(PrimitiveType.Cube, "Pared_Der", cartRoot, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
+            GameObject handle = Prim(PrimitiveType.Cylinder, "Asa", cartRoot, new Vector3(0f, 0.95f, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), "Asa", false);
+            handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            foreach (Vector3 p in new[] { new Vector3(-0.25f, 0.08f, 0.25f), new Vector3(0.25f, 0.08f, 0.25f), new Vector3(-0.25f, 0.08f, -0.25f), new Vector3(0.25f, 0.08f, -0.25f) })
+            {
+                GameObject wheel = Prim(PrimitiveType.Cylinder, "Rueda", cartRoot, p, new Vector3(0.14f, 0.03f, 0.14f), "Rueda", false);
+                wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            }
+            Prim(PrimitiveType.Cube, "Pata", cartRoot, new Vector3(0f, 0.26f, 0f), new Vector3(0.04f, 0.36f, 0.04f), "Metal", false);
+            GameObject basket = Empty("Punto_Canasta", cartRoot, new Vector3(0f, 0.6f, 0f));
+
+            var rival = root.AddComponent<RivalShopper>();
+            SetRefs(rival, ("basketPoint", basket.transform));
+            var serialized = new SerializedObject(rival);
+            SerializedProperty tints = serialized.FindProperty("tintRenderers");
+            tints.arraySize = 1;
+            tints.GetArrayElementAtIndex(0).objectReferenceValue = torso.GetComponent<Renderer>();
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            string path = $"{PrefabsFolder}/Comprador_Rival.prefab";
+            bool existed = File.Exists(path);
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            Count(existed ? "Prefabs actualizados" : "Prefabs creados");
+            return prefab.GetComponent<RivalShopper>();
+        }
+
+        /// <summary>Red de pasillos de los rivales: centros de pasillo y tres pasillos transversales.</summary>
+        static void ConfigureRivals(RivalManager manager, RivalShopper prefab, ShoppingList list, CartContents contents)
+        {
+            SetRefs(manager, ("rivalPrefab", prefab), ("shoppingList", list), ("cartContents", contents));
+            var serialized = new SerializedObject(manager);
+
+            SerializedProperty aisles = serialized.FindProperty("aisleCentersX");
+            aisles.arraySize = Aisles.Length;
+            for (int i = 0; i < Aisles.Length; i++)
+                aisles.GetArrayElementAtIndex(i).floatValue = Aisles[i].x;
+
+            float[] corridors = { -16.5f, 0f, 16f };
+            SerializedProperty corridorProperty = serialized.FindProperty("corridorsZ");
+            corridorProperty.arraySize = corridors.Length;
+            for (int i = 0; i < corridors.Length; i++)
+                corridorProperty.GetArrayElementAtIndex(i).floatValue = corridors[i];
+
+            serialized.FindProperty("shelfZoneAbsZ").vector2Value = new Vector2(ShelfInnerZ, ShelfOuterZ);
+            serialized.FindProperty("entryPoint").vector3Value = new Vector3(-FloorHalfWidth + 1f, 0f, -16.5f);
+            serialized.FindProperty("exitPoint").vector3Value = new Vector3(FloorHalfWidth - 1f, 0f, -16.5f);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         static void CartWall(Transform parent, string name, Vector3 position, Vector3 size)
         {
             GameObject wall = Prim(PrimitiveType.Cube, name, parent, position, size, "Metal");
@@ -797,6 +878,8 @@ namespace CarritoCaotico.EditorTools
             ExpectSingle<CartContents>(scene, problems);
             ExpectSingle<Checkout>(scene, problems);
             ExpectSingle<GameUI>(scene, problems);
+            ExpectSingle<MenuUI>(scene, problems);
+            ExpectSingle<RivalManager>(scene, problems);
             ExpectSingle<EventSystem>(scene, problems);
 
             foreach (CartContents contents in FindInScene<CartContents>(scene))
