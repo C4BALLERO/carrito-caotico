@@ -262,6 +262,8 @@ Assets/_CarritoCaotico/
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
+│   ├── Characters/
+│   │   └── PenguinWaddle.cs     Bamboleo del pingüino Empujador según la velocidad del carrito
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -272,10 +274,13 @@ Assets/_CarritoCaotico/
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
+├── 06_Models/
+│   └── Pinguino/            modelo del Empujador (FBX con huesos) y su textura de color
 ├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
+│   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
 │   └── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo) y texturas de UI
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Tests/
@@ -340,6 +345,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Créditos
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
+- Modelo 3D del pingüino Empujador generado con [Tripo AI](https://studio.tripo3d.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

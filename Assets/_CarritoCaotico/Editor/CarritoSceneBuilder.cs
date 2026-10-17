@@ -396,7 +396,7 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Metal", new Color32(150, 160, 170, 255));
             GetMaterial("Rueda", new Color32(40, 44, 52, 255));
             GetMaterial("Asa", Coral);
-            GetMaterial("Empujador", new Color32(59, 130, 246, 255));
+            CharacterModels.ApplyPenguinTexture(GetMaterial("Pinguino", Color.white));
             GetMaterial("Agarrador", new Color32(168, 85, 247, 255));
             GetMaterial("Piel", new Color32(244, 200, 160, 255));
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
@@ -994,8 +994,12 @@ namespace CarritoCaotico.EditorTools
             handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Izq", t, new Vector3(-0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Der", t, new Vector3(0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
-            Prim(PrimitiveType.Capsule, "Empujador_Cuerpo", t, new Vector3(-0.3f, 0.7f, -1.4f), new Vector3(0.42f, 0.7f, 0.42f), "Empujador", false);
-            Prim(PrimitiveType.Sphere, "Empujador_Cabeza", t, new Vector3(-0.3f, 1.55f, -1.4f), Vector3.one * 0.3f, "Piel", false);
+
+            // Empujador: pingüino detrás del asa (el pico queda por detrás de la canasta).
+            CharacterModels.Character penguin = CharacterModels.BuildPenguin("Empujador_Pinguino", t, new Vector3(0f, 0f, -1.6f), Materials["Pinguino"]);
+            var waddle = penguin.Root.AddComponent<PenguinWaddle>();
+            SetRefs(waddle, ("cartBody", body), ("model", penguin.Model),
+                ("leftFlipper", penguin.LeftFlipper), ("rightFlipper", penguin.RightFlipper));
 
             // Agarrador sentado en el asiento del carrito.
             Prim(PrimitiveType.Capsule, "Agarrador_Cuerpo", t, new Vector3(0.18f, 0.9f, -0.6f), new Vector3(0.36f, 0.3f, 0.36f), "Agarrador", false);
