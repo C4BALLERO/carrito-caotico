@@ -1,20 +1,31 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace CarritoCaotico
 {
     /// <summary>
     /// Lectura centralizada de controles para los dos jugadores usando el New Input System.
-    /// Teclado compartido: el Empujador usa WASD + Shift izquierdo + mouse,
-    /// el Agarrador usa flechas + Enter + Ctrl derecho.
-    /// Mandos opcionales: el primer mando es el Empujador y el segundo el Agarrador.
+    /// Respeta el <see cref="ControlScheme"/> activo:
+    /// - Normal: Empujador WASD + Shift izq. + mouse; Agarrador flechas + Enter + Ctrl der.
+    /// - Intercambiado: Empujador flechas + Shift der. + mouse; Agarrador WASD + Espacio + F.
+    /// - Invertido: teclas normales con todas las direcciones al revés.
+    /// Mandos opcionales: el primero es el Empujador y el segundo el Agarrador
+    /// (se intercambian con el esquema Intercambiado).
     /// </summary>
     public static class GameInput
     {
         const float StickDeadZone = 0.2f;
 
-        static Gamepad PusherPad => Gamepad.all.Count > 0 ? Gamepad.all[0] : null;
-        static Gamepad GrabberPad => Gamepad.all.Count > 1 ? Gamepad.all[1] : null;
+        /// <summary>Esquema de control activo. Lo fija el GameManager al empezar cada nivel.</summary>
+        public static ControlScheme Scheme { get; set; } = ControlScheme.Normal;
+
+        static bool Swapped => Scheme == ControlScheme.Intercambiado;
+        static float Direction => Scheme == ControlScheme.Invertido ? -1f : 1f;
+
+        static Gamepad PadAt(int index) => Gamepad.all.Count > index ? Gamepad.all[index] : null;
+        static Gamepad PusherPad => PadAt(Swapped ? 1 : 0);
+        static Gamepad GrabberPad => PadAt(Swapped ? 0 : 1);
 
         // ---------- Empujador ----------
 
@@ -25,8 +36,7 @@ namespace CarritoCaotico
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.wKey.isPressed) value += 1f;
-                if (keyboard.sKey.isPressed) value -= 1f;
+                value += Axis(Swapped ? keyboard.downArrowKey : keyboard.sKey, Swapped ? keyboard.upArrowKey : keyboard.wKey);
             }
 
             var pad = PusherPad;
@@ -36,7 +46,7 @@ namespace CarritoCaotico
                 value += ApplyDeadZone(pad.leftStick.y.ReadValue());
             }
 
-            return Mathf.Clamp(value, -1f, 1f);
+            return Mathf.Clamp(value * Direction, -1f, 1f);
         }
 
         /// <summary>Giro: -1 izquierda, +1 derecha.</summary>
@@ -46,20 +56,19 @@ namespace CarritoCaotico
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.aKey.isPressed) value -= 1f;
-                if (keyboard.dKey.isPressed) value += 1f;
+                value += Axis(Swapped ? keyboard.leftArrowKey : keyboard.aKey, Swapped ? keyboard.rightArrowKey : keyboard.dKey);
             }
 
             var pad = PusherPad;
             if (pad != null) value += ApplyDeadZone(pad.leftStick.x.ReadValue());
 
-            return Mathf.Clamp(value, -1f, 1f);
+            return Mathf.Clamp(value * Direction, -1f, 1f);
         }
 
         public static bool PusherDrift()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.leftShiftKey.isPressed) return true;
+            if (keyboard != null && (Swapped ? keyboard.rightShiftKey : keyboard.leftShiftKey).isPressed) return true;
 
             var pad = PusherPad;
             return pad != null && (pad.rightShoulder.isPressed || pad.buttonSouth.isPressed);
@@ -90,10 +99,8 @@ namespace CarritoCaotico
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.leftArrowKey.isPressed) value.x -= 1f;
-                if (keyboard.rightArrowKey.isPressed) value.x += 1f;
-                if (keyboard.downArrowKey.isPressed) value.y -= 1f;
-                if (keyboard.upArrowKey.isPressed) value.y += 1f;
+                value.x += Axis(Swapped ? keyboard.aKey : keyboard.leftArrowKey, Swapped ? keyboard.dKey : keyboard.rightArrowKey);
+                value.y += Axis(Swapped ? keyboard.sKey : keyboard.downArrowKey, Swapped ? keyboard.wKey : keyboard.upArrowKey);
             }
 
             var pad = GrabberPad;
@@ -103,14 +110,19 @@ namespace CarritoCaotico
                 if (stick.magnitude >= StickDeadZone) value += stick;
             }
 
-            return Vector2.ClampMagnitude(value, 1f);
+            return Vector2.ClampMagnitude(value * Direction, 1f);
         }
 
         public static bool GrabberGrabPressed()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
-                return true;
+            if (keyboard != null)
+            {
+                bool pressed = Swapped
+                    ? keyboard.spaceKey.wasPressedThisFrame
+                    : keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame;
+                if (pressed) return true;
+            }
 
             var pad = GrabberPad;
             return pad != null && pad.buttonSouth.wasPressedThisFrame;
@@ -119,7 +131,7 @@ namespace CarritoCaotico
         public static bool GrabberThrowPressed()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.rightCtrlKey.wasPressedThisFrame) return true;
+            if (keyboard != null && (Swapped ? keyboard.fKey : keyboard.rightCtrlKey).wasPressedThisFrame) return true;
 
             var pad = GrabberPad;
             return pad != null && (pad.rightTrigger.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame);
@@ -127,11 +139,34 @@ namespace CarritoCaotico
 
         // ---------- General ----------
 
+        public static bool PausePressed()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (keyboard.escapeKey.wasPressedThisFrame || keyboard.pKey.wasPressedThisFrame)) return true;
+            return AnyPadStartPressed();
+        }
+
         public static bool RestartPressed()
         {
             var keyboard = Keyboard.current;
             if (keyboard != null && keyboard.rKey.wasPressedThisFrame) return true;
+            return AnyPadStartPressed();
+        }
 
+        public static bool NextLevelPressed()
+        {
+            var keyboard = Keyboard.current;
+            return keyboard != null && keyboard.nKey.wasPressedThisFrame;
+        }
+
+        public static bool MenuPressed()
+        {
+            var keyboard = Keyboard.current;
+            return keyboard != null && keyboard.mKey.wasPressedThisFrame;
+        }
+
+        static bool AnyPadStartPressed()
+        {
             for (int i = 0; i < Gamepad.all.Count; i++)
             {
                 if (Gamepad.all[i].startButton.wasPressedThisFrame) return true;
@@ -139,12 +174,36 @@ namespace CarritoCaotico
             return false;
         }
 
-        public static bool ToggleCursorPressed()
+        static float Axis(ButtonControl negative, ButtonControl positive)
         {
-            var keyboard = Keyboard.current;
-            return keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+            float value = 0f;
+            if (negative.isPressed) value -= 1f;
+            if (positive.isPressed) value += 1f;
+            return value;
         }
 
         static float ApplyDeadZone(float value) => Mathf.Abs(value) < StickDeadZone ? 0f : value;
+
+        /// <summary>Etiquetas de teclas del Empujador: acelerar, frenar, girar, derrapar.</summary>
+        public static string[] PusherKeyLabels(ControlScheme scheme)
+        {
+            switch (scheme)
+            {
+                case ControlScheme.Intercambiado: return new[] { "↑", "↓", "←  →", "Shift der." };
+                case ControlScheme.Invertido: return new[] { "S", "W", "D  A", "Shift izq." };
+                default: return new[] { "W", "S", "A  D", "Shift izq." };
+            }
+        }
+
+        /// <summary>Etiquetas de teclas del Agarrador: mover, agarrar, lanzar.</summary>
+        public static string[] GrabberKeyLabels(ControlScheme scheme)
+        {
+            switch (scheme)
+            {
+                case ControlScheme.Intercambiado: return new[] { "WASD", "Espacio", "F" };
+                case ControlScheme.Invertido: return new[] { "Flechas", "Enter", "Ctrl der." };
+                default: return new[] { "Flechas", "Enter", "Ctrl der." };
+            }
+        }
     }
 }

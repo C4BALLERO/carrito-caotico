@@ -62,6 +62,14 @@ namespace CarritoCaotico
             if (cartContents != null) cartContents.Changed -= Refresh;
         }
 
+        /// <summary>Ajusta el tamaño de la lista según la dificultad del nivel.</summary>
+        public void Configure(int min, int max, int perType)
+        {
+            minUnits = Mathf.Max(1, min);
+            maxUnits = Mathf.Max(minUnits, max);
+            maxPerType = Mathf.Max(1, perType);
+        }
+
         /// <summary>Genera una lista nueva y aleatoria.</summary>
         public void Generate()
         {

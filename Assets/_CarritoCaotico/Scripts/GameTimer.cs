@@ -47,6 +47,13 @@ namespace CarritoCaotico
             running = false;
         }
 
+        /// <summary>Cambia la duración del nivel y reinicia la cuenta (detenida).</summary>
+        public void SetDuration(float seconds)
+        {
+            duration = Mathf.Max(1f, seconds);
+            ResetTimer();
+        }
+
         /// <summary>Ajusta el tiempo restante (pruebas y depuración). Nunca negativo.</summary>
         public void SetRemaining(float seconds)
         {

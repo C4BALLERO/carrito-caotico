@@ -115,7 +115,7 @@ namespace CarritoCaotico
             if (!delivered)
             {
                 receipt.Score = 0;
-                receipt.ResultLabel = "¡La tienda cerró! Compra no entregada";
+                receipt.ResultLabel = "Compra no entregada";
                 return receipt;
             }
 
