@@ -23,6 +23,7 @@ namespace CarritoCaotico
         readonly Dictionary<ProductType, int> required = new Dictionary<ProductType, int>();
         readonly Dictionary<ProductType, int> inCart = new Dictionary<ProductType, int>();
         readonly List<ProductType> entries = new List<ProductType>();
+        bool remoteCounts;
 
         public IReadOnlyDictionary<ProductType, int> Required => required;
         /// <summary>Tipos de la lista en orden estable de visualización.</summary>
@@ -103,8 +104,34 @@ namespace CarritoCaotico
             Refresh();
         }
 
+        /// <summary>Cliente LAN: el contenido de la canasta llega del anfitrión.</summary>
+        public void SetRemoteCounts(IReadOnlyList<(ProductType type, int count)> counts)
+        {
+            remoteCounts = true;
+            bool changed = false;
+            int nonZero = 0;
+            foreach (var (type, count) in counts)
+            {
+                if (count <= 0) continue;
+                nonZero++;
+                if (!inCart.TryGetValue(type, out int current) || current != count) changed = true;
+            }
+            if (nonZero != inCart.Count) changed = true;
+            if (!changed) return;
+
+            inCart.Clear();
+            foreach (var (type, count) in counts)
+                if (count > 0) inCart[type] = count;
+            Changed?.Invoke();
+        }
+
         void Refresh()
         {
+            if (remoteCounts)
+            {
+                Changed?.Invoke();
+                return;
+            }
             if (cartContents != null) cartContents.FillCounts(inCart);
             else inCart.Clear();
             Changed?.Invoke();

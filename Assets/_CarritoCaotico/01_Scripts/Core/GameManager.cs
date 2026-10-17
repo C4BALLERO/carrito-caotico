@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -24,6 +25,8 @@ namespace CarritoCaotico
     /// <summary>
     /// Controlador central de estados de la partida: menú, niveles, pausa, evaluación en caja,
     /// fin por tiempo y reinicio. La lógica de gameplay vive en cada sistema.
+    /// En LAN el anfitrión decide todo; el cliente recibe niveles, estados y recibo por
+    /// <see cref="LanSync"/> y le pide al anfitrión reintentar, avanzar, ir al menú o pausar.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -63,6 +66,19 @@ namespace CarritoCaotico
         public bool IsTutorial { get; private set; }
         public StoreId Store => store;
 
+        public GameTimer Timer => timer;
+        public ShoppingList List => shoppingList;
+        public CartContents Contents => cartContents;
+        public CartController Cart => cart;
+        public GrabberArm Grabber => grabber;
+        public CameraController CameraRig => cameraController;
+        public RivalManager Rivals => rivals;
+
+        public bool IsLanHost => LanSession.IsHostActive;
+        public bool IsLanClient => LanSession.IsClientActive;
+        /// <summary>LAN: el nivel aún no empieza porque falta el otro PC (o la lista del anfitrión).</summary>
+        public bool IsAwaitingNetwork { get; private set; }
+
         public event Action<GameState> StateChanged;
         public event Action<ShoppingReceipt> GameEnded;
         public event Action<bool> PauseChanged;
@@ -93,6 +109,7 @@ namespace CarritoCaotico
         {
             SetPlayersEnabled(false);
             if (cameraController != null) cameraController.SetLookEnabled(true);
+            if (LanSession.Active) LanSync.Attach(this, LanSession.Instance);
 
             if (showMenuOnStart && !GameSession.StartDirectly)
             {
@@ -101,20 +118,42 @@ namespace CarritoCaotico
                 ChangeState(GameState.Menu);
                 return;
             }
+            if (IsLanClient)
+            {
+                // El cliente espera la lista y el esquema del anfitrión.
+                IsAwaitingNetwork = true;
+                return;
+            }
+            if (IsLanHost)
+            {
+                StartCoroutine(BeginWhenPeerReady());
+                return;
+            }
             if (GameSession.Mode == GameMode.Tutorial) BeginTutorial();
             else BeginLevel(GameSession.CurrentLevel);
+        }
+
+        /// <summary>Anfitrión LAN: empieza el nivel cuando el otro PC termina de cargar la escena.</summary>
+        IEnumerator BeginWhenPeerReady()
+        {
+            IsAwaitingNetwork = true;
+            while (LanSession.IsHostActive && !LanSession.Instance.PeerReady) yield return null;
+            IsAwaitingNetwork = false;
+            if (!LanSession.IsHostActive) yield break; // LanSync vuelve al menú al perder la conexión.
+            BeginLevel(GameSession.CurrentLevel);
         }
 
         void Update()
         {
             if ((State == GameState.Preparacion || State == GameState.EnJuego) && GameInput.PausePressed())
             {
-                SetPaused(!IsPaused);
+                if (IsLanClient) LanSync.SendRequest(LanRequest.TogglePause);
+                else SetPaused(!IsPaused);
                 return;
             }
             if (IsPaused) return;
 
-            if (State == GameState.Preparacion)
+            if (State == GameState.Preparacion && !IsLanClient)
             {
                 preparationRemaining = Mathf.Max(0f, preparationRemaining - Time.deltaTime);
                 if (preparationRemaining <= 0f) BeginPlay();
@@ -138,8 +177,14 @@ namespace CarritoCaotico
         /// </summary>
         public void StartGame(int level, StoreId targetStore)
         {
-            if (State != GameState.Menu) return;
+            if (State != GameState.Menu || IsLanClient) return;
             GameSession.Begin(level, targetStore);
+            if (IsLanHost)
+            {
+                // En LAN los dos PC cargan la escena para empezar a la vez.
+                ReloadScene($"{StoreCatalog.DisplayName(targetStore)} · Nivel {GameSession.CurrentLevel}", targetStore);
+                return;
+            }
             if (targetStore != store)
             {
                 LoadingScreen.LoadStore(targetStore, $"{StoreCatalog.DisplayName(targetStore)} · Nivel {GameSession.CurrentLevel}");
@@ -151,7 +196,8 @@ namespace CarritoCaotico
         /// <summary>Tutorial guiado: siempre en el supermercado clásico.</summary>
         public void StartTutorial()
         {
-            if (State != GameState.Menu) return;
+            // El tutorial es para un solo PC.
+            if (State != GameState.Menu || LanSession.Active) return;
             GameSession.BeginTutorial();
             if (store != StoreId.Clasico)
             {
@@ -212,6 +258,11 @@ namespace CarritoCaotico
         /// <summary>Recarga la escena y repite el nivel actual (o el tutorial).</summary>
         public void Restart()
         {
+            if (IsLanClient)
+            {
+                LanSync.SendRequest(LanRequest.Restart);
+                return;
+            }
             if (IsTutorial) GameSession.BeginTutorial();
             else GameSession.Begin(CurrentLevel, store);
             ReloadScene(IsTutorial ? "Tutorial" : $"Reintentar · Nivel {CurrentLevel}");
@@ -221,12 +272,22 @@ namespace CarritoCaotico
         public void NextLevel()
         {
             if (!CanAdvance) return;
+            if (IsLanClient)
+            {
+                LanSync.SendRequest(LanRequest.NextLevel);
+                return;
+            }
             GameSession.Begin(CurrentLevel + 1, store);
             ReloadScene($"{StoreCatalog.DisplayName(store)} · Nivel {CurrentLevel + 1}");
         }
 
         public void GoToMenu()
         {
+            if (IsLanClient)
+            {
+                LanSync.SendRequest(LanRequest.Menu);
+                return;
+            }
             GameSession.ReturnToMenu();
             ReloadScene("Menú principal");
         }
@@ -243,6 +304,17 @@ namespace CarritoCaotico
         // ---------- Pausa ----------
 
         public void SetPaused(bool paused)
+        {
+            if (IsLanClient)
+            {
+                // La pausa es común: la decide el anfitrión.
+                LanSync.SendRequest(paused ? LanRequest.TogglePause : LanRequest.Resume);
+                return;
+            }
+            ApplyPause(paused);
+        }
+
+        void ApplyPause(bool paused)
         {
             if (paused && State != GameState.Preparacion && State != GameState.EnJuego) return;
             if (IsPaused == paused) return;
@@ -263,7 +335,7 @@ namespace CarritoCaotico
         /// </summary>
         public CheckoutAttempt TryCheckout()
         {
-            if (State != GameState.EnJuego || IsPaused) return CheckoutAttempt.NotPlaying;
+            if (State != GameState.EnJuego || IsPaused || IsLanClient) return CheckoutAttempt.NotPlaying;
             if (cartContents == null || cartContents.Count == 0) return CheckoutAttempt.EmptyCart;
 
             if (timer != null) timer.StopTimer();
@@ -298,11 +370,69 @@ namespace CarritoCaotico
             GameEnded?.Invoke(LastReceipt);
         }
 
-        void ReloadScene(string heading)
+        void ReloadScene(string heading) => ReloadScene(heading, store);
+
+        void ReloadScene(string heading, StoreId targetStore)
         {
             Time.timeScale = 1f;
             SetCursorLocked(false);
-            LoadingScreen.Load(SceneManager.GetActiveScene().path, store, heading);
+            string path = targetStore == store ? SceneManager.GetActiveScene().path : StoreCatalog.ScenePath(targetStore);
+            if (IsLanHost) LanSession.Instance.HostLoad(path, targetStore, heading);
+            else LoadingScreen.Load(path, targetStore, heading);
+        }
+
+        // ---------- LAN: el cliente aplica lo que decide el anfitrión ----------
+
+        /// <summary>Cliente LAN: nivel, esquema y lista del anfitrión.</summary>
+        public void ApplyRemoteLevel(LevelConfig config, IReadOnlyList<(ProductType type, int count)> items, float preparation)
+        {
+            IsAwaitingNetwork = false;
+            IsTutorial = false;
+            CurrentConfig = config;
+            GameInput.Scheme = config.Scheme;
+            if (timer != null) timer.SetDuration(config.Duration);
+            if (shoppingList != null)
+            {
+                var fixedItems = new (ProductType, int)[items.Count];
+                for (int i = 0; i < items.Count; i++) fixedItems[i] = items[i];
+                shoppingList.SetFixed(fixedItems);
+            }
+            preparationRemaining = preparation;
+            LevelConfigured?.Invoke(config);
+        }
+
+        /// <summary>Cliente LAN: cambio de estado decidido por el anfitrión.</summary>
+        public void ApplyRemoteState(GameState state)
+        {
+            if (State == state || IsGameOver) return;
+            bool playing = state == GameState.EnJuego;
+            SetPlayersEnabled(playing && !IsPaused);
+            SetCursorLocked(playing && !IsPaused && lockCursorWhilePlaying);
+            ChangeState(state);
+        }
+
+        public void ApplyRemotePreparation(float remaining) => preparationRemaining = Mathf.Max(0f, remaining);
+
+        public void ApplyRemotePause(bool paused) => ApplyPause(paused);
+
+        /// <summary>Cliente LAN: fin de partida con el recibo calculado como en el anfitrión.</summary>
+        public void ApplyRemoteEnd(GameState finalState, ShoppingReceipt receipt)
+        {
+            if (IsGameOver) return;
+            if (IsPaused) ApplyPause(false);
+            LastReceipt = receipt;
+            SetPlayersEnabled(false);
+            if (receipt.IsComplete) GameSession.Unlock(CurrentLevel + 1);
+            EndGame(finalState);
+        }
+
+        /// <summary>Se perdió la conexión: este PC vuelve a su menú.</summary>
+        public void HandleLanLost()
+        {
+            GameSession.ReturnToMenu();
+            Time.timeScale = 1f;
+            SetCursorLocked(false);
+            LoadingScreen.Load(SceneManager.GetActiveScene().path, store, "Conexión perdida");
         }
 
         void ChangeState(GameState newState)

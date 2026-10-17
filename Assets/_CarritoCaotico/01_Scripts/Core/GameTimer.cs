@@ -13,6 +13,7 @@ namespace CarritoCaotico
 
         float remaining;
         bool running;
+        bool remote;
         int lastNotifiedSecond = -1;
 
         public float Duration => duration;
@@ -54,6 +55,15 @@ namespace CarritoCaotico
             ResetTimer();
         }
 
+        /// <summary>Cliente LAN: el reloj lo lleva el anfitrión; aquí solo se muestra.</summary>
+        public void ApplyRemote(float seconds, bool isRunning)
+        {
+            remote = true;
+            running = isRunning;
+            remaining = Mathf.Clamp(seconds, 0f, duration);
+            Notify(false);
+        }
+
         /// <summary>Ajusta el tiempo restante (pruebas y depuración). Nunca negativo.</summary>
         public void SetRemaining(float seconds)
         {
@@ -63,7 +73,7 @@ namespace CarritoCaotico
 
         void Update()
         {
-            if (!running) return;
+            if (!running || remote) return;
 
             remaining = Mathf.Max(0f, remaining - Time.deltaTime);
             Notify(false);
