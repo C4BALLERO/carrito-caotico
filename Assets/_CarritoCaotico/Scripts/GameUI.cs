@@ -18,10 +18,9 @@ namespace CarritoCaotico
     }
 
     /// <summary>
-    /// Interfaz de la partida: temporizador, panel del Empujador (izquierda), Lista del
-    /// Agarrador (derecha), avisos, preparación y recibo final. Solo escucha eventos de los
-    /// sistemas y nunca contiene lógica de juego. El estado nunca se comunica solo con color:
-    /// siempre va acompañado de texto o de un icono (casilla marcada, punto de estado).
+    /// Interfaz de la partida. Durante el juego solo se ve la Lista del Agarrador (con el reloj y
+    /// el nivel integrados) y avisos breves. Los controles se explican en el tutorial, en la
+    /// tarjeta de preparación y en el menú de pausa. El estado nunca se comunica solo con color.
     /// </summary>
     public class GameUI : MonoBehaviour
     {
@@ -31,8 +30,6 @@ namespace CarritoCaotico
         [SerializeField] GameManager gameManager;
         [SerializeField] GameTimer timer;
         [SerializeField] ShoppingList shoppingList;
-        [SerializeField] CartContents cartContents;
-        [SerializeField] GrabberArm grabber;
         [SerializeField] Checkout checkout;
         [SerializeField] RivalManager rivals;
 
@@ -40,43 +37,16 @@ namespace CarritoCaotico
         [Tooltip("Paneles de juego: se ocultan en el menú principal.")]
         [SerializeField] GameObject hudRoot;
 
-        [Header("Nivel y rivales")]
-        [SerializeField] Text levelText;
-        [SerializeField] Text rivalsText;
-
-        [Header("Controles (cambian con el esquema)")]
-        [Tooltip("Acelerar, frenar, girar, derrapar.")]
-        [SerializeField] Text[] pusherKeyLabels = Array.Empty<Text>();
-        [Tooltip("Mover, agarrar, lanzar.")]
-        [SerializeField] Text[] grabberKeyLabels = Array.Empty<Text>();
-        [SerializeField] Image pusherChip;
-        [SerializeField] Text pusherChipText;
-        [SerializeField] Image grabberChip;
-        [SerializeField] Text grabberChipText;
-
-        [Header("Temporizador")]
+        [Header("Lista del Agarrador")]
+        [SerializeField] Text listSubtitleText;
         [SerializeField] Text timerText;
         [SerializeField] Image timerBackground;
-        [SerializeField] RectTransform timerBarFill;
-
-        [Header("Empujador")]
-        [SerializeField] Text cargoText;
-        [SerializeField] RectTransform cargoBarFill;
-        [SerializeField] Image cargoBarImage;
-        [Tooltip("Peso que llena por completo el medidor de carga.")]
-        [SerializeField, Min(1f)] float cargoBarMaxKg = 12f;
-
-        [Header("Lista del Agarrador")]
         [SerializeField] ShoppingListRow[] listRows = Array.Empty<ShoppingListRow>();
         [SerializeField] Text listExtraText;
         [SerializeField] Text listProgressText;
         [SerializeField] RectTransform listProgressFill;
 
-        [Header("Mano")]
-        [SerializeField] Text handText;
-        [SerializeField] Image handDot;
-
-        [Header("Avisos y preparación")]
+        [Header("Avisos, preparación y pausa")]
         [SerializeField] GameObject messagePanel;
         [SerializeField] Text messageText;
         [SerializeField] Image messageBackground;
@@ -84,6 +54,8 @@ namespace CarritoCaotico
         [SerializeField] Text preparationTitleText;
         [SerializeField] Text preparationCountText;
         [SerializeField] Text preparationHintText;
+        [SerializeField] Text preparationControlsText;
+        [SerializeField] Text pauseControlsText;
 
         [Header("Recibo")]
         [SerializeField] GameObject receiptPanel;
@@ -105,7 +77,6 @@ namespace CarritoCaotico
 
         [Header("Paleta (contraste mínimo 4.5:1 para texto)")]
         [SerializeField] Color ink = new Color32(15, 23, 42, 255);
-        [SerializeField] Color mutedInk = new Color32(71, 85, 105, 255);
         [SerializeField] Color neutral = new Color32(226, 232, 240, 255);
         [SerializeField] Color success = new Color32(4, 120, 87, 255);
         [SerializeField] Color warning = new Color32(245, 158, 11, 255);
@@ -120,16 +91,13 @@ namespace CarritoCaotico
         readonly StringBuilder builder = new StringBuilder(512);
         float messageHideTime = -1f;
         int shownSeconds = -1;
-        Product lastCandidate;
-        Product lastHeld;
-        bool handDirty = true;
+
+        bool IsTutorial => gameManager != null && gameManager.IsTutorial;
 
         void OnEnable()
         {
             if (timer != null) timer.SecondsChanged += OnSecondsChanged;
             if (shoppingList != null) shoppingList.Changed += RefreshList;
-            if (cartContents != null) cartContents.Changed += RefreshCargo;
-            if (grabber != null) grabber.HeldProductChanged += OnHeldChanged;
             if (checkout != null) checkout.EmptyCartRejected += OnEmptyCart;
             if (gameManager != null)
             {
@@ -139,7 +107,7 @@ namespace CarritoCaotico
             }
             if (rivals != null)
             {
-                rivals.Changed += RefreshRivals;
+                rivals.Changed += RefreshSubtitle;
                 rivals.ProductTaken += OnRivalTookProduct;
             }
             if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
@@ -151,8 +119,6 @@ namespace CarritoCaotico
         {
             if (timer != null) timer.SecondsChanged -= OnSecondsChanged;
             if (shoppingList != null) shoppingList.Changed -= RefreshList;
-            if (cartContents != null) cartContents.Changed -= RefreshCargo;
-            if (grabber != null) grabber.HeldProductChanged -= OnHeldChanged;
             if (checkout != null) checkout.EmptyCartRejected -= OnEmptyCart;
             if (gameManager != null)
             {
@@ -162,7 +128,7 @@ namespace CarritoCaotico
             }
             if (rivals != null)
             {
-                rivals.Changed -= RefreshRivals;
+                rivals.Changed -= RefreshSubtitle;
                 rivals.ProductTaken -= OnRivalTookProduct;
             }
             if (restartButton != null) restartButton.onClick.RemoveListener(OnRestartClicked);
@@ -175,10 +141,7 @@ namespace CarritoCaotico
             if (receiptPanel != null) receiptPanel.SetActive(false);
             if (messagePanel != null) messagePanel.SetActive(false);
             if (timer != null) OnSecondsChanged(Mathf.CeilToInt(timer.Remaining));
-            RefreshCargo();
             RefreshList();
-            RefreshHand();
-            RefreshRivals();
             ApplyScheme(GameInput.Scheme);
             if (gameManager != null)
             {
@@ -201,88 +164,57 @@ namespace CarritoCaotico
                 if (messagePanel != null) messagePanel.SetActive(false);
             }
 
-            UpdateTimerVisuals();
-
-            // El candidato de la mano depende de su posición: solo se redibuja si cambia.
-            if (grabber != null && (grabber.Candidate != lastCandidate || grabber.HeldProduct != lastHeld))
-                handDirty = true;
-            if (handDirty) RefreshHand();
+            UpdateTimerPulse();
         }
 
-        // ---------- Temporizador ----------
+        // ---------- Temporizador (dentro de la cabecera de la lista) ----------
 
         void OnSecondsChanged(int seconds)
         {
             shownSeconds = seconds;
-            if (timerText != null) timerText.text = GameTimer.Format(seconds);
-            if (timerBackground == null) return;
+            if (timerText == null) return;
 
-            // Color + cambio de tono del texto: el nivel de urgencia también se lee en los dígitos.
+            if (IsTutorial)
+            {
+                timerText.text = "Tutorial";
+                timerText.color = ink;
+                if (timerBackground != null) timerBackground.color = Color.white;
+                return;
+            }
+
+            timerText.text = GameTimer.Format(seconds);
+            if (timerBackground == null) return;
+            // Color + tono del texto: el nivel de urgencia también se lee en los dígitos.
             if (seconds <= dangerSeconds)
             {
                 timerBackground.color = danger;
-                if (timerText != null) timerText.color = Color.white;
+                timerText.color = Color.white;
             }
             else if (seconds <= warningSeconds)
             {
                 timerBackground.color = warning;
-                if (timerText != null) timerText.color = ink;
+                timerText.color = ink;
             }
             else
             {
-                timerBackground.color = success;
-                if (timerText != null) timerText.color = Color.white;
+                timerBackground.color = Color.white;
+                timerText.color = ink;
             }
         }
 
-        void UpdateTimerVisuals()
+        void UpdateTimerPulse()
         {
-            if (timer == null) return;
-
-            if (timerBarFill != null)
-            {
-                float fraction = timer.Duration > 0f ? timer.Remaining / timer.Duration : 0f;
-                Vector2 max = timerBarFill.anchorMax;
-                if (!Mathf.Approximately(max.x, fraction))
-                {
-                    max.x = fraction;
-                    timerBarFill.anchorMax = max;
-                }
-            }
-
-            if (timerBackground == null) return;
-            Transform card = timerBackground.transform.parent != null ? timerBackground.transform.parent : timerBackground.transform;
+            if (timer == null || timerBackground == null) return;
+            Transform pill = timerBackground.transform;
             // Pulso suave solo en los últimos segundos: el movimiento transmite urgencia.
             if (timer.IsRunning && shownSeconds > 0 && shownSeconds <= pulseSeconds)
             {
-                float pulse = 1f + 0.05f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f));
-                card.localScale = new Vector3(pulse, pulse, 1f);
+                float pulse = 1f + 0.08f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f));
+                pill.localScale = new Vector3(pulse, pulse, 1f);
             }
-            else if (card.localScale != Vector3.one)
+            else if (pill.localScale != Vector3.one)
             {
-                card.localScale = Vector3.one;
-            }
-        }
-
-        // ---------- Carga ----------
-
-        void RefreshCargo()
-        {
-            if (cartContents == null) return;
-            float weight = cartContents.TotalWeight;
-            int count = cartContents.Count;
-
-            if (cargoText != null)
-                cargoText.text = $"{weight:0.0} kg  ·  {count} {(count == 1 ? "producto" : "productos")}";
-
-            if (cargoBarFill != null)
-            {
-                float fraction = Mathf.Clamp01(weight / cargoBarMaxKg);
-                Vector2 max = cargoBarFill.anchorMax;
-                max.x = fraction;
-                cargoBarFill.anchorMax = max;
-                if (cargoBarImage != null)
-                    cargoBarImage.color = fraction < 0.5f ? success : fraction < 0.85f ? warning : danger;
+                pill.localScale = Vector3.one;
             }
         }
 
@@ -362,33 +294,21 @@ namespace CarritoCaotico
             listExtraText.gameObject.SetActive(builder.Length > 0);
         }
 
-        // ---------- Mano ----------
-
-        void OnHeldChanged(Product product) => handDirty = true;
-
-        void RefreshHand()
+        void RefreshSubtitle()
         {
-            handDirty = false;
-            if (handText == null || grabber == null) return;
+            if (listSubtitleText == null || gameManager == null) return;
+            if (IsTutorial)
+            {
+                listSubtitleText.text = "Tutorial · solo el Agarrador mira esta lista";
+                return;
+            }
 
-            lastCandidate = grabber.Candidate;
-            lastHeld = grabber.HeldProduct;
-
-            if (lastHeld != null)
-            {
-                handText.text = $"Sosteniendo <b>{lastHeld.DisplayName}</b>  ·  Enter suelta  ·  Ctrl lanza";
-                if (handDot != null) handDot.color = success;
-            }
-            else if (lastCandidate != null)
-            {
-                handText.text = $"Al alcance: <b>{lastCandidate.DisplayName}</b>  ·  Enter agarra";
-                if (handDot != null) handDot.color = warning;
-            }
-            else
-            {
-                handText.text = "Mano vacía: acércala a un producto";
-                if (handDot != null) handDot.color = mutedInk;
-            }
+            int level = gameManager.CurrentLevel;
+            int configured = gameManager.CurrentConfig != null ? gameManager.CurrentConfig.RivalCount : 0;
+            int count = rivals != null ? Mathf.Max(configured, rivals.ActiveCount) : configured;
+            int taken = rivals != null ? rivals.TakenCount : 0;
+            string rivalsLine = count == 0 ? "sin rivales" : $"{count} {(count == 1 ? "rival" : "rivales")} · {taken} robados";
+            listSubtitleText.text = $"Nivel {level} · {StoreCatalog.DisplayName(gameManager.Store)} · {rivalsLine}";
         }
 
         // ---------- Estados y avisos ----------
@@ -402,7 +322,9 @@ namespace CarritoCaotico
             switch (state)
             {
                 case GameState.EnJuego:
-                    ShowMessage("¡A comprar! Comuníquense y lleguen a la caja", 2.5f, MessageKind.Info);
+                    if (!IsTutorial) ShowMessage("¡A comprar! Comuníquense y lleguen a la caja", 2.5f, MessageKind.Info);
+                    if (timer != null) OnSecondsChanged(Mathf.CeilToInt(timer.Remaining));
+                    RefreshSubtitle();
                     break;
                 case GameState.TiempoAgotado:
                 case GameState.CompraEntregada:
@@ -410,6 +332,30 @@ namespace CarritoCaotico
                     messageHideTime = -1f;
                     break;
             }
+        }
+
+        void OnLevelConfigured(LevelConfig config)
+        {
+            ApplyScheme(config.Scheme);
+            RefreshSubtitle();
+
+            if (preparationTitleText != null) preparationTitleText.text = $"Nivel {config.Level} · ¡Prepárense!";
+            if (preparationHintText != null)
+            {
+                string rivalsLine = config.RivalCount == 0
+                    ? "sin compradores rivales"
+                    : config.RivalCount == 1 ? "1 comprador rival" : $"{config.RivalCount} compradores rivales";
+                string scheme = config.Scheme == ControlScheme.Normal
+                    ? "Agarrador: lee la lista y guía al Empujador."
+                    : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b>";
+                preparationHintText.text = $"{GameTimer.Format(config.Duration)} · {rivalsLine}\n{scheme}";
+            }
+        }
+
+        void OnRivalTookProduct(Product product)
+        {
+            if (shoppingList == null || shoppingList.GetRequired(product.Type) == 0) return;
+            ShowMessage($"¡Un rival se llevó {product.DisplayName}!", 2f, MessageKind.Warning);
         }
 
         void OnEmptyCart()
@@ -428,16 +374,34 @@ namespace CarritoCaotico
             messageHideTime = duration > 0f ? Time.time + duration : -1f;
         }
 
+        /// <summary>Texto con los controles del esquema activo (preparación y pausa).</summary>
+        void ApplyScheme(ControlScheme scheme)
+        {
+            string text = ControlsText(scheme);
+            if (preparationControlsText != null) preparationControlsText.text = text;
+            if (pauseControlsText != null) pauseControlsText.text = text;
+        }
+
+        public static string ControlsText(ControlScheme scheme)
+        {
+            string[] p = GameInput.PusherKeyLabels(scheme);
+            string[] g = GameInput.GrabberKeyLabels(scheme);
+            string note = scheme == ControlScheme.Invertido ? "  <i>(direcciones al revés)</i>" : "";
+            return $"<b>Empujador:</b> {p[0]} acelerar · {p[1]} frenar · {p[2]} girar · {p[3]} derrapar · Mouse cámara{note}\n" +
+                   $"<b>Agarrador:</b> {g[0]} mover brazo · {g[1]} agarrar / soltar · {g[2]} lanzar{note}";
+        }
+
         // ---------- Recibo ----------
 
         void ShowReceipt(ShoppingReceipt receipt)
         {
-            if (receiptPanel == null || receipt == null) return;
+            // En el tutorial el cierre lo muestra el TutorialController.
+            if (receiptPanel == null || receipt == null || IsTutorial) return;
             receiptPanel.SetActive(true);
             if (preparationPanel != null) preparationPanel.SetActive(false);
 
             if (receiptTitleText != null)
-                receiptTitleText.text = receipt.TimedOut ? "¡La tienda cerró!" : "Recibo · Súper Caótico";
+                receiptTitleText.text = receipt.TimedOut ? "¡La tienda cerró!" : $"Recibo · {StoreCatalog.DisplayName(gameManager.Store)}";
             if (receiptTimeText != null)
                 receiptTimeText.text = $"Tiempo empleado  <b>{GameTimer.Format(receipt.ElapsedSeconds)}</b>     ·     Tiempo restante  <b>{GameTimer.Format(receipt.RemainingSeconds)}</b>";
 
@@ -515,71 +479,6 @@ namespace CarritoCaotico
         void OnMenuClicked()
         {
             if (gameManager != null) gameManager.GoToMenu();
-        }
-
-        // ---------- Nivel, rivales y controles ----------
-
-        void OnLevelConfigured(LevelConfig config)
-        {
-            if (levelText != null) levelText.text = $"NIVEL {config.Level}";
-            ApplyScheme(config.Scheme);
-
-            if (preparationTitleText != null) preparationTitleText.text = $"Nivel {config.Level} · ¡Prepárense!";
-            if (preparationHintText != null)
-            {
-                string rivalsLine = config.RivalCount == 0
-                    ? "sin compradores rivales"
-                    : config.RivalCount == 1 ? "1 comprador rival" : $"{config.RivalCount} compradores rivales";
-                string scheme = config.Scheme == ControlScheme.Normal
-                    ? "Agarrador: lee la lista y guía al Empujador."
-                    : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b> Miren las teclas de cada panel.";
-                preparationHintText.text = $"{GameTimer.Format(config.Duration)} · {rivalsLine}\n{scheme}";
-            }
-            RefreshRivals();
-        }
-
-        void RefreshRivals()
-        {
-            if (rivalsText == null) return;
-            int configured = gameManager != null && gameManager.CurrentConfig != null ? gameManager.CurrentConfig.RivalCount : 0;
-            int count = rivals != null ? Mathf.Max(configured, rivals.ActiveCount) : configured;
-            int taken = rivals != null ? rivals.TakenCount : 0;
-            rivalsText.text = count == 0 ? "Sin rivales" : $"{count} {(count == 1 ? "rival" : "rivales")}  ·  {taken} robados";
-        }
-
-        void OnRivalTookProduct(Product product)
-        {
-            if (shoppingList == null || shoppingList.GetRequired(product.Type) == 0) return;
-            ShowMessage($"¡Un rival se llevó {product.DisplayName}!", 2f, MessageKind.Warning);
-        }
-
-        void ApplyScheme(ControlScheme scheme)
-        {
-            SetLabels(pusherKeyLabels, GameInput.PusherKeyLabels(scheme));
-            SetLabels(grabberKeyLabels, GameInput.GrabberKeyLabels(scheme));
-
-            bool changed = scheme != ControlScheme.Normal;
-            string badge = scheme == ControlScheme.Intercambiado ? "¡Cambiados!" : "¡Al revés!";
-            if (pusherChip != null) pusherChip.color = changed ? warning : Color.white;
-            if (grabberChip != null) grabberChip.color = changed ? warning : Color.white;
-            if (pusherChipText != null)
-            {
-                pusherChipText.text = changed ? badge : "Jugador 1";
-                pusherChipText.color = changed ? ink : (Color)new Color32(37, 99, 235, 255);
-            }
-            if (grabberChipText != null)
-            {
-                grabberChipText.text = changed ? badge : "Jugador 2";
-                grabberChipText.color = changed ? ink : (Color)new Color32(124, 58, 237, 255);
-            }
-        }
-
-        static void SetLabels(Text[] targets, string[] labels)
-        {
-            for (int i = 0; i < targets.Length && i < labels.Length; i++)
-            {
-                if (targets[i] != null) targets[i].text = labels[i];
-            }
         }
     }
 }

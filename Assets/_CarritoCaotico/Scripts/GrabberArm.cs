@@ -69,10 +69,14 @@ namespace CarritoCaotico
         public Product HeldProduct => held;
         public Product Candidate => candidate;
         public Vector3 HandPosition => hand != null ? hand.position : transform.position;
+        /// <summary>Posición de la mano en el espacio local del carrito.</summary>
+        public Vector3 HandLocalPosition => currentLocal;
         public bool InputEnabled => inputEnabled;
 
         /// <summary>Se dispara cuando la mano agarra o deja de sostener un producto.</summary>
         public event Action<Product> HeldProductChanged;
+        /// <summary>Se dispara al lanzar un producto.</summary>
+        public event Action<Product> ProductThrown;
 
         void Awake()
         {
@@ -202,6 +206,7 @@ namespace CarritoCaotico
             Product product = held;
             Release(position, baseVelocity + direction * throwSpeed);
             product.Body.AddTorque(UnityEngine.Random.insideUnitSphere * throwSpin, ForceMode.VelocityChange);
+            ProductThrown?.Invoke(product);
         }
 
         void Release(Vector3 position, Vector3 velocity)

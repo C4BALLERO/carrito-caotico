@@ -54,6 +54,8 @@ namespace CarritoCaotico
         bool lookEnabled = true;
 
         public Transform Target => target;
+        /// <summary>Giro de la cámara respecto al carrito, en grados (-180..180).</summary>
+        public float YawOffset => yawOffset;
 
         void Start()
         {
