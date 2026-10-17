@@ -140,14 +140,28 @@ Assets/_CarritoCaotico/
 │   └── GameUI.cs            HUD, lista, mensajes y recibo
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
-│   └── ProductModels.cs     Modelos de producto hechos con varias primitivas
+│   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
+│   └── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo) y texturas de UI
 ├── Tests/
 │   ├── EditMode/            Pruebas de reglas de la lista y de la evaluación
 │   └── PlayMode/            Pruebas de integración sobre la escena generada
 ├── Materials/               (generado) materiales M_* y materiales físicos PM_*
 ├── Prefabs/                 (generado) Producto_*.prefab, uno por tipo
+├── UI/                      (generado) texturas de esquinas redondeadas, círculo y check
 └── Scenes/                  (generado) CarritoCaotico_Prueba.unity y Backups/
 ```
+
+## Interfaz
+
+Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism para juegos casuales y una paleta de supermercado.
+
+- **Estilo:** tarjetas redondeadas con borde de 3 px y sombra suave.
+- **Colores:** verde fresco `#047857`, ámbar `#F59E0B` y rojo `#DC2626` sobre blanco. Cada jugador tiene su color: azul el Empujador y morado el Agarrador, como sus personajes.
+- **Contraste:** al menos 4.5:1 en todo el texto.
+- **Estados con texto o icono, no solo con color:** casilla con check y «¡Listo!», punto de la mano acompañado de texto, avisos «(!)» y palabras de estado en el recibo.
+- **Temporizador:** una barra de tiempo restante que pasa de verde a ámbar (30 s) y a rojo (15 s), con un pulso suave en los últimos 10 s.
+- **Controles:** se dibujan como teclas, con un medidor de carga que cambia de color según el peso.
+- **Tipografía:** la fuente integrada de Unity en negrita. La skill propone Fredoka/Nunito, pero habría que importarlas.
 
 ## Pruebas
 
