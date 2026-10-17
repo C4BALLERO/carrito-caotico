@@ -36,7 +36,7 @@ No usa assets externos: todo se construye con primitivas, materiales de color pl
 5. En el menú superior, ejecuta **Carrito → Construir escena de prueba**.
 6. Pulsa **Play**.
 
-La escena se genera en `Assets/_CarritoCaotico/Scenes/CarritoCaotico_Prueba.unity` y se añade como primera escena en *Build Settings*.
+El generador crea dos escenas en `Assets/_CarritoCaotico/Scenes/`: `CarritoCaotico_Prueba.unity` (clásica) y `CarritoCaotico_Halloween.unity`. Las dos se añaden al principio de *Build Settings*.
 
 ### Regenerar la escena de forma segura
 
@@ -99,7 +99,7 @@ El esquema de cada nivel se mantiene al reintentarlo. Con el esquema intercambia
 
 ## Cómo se juega
 
-0. **Menú de inicio:** elige el nivel con `<` / `>` (solo los desbloqueados) y pulsa **Jugar**. El progreso se guarda en `PlayerPrefs`.
+0. **Menú de inicio:** elige el **supermercado** (Súper Caótico o Súper Embrujado), el **nivel** (solo los desbloqueados) y pulsa **Jugar**. La primera vez conviene hacer el **Tutorial**. El progreso se guarda en `PlayerPrefs`.
 1. **Preparación (4 s):** el Agarrador lee la *Lista del Agarrador*, en el lado derecho de la pantalla.
 2. **En juego (120 s):** el Empujador conduce hasta los pasillos y el Agarrador recoge los productos.
    - La mano se vuelve **amarilla** cuando hay un producto a su alcance y **verde** cuando sostiene uno.
@@ -109,6 +109,59 @@ El esquema de cada nivel se mantiene al reintentarlo. Con el esquema intercambia
 3. **Caja:** al entrar en la zona verde junto a la caja, la compra se evalúa una sola vez y aparece el recibo.
 4. **Tiempo agotado:** si el tiempo llega a 0, aparece **«¡La tienda cerró!»**.
 5. **Siguiente nivel:** una compra completa (sin faltantes) desbloquea el nivel siguiente.
+
+### Tutorial
+
+El tutorial guía a los dos jugadores paso a paso, en el supermercado clásico y sin reloj ni rivales. Son 10 pasos:
+
+1. Acelerar.
+2. Girar.
+3. Derrapar.
+4. Mover la cámara.
+5. Mover el brazo.
+6. Agarrar un producto.
+7. Soltarlo en la canasta.
+8. Lanzar un producto.
+9. Completar una lista de dos productos.
+10. Pagar en la caja.
+
+Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción; `Tab` lo salta. Al terminar se puede pasar directamente al nivel 1.
+
+### Interfaz durante la partida
+
+Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó…!»). Los controles aparecen en tres sitios:
+
+- el tutorial;
+- la tarjeta de preparación de cada nivel, con el esquema activo;
+- el menú de pausa (`Esc` / `P`).
+
+### Supermercados
+
+| | Súper Caótico | Súper Embrujado (Halloween) |
+|---|---|---|
+| Escena | `CarritoCaotico_Prueba.unity` | `CarritoCaotico_Halloween.unity` |
+| Pasillos | 6 | 4 |
+| Productos | 12 tipos de supermercado | 8 tipos de Halloween: calabaza, caramelos, vela, calavera de azúcar, poción, sombrero de bruja, murciélago de peluche, manzana de caramelo |
+| Ambiente | Luminoso, colores frescos | Oscuro con niebla morada, calabazas iluminadas, murciélagos, telarañas y un caldero en la caja |
+| Obstáculos móviles | Reponedor en la entrada | Dos fantasmas flotando por los pasillos transversales |
+
+### Obstáculos
+
+- **Charcos** (azules o de baba verde): el carrito pierde casi todo el agarre lateral y patina (`SlipperyZone`).
+- **Pilas que se derriban:** cajas de promoción o calabazas decorativas.
+- **Carritos abandonados:** se pueden empujar, pero pesan.
+- **Palés** y **lápidas:** son fijos y están junto a las paredes.
+- **Reponedor y fantasmas:** se mueven de un lado a otro y empujan el carrito (`MovingObstacle`).
+
+### Pantallas de carga
+
+Al cambiar de supermercado, reintentar, pasar de nivel o volver al menú aparece una pantalla de carga con una ilustración de la tienda de destino, un consejo y una barra de progreso (`LoadingScreen`).
+
+Las imágenes se toman de `Assets/_CarritoCaotico/Resources/Carga/`:
+- `<tienda>_ia_N.png`: ilustraciones generadas con IA. Tienen prioridad y el generador nunca las sobrescribe.
+- `<tienda>_captura_N.png`: capturas de la escena que el generador renderiza automáticamente. Sirven como alternativa.
+
+Para usar ilustraciones con IA, configura `OPENROUTER_API_KEY` (skill `generate-image`), genera las imágenes, guárdalas con ese nombre y ejecuta **Carrito → Configurar imágenes de carga**.
 
 ### Niveles
 
@@ -181,7 +234,12 @@ Assets/_CarritoCaotico/
 │   ├── LevelProgression.cs  Dificultad por nivel y esquemas de control
 │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   ├── RivalShopper.cs      IA de un comprador rival
-│   ├── MenuUI.cs            Menú principal, selector de nivel y menú de pausa
+│   ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial) y menú de pausa
+│   ├── TutorialController.cs  Tutorial guiado de 10 pasos
+│   ├── StoreCatalog.cs      Supermercados: escenas, nombres, consejos e imágenes de carga
+│   ├── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
+│   ├── SlipperyZone.cs      Charcos resbaladizos
+│   ├── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
 │   └── GameUI.cs            HUD, lista, mensajes y recibo
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
@@ -193,6 +251,7 @@ Assets/_CarritoCaotico/
 ├── Materials/               (generado) materiales M_* y materiales físicos PM_*
 ├── Prefabs/                 (generado) Producto_*.prefab, uno por tipo
 ├── UI/                      (generado) texturas de esquinas redondeadas, círculo y check
+├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Scenes/                  (generado) CarritoCaotico_Prueba.unity y Backups/
 ```
 
