@@ -35,6 +35,9 @@ namespace CarritoCaotico
         [SerializeField] Button quitButton;
         [Tooltip("Texto de roles bajo los botones: en LAN explica quién es quién.")]
         [SerializeField] Text rolesText;
+        [Tooltip("Cambia entre música y efectos, solo efectos o silencio.")]
+        [SerializeField] Button soundButton;
+        [SerializeField] Text soundButtonText;
 
         [Header("LAN")]
         [SerializeField] Button lanButton;
@@ -108,6 +111,11 @@ namespace CarritoCaotico
             Listen(pauseRestartButton, () => { if (gameManager != null) gameManager.Restart(); });
             Listen(pauseMenuButton, () => { if (gameManager != null) gameManager.GoToMenu(); });
 
+            Listen(soundButton, () =>
+            {
+                GameAudio.CycleMode();
+                RefreshSound();
+            });
             Listen(lanButton, OpenLan);
             Listen(lanPreviousRoleButton, ToggleLanRole);
             Listen(lanNextRoleButton, ToggleLanRole);
@@ -128,7 +136,7 @@ namespace CarritoCaotico
             GameInput.DevicesChanged -= RefreshPad;
             LanSession.AnyStatusChanged -= RefreshLan;
             foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton, previousPadButton, nextPadButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton,
-                         lanButton, lanPreviousRoleButton, lanNextRoleButton, lanHostButton, lanJoinButton, lanCancelButton, lanBackButton })
+                         soundButton, lanButton, lanPreviousRoleButton, lanNextRoleButton, lanHostButton, lanJoinButton, lanCancelButton, lanBackButton })
                 if (b != null) b.onClick.RemoveAllListeners();
         }
 
@@ -144,6 +152,7 @@ namespace CarritoCaotico
             RefreshStore();
             RefreshLevel();
             RefreshPad();
+            RefreshSound();
             if (pausePanel != null) pausePanel.SetActive(false);
             if (gameManager != null) OnStateChanged(gameManager.State);
             RefreshLan();
@@ -236,6 +245,11 @@ namespace CarritoCaotico
             string rivals = config.RivalCount == 0 ? "sin rivales" : config.RivalCount == 1 ? "1 rival" : $"{config.RivalCount} rivales";
             string controls = selectedLevel >= LevelProgression.ControlSwapStartLevel ? "los controles pueden cambiar" : "controles normales";
             levelDetailText.text = $"Lista de {config.MinUnits} a {config.MaxUnits} unidades  ·  {GameTimer.Format(config.Duration)}  ·  {rivals}  ·  {controls}";
+        }
+
+        void RefreshSound()
+        {
+            if (soundButtonText != null) soundButtonText.text = GameAudio.ModeName(GameAudio.Mode);
         }
 
         // ---------- LAN ----------

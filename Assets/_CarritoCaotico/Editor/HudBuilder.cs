@@ -15,11 +15,14 @@ namespace CarritoCaotico.EditorTools
     /// tarjetas redondeadas con borde grueso y sombra suave, contraste mínimo 4.5:1 en texto y
     /// estados que nunca dependen solo del color. Durante la partida solo se muestra la Lista del
     /// Agarrador; los controles viven en el tutorial, la preparación y la pausa.
-    /// Las texturas de la interfaz (esquinas redondeadas, círculo y check) se generan aquí.
+    /// Las texturas de la interfaz (esquinas redondeadas, círculo y check) se generan aquí; los
+    /// botones, las flechas y el campo de texto usan sprites del UI Pack de Kenney (CC0) en
+    /// 07_Sprites/Kenney. Cada botón lleva <see cref="UIButtonFeedback"/> (hover, pulsación, sonido).
     /// </summary>
     internal static class HudBuilder
     {
         const string UiFolder = CarritoSceneBuilder.RootFolder + "/07_Sprites";
+        const string KenneyFolder = UiFolder + "/Kenney";
 
         // ---------- Tokens de diseño ----------
         static readonly Color32 Ink = new Color32(15, 23, 42, 255);          // texto principal y bordes
@@ -51,6 +54,12 @@ namespace CarritoCaotico.EditorTools
         static Sprite rounded;
         static Sprite circle;
         static Sprite check;
+        static Sprite kenneyPrimary;
+        static Sprite kenneySecondary;
+        static Sprite kenneyGreen;
+        static Sprite kenneyArrowLeft;
+        static Sprite kenneyArrowRight;
+        static Sprite kenneyInput;
         static int elementCount;
         static Theme theme;
 
@@ -493,8 +502,9 @@ namespace CarritoCaotico.EditorTools
 
             Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -634f), new Vector2(420f, 92f), 40, 1f);
             Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -634f), new Vector2(240f, 92f), 30, 1f);
-            Button lan = CardButton(card.transform, "Boton_LAN", "Jugar en LAN", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-110f, -742f), new Vector2(300f, 58f), 24, 1.5f);
-            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(170f, -742f), new Vector2(200f, 58f), 24, 1.5f);
+            Button lan = CardButton(card.transform, "Boton_LAN", "Jugar en LAN", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-260f, -742f), new Vector2(280f, 62f), 24, 1.5f);
+            Button sound = CardButton(card.transform, "Boton_Sonido", GameAudio.ModeName(AudioMode.Todo), null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(40f, -742f), new Vector2(300f, 62f), 24, 1.5f);
+            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(300f, -742f), new Vector2(180f, 62f), 24, 1.5f);
 
             Text roles = Label(card.transform, "Roles",
                 "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
@@ -524,6 +534,8 @@ namespace CarritoCaotico.EditorTools
             refs["rolesText"] = roles;
             refs["lanButton"] = lan;
             refs["lanButtonText"] = lan.GetComponentInChildren<Text>(true);
+            refs["soundButton"] = sound;
+            refs["soundButtonText"] = sound.GetComponentInChildren<Text>(true);
         }
 
         // ======================================================================
@@ -586,8 +598,25 @@ namespace CarritoCaotico.EditorTools
         /// <summary>Campo de texto "clay" para escribir la IP del anfitrión.</summary>
         static InputField AddressField(Transform parent, Vector2 position, Vector2 size)
         {
-            Image body = CardBox(parent, "Campo_IP", new Vector2(0.5f, 1f), position, size, KeyCap, 1.5f);
-            GameObject root = body.transform.parent.gameObject;
+            Image body;
+            GameObject root;
+            if (kenneyInput != null)
+            {
+                root = new GameObject("Campo_IP", typeof(RectTransform));
+                root.transform.SetParent(parent, false);
+                var rect = (RectTransform)root.transform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 1f);
+                rect.anchoredPosition = position;
+                rect.sizeDelta = size;
+                body = KenneyImage(root.transform, "Relleno", kenneyInput, Color.white);
+                Anchor(body.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                body.raycastTarget = true;
+            }
+            else
+            {
+                body = CardBox(parent, "Campo_IP", new Vector2(0.5f, 1f), position, size, KeyCap, 1.5f);
+                root = body.transform.parent.gameObject;
+            }
             var field = root.AddComponent<InputField>();
 
             Text text = Label(body.transform, "Texto", "", 30, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -649,6 +678,104 @@ namespace CarritoCaotico.EditorTools
         /// tarjeta, así al ocultar el botón se oculta también su sombra y su borde.
         /// </summary>
         static Button CardButton(Transform parent, string name, string label, string key, Color fill, Color textColor,
+            Vector2 anchor, Vector2 position, Vector2 size, int fontSize, float ppu)
+        {
+            Button button = kenneyPrimary != null
+                ? KenneyButton(parent, name, label, key, fill, textColor, anchor, position, size, fontSize)
+                : ClayButton(parent, name, label, key, fill, textColor, anchor, position, size, fontSize, ppu);
+
+            // Hover, pulsación y sonido. El botón principal (ámbar) late suavemente.
+            bool isBack = label == "Volver" || label == "Cancelar" || label == "Menú" || label == "Menú principal" || label == "Salir";
+            bool isArrow = label == "<" || label == ">";
+            var feedback = button.gameObject.AddComponent<UIButtonFeedback>();
+            feedback.Configure(SameColor(fill, Warning), isBack ? UISound.Back : isArrow ? UISound.Toggle : UISound.Click);
+            return button;
+        }
+
+        /// <summary>
+        /// Botón con sprite de Kenney: amarillo para la acción principal, verde para confirmar y gris
+        /// para el resto. Las flechas de los selectores son iconos en lugar de texto.
+        /// </summary>
+        static Button KenneyButton(Transform parent, string name, string label, string key, Color fill, Color textColor,
+            Vector2 anchor, Vector2 position, Vector2 size, int fontSize)
+        {
+            var root = new GameObject(name, typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rect = (RectTransform)root.transform;
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+
+            Sprite sprite = SameColor(fill, Warning) ? kenneyPrimary : SameColor(fill, Success) ? kenneyGreen : kenneySecondary;
+            Image body = KenneyImage(root.transform, "Relleno", sprite, Color.white);
+            Anchor(body.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            body.raycastTarget = true;
+
+            var button = root.AddComponent<Button>();
+            button.targetGraphic = body;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.97f, 0.9f);
+            colors.selectedColor = new Color(1f, 0.97f, 0.9f);
+            colors.pressedColor = new Color(0.82f, 0.82f, 0.86f);
+            colors.disabledColor = new Color(0.75f, 0.75f, 0.75f, 0.6f);
+            colors.fadeDuration = 0.1f;
+            button.colors = colors;
+
+            // El relieve inferior del sprite ocupa unos 6 px: el contenido sube un poco.
+            const float depth = 6f;
+            if (label == "<" || label == ">")
+            {
+                Image arrow = KenneyImage(body.transform, "Flecha", label == "<" ? kenneyArrowLeft : kenneyArrowRight, Ink);
+                arrow.type = Image.Type.Simple;
+                arrow.preserveAspect = true;
+                Anchor(arrow.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-17f, -17f + depth * 0.5f), new Vector2(17f, 17f + depth * 0.5f));
+                elementCount++;
+                return button;
+            }
+
+            float keyWidth = key == null ? 0f : Mathf.Max(46f, 22f + key.Length * 13f);
+            Text text = Label(body.transform, "Texto", label, fontSize, textColor, key == null ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft, FontStyle.Bold);
+            Anchor(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(key == null ? 14f : 28f, depth), new Vector2(key == null ? -14f : -(keyWidth + 30f), 0f));
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = Mathf.Max(14, fontSize - 10);
+            text.resizeTextMaxSize = fontSize;
+            if (key != null)
+            {
+                Image keyCap = KeyCapChip(body.transform, key, keyWidth, out _);
+                Anchor(keyCap.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-keyWidth - 20f, -19f + depth * 0.5f), new Vector2(-20f, 19f + depth * 0.5f));
+            }
+            elementCount++;
+            return button;
+        }
+
+        static bool SameColor(Color a, Color32 b)
+        {
+            Color32 c = a;
+            return c.r == b.r && c.g == b.g && c.b == b.b && c.a == b.a;
+        }
+
+        static Image KenneyImage(Transform parent, string name, Sprite sprite, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var image = go.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = color;
+            image.raycastTarget = false;
+            if (sprite != null && sprite.border.sqrMagnitude > 0f)
+            {
+                image.type = Image.Type.Sliced;
+                // Los sprites son la versión "Double": a la mitad, las esquinas miden como en el pack normal.
+                image.pixelsPerUnitMultiplier = 2f;
+            }
+            elementCount++;
+            return image;
+        }
+
+        /// <summary>Botón "clay" dibujado por código (si faltan los sprites de Kenney).</summary>
+        static Button ClayButton(Transform parent, string name, string label, string key, Color fill, Color textColor,
             Vector2 anchor, Vector2 position, Vector2 size, int fontSize, float ppu)
         {
             Image body = CardBox(parent, name, anchor, position, size, fill, ppu);
@@ -830,6 +957,41 @@ namespace CarritoCaotico.EditorTools
             rounded = EnsureSprite("UI_Redondeado", 96, RoundedAlpha, 32);
             circle = EnsureSprite("UI_Circulo", 64, CircleAlpha, 0);
             check = EnsureSprite("UI_Check", 64, CheckAlpha, 0);
+
+            // Sprites de Kenney (CC0): borde de 9 cortes con el relieve inferior más alto.
+            var buttonBorder = new Vector4(24f, 30f, 24f, 22f);
+            kenneyPrimary = KenneySprite("boton_principal", buttonBorder);
+            kenneySecondary = KenneySprite("boton_secundario", buttonBorder);
+            kenneyGreen = KenneySprite("boton_verde", buttonBorder);
+            kenneyArrowLeft = KenneySprite("flecha_izquierda", Vector4.zero);
+            kenneyArrowRight = KenneySprite("flecha_derecha", Vector4.zero);
+            kenneyInput = KenneySprite("campo_texto", new Vector4(20f, 20f, 20f, 20f));
+            if (kenneyPrimary == null || kenneySecondary == null || kenneyGreen == null)
+            {
+                Debug.LogWarning("[Carrito] Faltan los sprites de Kenney en 07_Sprites/Kenney: se usan botones dibujados por código.");
+                kenneyPrimary = kenneySecondary = kenneyGreen = null;
+            }
+        }
+
+        /// <summary>Importa un PNG de 07_Sprites/Kenney como sprite de UI con el borde indicado.</summary>
+        public static Sprite KenneySprite(string name, Vector4 border)
+        {
+            string path = $"{KenneyFolder}/{name}.png";
+            if (!(AssetImporter.GetAtPath(path) is TextureImporter importer)) return null;
+            bool changed = importer.textureType != TextureImporterType.Sprite || importer.spriteBorder != border
+                           || importer.mipmapEnabled || importer.spriteImportMode != SpriteImportMode.Single;
+            if (changed)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spriteBorder = border;
+                importer.mipmapEnabled = false;
+                importer.alphaIsTransparency = true;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static Sprite EnsureSprite(string name, int size, Func<float, float, int, float> alpha, int border)

@@ -306,6 +306,8 @@ namespace CarritoCaotico.EditorTools
                 ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
             ConfigureStore(manager, shoppingList);
             ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
+            AudioBuilder.Build(current.Id, manager, cart.Arm, shoppingList, timer, rivalManager, checkout);
+            Count("Audio (GameAudio con música y efectos)");
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, CurrentScenePath))
