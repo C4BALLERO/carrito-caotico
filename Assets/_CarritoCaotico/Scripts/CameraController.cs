@@ -17,8 +17,8 @@ namespace CarritoCaotico
         [Header("Encuadre")]
         [SerializeField, Min(1f)] float distance = 6.5f;
         [Tooltip("Altura del punto de mira sobre el carrito.")]
-        [SerializeField] float height = 1.6f;
-        [SerializeField] float defaultPitch = 22f;
+        [SerializeField] float height = 2.0f;
+        [SerializeField] float defaultPitch = 32f;
         [SerializeField] float minPitch = 5f;
         [SerializeField] float maxPitch = 60f;
 

@@ -61,7 +61,7 @@ namespace CarritoCaotico.Tests
 
         Product FindFreeProduct(ProductType type)
         {
-            foreach (Product product in Object.FindObjectsByType<Product>(FindObjectsSortMode.None))
+            foreach (Product product in Object.FindObjectsByType<Product>())
             {
                 if (product.Type == type && !product.IsHeld && !contents.Contains(product)) return product;
             }

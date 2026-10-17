@@ -71,8 +71,8 @@ namespace CarritoCaotico.EditorTools
         static readonly (float x, ProductType left, ProductType right, string label)[] Aisles =
         {
             (-AisleSpacing, ProductType.Leche, ProductType.Huevos, "Pasillo 1 · Lácteos"),
-            (0f, ProductType.Cereal, ProductType.Lata, "Pasillo 2 · Desayuno y conservas"),
-            (AisleSpacing, ProductType.Sandia, ProductType.PapelHigienico, "Pasillo 3 · Frutas y hogar"),
+            (0f, ProductType.Cereal, ProductType.Lata, "Pasillo 2 · Desayuno"),
+            (AisleSpacing, ProductType.Sandia, ProductType.PapelHigienico, "Pasillo 3 · Fruta y hogar"),
         };
 
         // ---------- Estado de la construcción ----------
@@ -295,10 +295,10 @@ namespace CarritoCaotico.EditorTools
 
         static void CreateMaterials()
         {
-            GetMaterial("Suelo", new Color32(214, 209, 200, 255));
+            GetMaterial("Suelo", new Color32(176, 170, 160, 255));
             GetMaterial("Pared", new Color32(205, 232, 225, 255));
-            GetMaterial("Estante", new Color32(168, 178, 189, 255));
-            GetMaterial("EstanteFondo", new Color32(232, 236, 240, 255));
+            GetMaterial("Estante", new Color32(96, 112, 130, 255));
+            GetMaterial("EstanteFondo", new Color32(150, 170, 186, 255));
             GetMaterial("Metal", new Color32(150, 160, 170, 255));
             GetMaterial("Rueda", new Color32(40, 44, 52, 255));
             GetMaterial("Asa", Coral);
@@ -376,21 +376,24 @@ namespace CarritoCaotico.EditorTools
             GameObject board = Prim(PrimitiveType.Cube, "Cartel_" + text, parent, localPosition, new Vector3(width, 0.55f, 0.06f), "Cartel", false);
             board.transform.localRotation = Quaternion.Euler(0f, yRotation, 0f);
 
-            var label = new GameObject("Texto");
-            label.transform.SetParent(board.transform, false);
-            // Compensa la escala del cartel para que el texto no se deforme.
-            label.transform.localScale = new Vector3(1f / width, 1f / 0.55f, 1f);
-            label.transform.localPosition = new Vector3(0f, 0f, -0.6f);
-            var mesh = label.AddComponent<TextMesh>();
-            mesh.text = text;
-            mesh.font = uiFont;
-            mesh.fontSize = 64;
-            mesh.characterSize = 0.035f;
-            mesh.anchor = TextAnchor.MiddleCenter;
-            mesh.alignment = TextAlignment.Center;
-            mesh.fontStyle = FontStyle.Bold;
-            mesh.color = Ink;
-            label.GetComponent<MeshRenderer>().sharedMaterial = uiFont.material;
+            // Canvas en espacio de mundo: a diferencia de TextMesh, respeta la profundidad
+            // y no se dibuja por encima de otros objetos.
+            var canvasGo = new GameObject("Texto_" + text, typeof(RectTransform));
+            canvasGo.transform.SetParent(parent, false);
+            canvasGo.transform.localRotation = board.transform.localRotation;
+            canvasGo.transform.localPosition = localPosition + board.transform.localRotation * new Vector3(0f, 0f, -0.035f);
+            canvasGo.transform.localScale = Vector3.one * 0.01f;
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            ((RectTransform)canvasGo.transform).sizeDelta = new Vector2(width * 100f, 55f);
+
+            Text label = Label(canvasGo.transform, "Texto", text, 32, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Stretch(label.rectTransform, 8f);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 10;
+            label.resizeTextMaxSize = 34;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
             Count("Carteles");
         }
 
@@ -401,13 +404,13 @@ namespace CarritoCaotico.EditorTools
             var sun = new GameObject("Luz direccional");
             var light = sun.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1.1f;
+            light.intensity = 0.9f;
             light.color = new Color(1f, 0.97f, 0.92f);
             light.shadows = LightShadows.Soft;
             sun.transform.rotation = Quaternion.Euler(55f, -35f, 0f);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.62f, 0.64f, 0.68f);
+            RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.48f);
             RenderSettings.skybox = null;
             RenderSettings.fog = false;
             Count("Luces");
@@ -426,7 +429,6 @@ namespace CarritoCaotico.EditorTools
             Prim(PrimitiveType.Cube, "Pared_Oeste", walls, new Vector3(-FloorHalfWidth - t * 0.5f, WallHeight * 0.5f, 0f), new Vector3(t, WallHeight, FloorHalfLength * 2f), "Pared");
 
             Prim(PrimitiveType.Cube, "Zona_Inicio", level, new Vector3(0f, 0.005f, StartZ), new Vector3(3f, 0.01f, 3f), "ZonaInicio", false);
-            AddSign(level, "INICIO", new Vector3(0f, 2.4f, StartZ - 3.5f), 180f, 2.2f);
         }
 
         static void BuildShelves(Transform level)
@@ -633,12 +635,12 @@ namespace CarritoCaotico.EditorTools
             handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Izq", t, new Vector3(-0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Der", t, new Vector3(0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
-            Prim(PrimitiveType.Capsule, "Empujador_Cuerpo", t, new Vector3(0f, 0.9f, -1.45f), new Vector3(0.5f, 0.9f, 0.5f), "Empujador", false);
-            Prim(PrimitiveType.Sphere, "Empujador_Cabeza", t, new Vector3(0f, 1.98f, -1.45f), Vector3.one * 0.34f, "Piel", false);
+            Prim(PrimitiveType.Capsule, "Empujador_Cuerpo", t, new Vector3(-0.3f, 0.7f, -1.4f), new Vector3(0.42f, 0.7f, 0.42f), "Empujador", false);
+            Prim(PrimitiveType.Sphere, "Empujador_Cabeza", t, new Vector3(-0.3f, 1.55f, -1.4f), Vector3.one * 0.3f, "Piel", false);
 
             // Agarrador sentado en el asiento del carrito.
-            Prim(PrimitiveType.Capsule, "Agarrador_Cuerpo", t, new Vector3(0f, 0.9f, -0.6f), new Vector3(0.36f, 0.3f, 0.36f), "Agarrador", false);
-            Prim(PrimitiveType.Sphere, "Agarrador_Cabeza", t, new Vector3(0f, 1.32f, -0.6f), Vector3.one * 0.28f, "Piel", false);
+            Prim(PrimitiveType.Capsule, "Agarrador_Cuerpo", t, new Vector3(0.18f, 0.9f, -0.6f), new Vector3(0.36f, 0.3f, 0.36f), "Agarrador", false);
+            Prim(PrimitiveType.Sphere, "Agarrador_Cabeza", t, new Vector3(0.18f, 1.32f, -0.6f), Vector3.one * 0.28f, "Piel", false);
 
             // Trigger de la canasta.
             GameObject basket = Empty("Canasta_Trigger", t, new Vector3(0f, 0.72f, 0.23f));
@@ -649,7 +651,7 @@ namespace CarritoCaotico.EditorTools
             GameObject dropPoint = Empty("Punto_Soltar_Canasta", t, new Vector3(0f, 1.15f, 0.23f));
 
             // Brazo extensible.
-            GameObject shoulder = Empty("Hombro", t, new Vector3(0.12f, 1.12f, -0.5f));
+            GameObject shoulder = Empty("Hombro", t, new Vector3(0.28f, 1.12f, -0.5f));
             GameObject arm = Prim(PrimitiveType.Cylinder, "Brazo", t, Vector3.zero, new Vector3(0.07f, 0.5f, 0.07f), "Brazo", false);
             GameObject hand = Empty("Mano", t, new Vector3(0f, 1.05f, 0.2f));
             GameObject handVisual = Prim(PrimitiveType.Sphere, "Mano_Visual", hand.transform, Vector3.zero, Vector3.one * 0.26f, "Mano", false);
@@ -749,7 +751,7 @@ namespace CarritoCaotico.EditorTools
             Image listHeader = Panel(grabberPanel.transform, "Cabecera", new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(520f, 70f), Yellow);
             Text listTitle = Label(listHeader.transform, "Titulo", "Lista del Agarrador", 34, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
             Stretch(listTitle.rectTransform, 20f);
-            Text secret = Label(grabberPanel.transform, "Aviso", "Solo el Agarrador (Jugador 2) mira esta lista.", 18, new Color32(100, 116, 139, 255), TextAnchor.UpperLeft, FontStyle.Italic);
+            Text secret = Label(grabberPanel.transform, "Aviso", "Solo el Agarrador (Jugador 2) mira esta lista.", 19, new Color32(71, 85, 105, 255), TextAnchor.UpperLeft, FontStyle.Italic);
             Place(secret.rectTransform, new Vector2(20f, -80f), new Vector2(480f, 28f));
             refs.ListText = Label(grabberPanel.transform, "Lista", "", 26, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
             Place(refs.ListText.rectTransform, new Vector2(20f, -116f), new Vector2(480f, 270f));
