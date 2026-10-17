@@ -61,7 +61,9 @@ namespace CarritoCaotico
         Vector3 handVelocity;
         Product held;
         Product candidate;
+        Product displayHeld;
         bool inputEnabled = true;
+        bool localActions = true;
         MaterialPropertyBlock propertyBlock;
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -71,6 +73,9 @@ namespace CarritoCaotico
         public Vector3 HandPosition => hand != null ? hand.position : transform.position;
         /// <summary>Posición de la mano en el espacio local del carrito.</summary>
         public Vector3 HandLocalPosition => currentLocal;
+        /// <summary>Hacia dónde va la mano (espacio local del carrito).</summary>
+        public Vector3 HandLocalTarget => targetLocal;
+        public Transform GrabPoint => grabPoint;
         public bool InputEnabled => inputEnabled;
 
         /// <summary>Se dispara cuando la mano agarra o deja de sostener un producto.</summary>
@@ -102,9 +107,10 @@ namespace CarritoCaotico
             currentLocal = Vector3.SmoothDamp(currentLocal, targetLocal, ref handVelocity, handSmoothTime);
             hand.localPosition = currentLocal;
 
-            candidate = held == null ? FindNearestProduct() : null;
+            candidate = held == null && displayHeld == null ? FindNearestProduct() : null;
 
-            if (inputEnabled)
+            // En el cliente LAN agarrar y lanzar los resuelve el anfitrión.
+            if (inputEnabled && localActions)
             {
                 if (GameInput.GrabberGrabPressed())
                 {
@@ -219,6 +225,12 @@ namespace CarritoCaotico
 
         public void SetInputEnabled(bool enabled) => inputEnabled = enabled;
 
+        /// <summary>false en el cliente LAN: la mano se mueve, pero agarrar y lanzar van por la red.</summary>
+        public void SetLocalActionsEnabled(bool enabled) => localActions = enabled;
+
+        /// <summary>Cliente LAN: producto que el anfitrión dice que sostiene la mano (solo para el color).</summary>
+        public void SetDisplayHeld(Product product) => displayHeld = product;
+
         /// <summary>Mueve el objetivo de la mano (espacio local del carrito). Útil para pruebas.</summary>
         public void SetHandLocalTarget(Vector3 localPosition, bool snap)
         {
@@ -234,7 +246,7 @@ namespace CarritoCaotico
             if (handRenderer == null) return;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
 
-            Color color = held != null ? holdingColor : candidate != null ? canGrabColor : idleColor;
+            Color color = held != null || displayHeld != null ? holdingColor : candidate != null ? canGrabColor : idleColor;
             handRenderer.GetPropertyBlock(propertyBlock);
             propertyBlock.SetColor(BaseColorId, color);
             propertyBlock.SetColor(ColorId, color);
