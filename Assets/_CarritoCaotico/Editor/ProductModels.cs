@@ -49,6 +49,14 @@ namespace CarritoCaotico.EditorTools
                 case ProductType.Queso: return new Color32(255, 190, 50, 255);
                 case ProductType.Agua: return new Color32(125, 200, 240, 255);
                 case ProductType.Detergente: return new Color32(130, 80, 200, 255);
+                case ProductType.Calabaza: return new Color32(234, 88, 12, 255);
+                case ProductType.Caramelos: return new Color32(217, 70, 239, 255);
+                case ProductType.Vela: return new Color32(254, 243, 199, 255);
+                case ProductType.Calavera: return new Color32(248, 250, 252, 255);
+                case ProductType.Pocion: return new Color32(132, 204, 22, 255);
+                case ProductType.SombreroBruja: return new Color32(49, 27, 84, 255);
+                case ProductType.Murcielago: return new Color32(63, 56, 74, 255);
+                case ProductType.ManzanaAcaramelada: return new Color32(185, 28, 28, 255);
                 default: return Color.gray;
             }
         }
@@ -208,6 +216,105 @@ namespace CarritoCaotico.EditorTools
                     builder.Part(PrimitiveType.Cube, "Etiqueta_Trasera", new Vector3(0f, -0.02f, -0.071f), new Vector3(0.16f, 0.15f, 0.004f), Vector3.zero, "Etiqueta", White);
                     collider = Box(root, new Vector3(0f, 0.03f, 0f), new Vector3(0.22f, 0.36f, 0.14f));
                     bottom = 0.15f;
+                    break;
+
+                // ---------- Supermercado de Halloween ----------
+
+                case ProductType.Calabaza:
+                    // Calabaza con gajos y tallo.
+                    builder.Part(PrimitiveType.Sphere, "Cuerpo", Vector3.zero, new Vector3(0.48f, 0.38f, 0.48f), Vector3.zero, "Cuerpo", MainColor(type));
+                    for (int i = 0; i < 6; i++)
+                        builder.Part(PrimitiveType.Sphere, "Gajo", Vector3.zero, new Vector3(0.16f, 0.39f, 0.49f), new Vector3(0f, i * 30f, 0f), "Gajo", new Color32(194, 65, 12, 255));
+                    builder.Part(PrimitiveType.Cylinder, "Tallo", new Vector3(0.01f, 0.21f, 0f), new Vector3(0.06f, 0.05f, 0.06f), new Vector3(0f, 0f, 12f), "Tallo", new Color32(77, 124, 15, 255));
+                    var pumpkin = root.AddComponent<SphereCollider>();
+                    pumpkin.radius = 0.21f;
+                    collider = pumpkin;
+                    bottom = 0.19f;
+                    angularDamping = 3f;
+                    break;
+
+                case ProductType.Caramelos:
+                    // Bolsa de caramelos con ventana y caramelos de colores.
+                    builder.Part(PrimitiveType.Cube, "Bolsa", Vector3.zero, new Vector3(0.24f, 0.28f, 0.1f), Vector3.zero, "Bolsa", MainColor(type));
+                    builder.Part(PrimitiveType.Cube, "Cierre", new Vector3(0f, 0.15f, 0f), new Vector3(0.2f, 0.03f, 0.06f), Vector3.zero, "Cierre", new Color32(250, 204, 21, 255));
+                    builder.Part(PrimitiveType.Cube, "Ventana", new Vector3(0f, -0.02f, 0.051f), new Vector3(0.17f, 0.15f, 0.004f), Vector3.zero, "Ventana", new Color32(253, 244, 255, 255));
+                    Color32[] candy = { new Color32(239, 68, 68, 255), new Color32(34, 197, 94, 255), new Color32(234, 179, 8, 255) };
+                    for (int i = 0; i < 3; i++)
+                        builder.Part(PrimitiveType.Cylinder, "Caramelo", new Vector3((i - 1) * 0.05f, -0.03f + (i % 2) * 0.04f, 0.055f), new Vector3(0.04f, 0.003f, 0.04f), new Vector3(90f, 0f, 0f), "Caramelo" + i, candy[i]);
+                    collider = Box(root, new Vector3(0f, 0.01f, 0f), new Vector3(0.24f, 0.31f, 0.1f));
+                    bottom = 0.14f;
+                    break;
+
+                case ProductType.Vela:
+                    // Vela con cera derretida, mecha y llama.
+                    builder.Part(PrimitiveType.Cylinder, "Cera", Vector3.zero, new Vector3(0.09f, 0.12f, 0.09f), Vector3.zero, "Cera", MainColor(type));
+                    builder.Part(PrimitiveType.Cylinder, "Goteo", new Vector3(0f, 0.1f, 0f), new Vector3(0.096f, 0.02f, 0.096f), Vector3.zero, "Goteo", new Color32(253, 230, 138, 255));
+                    builder.Part(PrimitiveType.Cylinder, "Mecha", new Vector3(0f, 0.135f, 0f), new Vector3(0.008f, 0.015f, 0.008f), Vector3.zero, "Mecha", new Color32(30, 30, 30, 255));
+                    builder.Part(PrimitiveType.Sphere, "Llama", new Vector3(0f, 0.17f, 0f), new Vector3(0.035f, 0.06f, 0.035f), Vector3.zero, "Llama", new Color32(251, 146, 60, 255));
+                    collider = Box(root, new Vector3(0f, 0.02f, 0f), new Vector3(0.09f, 0.28f, 0.09f));
+                    bottom = 0.12f;
+                    break;
+
+                case ProductType.Calavera:
+                    // Calavera de azúcar con mandíbula, ojos y flor.
+                    builder.Part(PrimitiveType.Sphere, "Craneo", new Vector3(0f, 0.02f, 0f), new Vector3(0.2f, 0.18f, 0.19f), Vector3.zero, "Craneo", MainColor(type));
+                    builder.Part(PrimitiveType.Cube, "Mandibula", new Vector3(0f, -0.07f, 0.03f), new Vector3(0.12f, 0.06f, 0.11f), Vector3.zero, "Craneo", MainColor(type));
+                    builder.Part(PrimitiveType.Sphere, "Ojo_Izq", new Vector3(-0.045f, 0.02f, 0.085f), Vector3.one * 0.055f, Vector3.zero, "Ojo", new Color32(30, 27, 75, 255));
+                    builder.Part(PrimitiveType.Sphere, "Ojo_Der", new Vector3(0.045f, 0.02f, 0.085f), Vector3.one * 0.055f, Vector3.zero, "Ojo", new Color32(30, 27, 75, 255));
+                    builder.Part(PrimitiveType.Sphere, "Flor", new Vector3(0f, 0.09f, 0.06f), Vector3.one * 0.04f, Vector3.zero, "Flor", new Color32(236, 72, 153, 255));
+                    var skull = root.AddComponent<SphereCollider>();
+                    skull.radius = 0.1f;
+                    collider = skull;
+                    bottom = 0.1f;
+                    angularDamping = 3f;
+                    break;
+
+                case ProductType.Pocion:
+                    // Matraz redondo con cuello, corcho y etiqueta.
+                    builder.Part(PrimitiveType.Sphere, "Matraz", Vector3.zero, Vector3.one * 0.18f, Vector3.zero, "Matraz", MainColor(type));
+                    builder.Part(PrimitiveType.Cylinder, "Cuello", new Vector3(0f, 0.12f, 0f), new Vector3(0.06f, 0.05f, 0.06f), Vector3.zero, "Matraz", MainColor(type));
+                    builder.Part(PrimitiveType.Cylinder, "Corcho", new Vector3(0f, 0.18f, 0f), new Vector3(0.065f, 0.02f, 0.065f), Vector3.zero, "Corcho", new Color32(146, 100, 60, 255));
+                    builder.Part(PrimitiveType.Cube, "Etiqueta", new Vector3(0f, 0f, 0.088f), new Vector3(0.08f, 0.06f, 0.004f), Vector3.zero, "Etiqueta", new Color32(254, 243, 199, 255));
+                    collider = Box(root, new Vector3(0f, 0.04f, 0f), new Vector3(0.18f, 0.29f, 0.18f));
+                    bottom = 0.09f;
+                    break;
+
+                case ProductType.SombreroBruja:
+                    // Ala ancha y copa cónica hecha con cilindros, banda morada.
+                    var hat = MainColor(type);
+                    builder.Part(PrimitiveType.Cylinder, "Ala", Vector3.zero, new Vector3(0.34f, 0.008f, 0.34f), Vector3.zero, "Sombrero", hat);
+                    float[] widths = { 0.18f, 0.14f, 0.1f, 0.065f, 0.035f };
+                    for (int i = 0; i < widths.Length; i++)
+                        builder.Part(PrimitiveType.Cylinder, "Copa", new Vector3(0.006f * i, 0.04f + i * 0.06f, 0f), new Vector3(widths[i], 0.032f, widths[i]), new Vector3(0f, 0f, -2f * i), "Sombrero", hat);
+                    builder.Part(PrimitiveType.Cylinder, "Banda", new Vector3(0f, 0.035f, 0f), new Vector3(0.185f, 0.016f, 0.185f), Vector3.zero, "Banda", new Color32(147, 51, 234, 255));
+                    collider = Box(root, new Vector3(0f, 0.15f, 0f), new Vector3(0.32f, 0.32f, 0.32f));
+                    bottom = 0.01f;
+                    break;
+
+                case ProductType.Murcielago:
+                    // Murciélago de peluche con alas, orejas y ojos.
+                    var bat = MainColor(type);
+                    builder.Part(PrimitiveType.Sphere, "Cuerpo", Vector3.zero, new Vector3(0.15f, 0.17f, 0.13f), Vector3.zero, "Peluche", bat);
+                    builder.Part(PrimitiveType.Cube, "Ala_Izq", new Vector3(-0.15f, 0.02f, 0f), new Vector3(0.16f, 0.1f, 0.02f), new Vector3(0f, 0f, 20f), "Peluche", bat);
+                    builder.Part(PrimitiveType.Cube, "Ala_Der", new Vector3(0.15f, 0.02f, 0f), new Vector3(0.16f, 0.1f, 0.02f), new Vector3(0f, 0f, -20f), "Peluche", bat);
+                    builder.Part(PrimitiveType.Cube, "Oreja_Izq", new Vector3(-0.04f, 0.09f, 0f), new Vector3(0.03f, 0.05f, 0.02f), new Vector3(0f, 0f, 15f), "Peluche", bat);
+                    builder.Part(PrimitiveType.Cube, "Oreja_Der", new Vector3(0.04f, 0.09f, 0f), new Vector3(0.03f, 0.05f, 0.02f), new Vector3(0f, 0f, -15f), "Peluche", bat);
+                    builder.Part(PrimitiveType.Sphere, "Ojo_Izq", new Vector3(-0.03f, 0.03f, 0.058f), Vector3.one * 0.03f, Vector3.zero, "Ojos", new Color32(250, 204, 21, 255));
+                    builder.Part(PrimitiveType.Sphere, "Ojo_Der", new Vector3(0.03f, 0.03f, 0.058f), Vector3.one * 0.03f, Vector3.zero, "Ojos", new Color32(250, 204, 21, 255));
+                    collider = Box(root, new Vector3(0f, 0.01f, 0f), new Vector3(0.42f, 0.2f, 0.13f));
+                    bottom = 0.085f;
+                    break;
+
+                case ProductType.ManzanaAcaramelada:
+                    // Manzana roja brillante con palo y charco de caramelo en la base.
+                    builder.Part(PrimitiveType.Sphere, "Manzana", Vector3.zero, new Vector3(0.18f, 0.17f, 0.18f), Vector3.zero, "Manzana", MainColor(type));
+                    builder.Part(PrimitiveType.Cylinder, "Palo", new Vector3(0f, 0.14f, 0f), new Vector3(0.02f, 0.07f, 0.02f), Vector3.zero, "Palo", new Color32(214, 181, 140, 255));
+                    builder.Part(PrimitiveType.Cylinder, "Caramelo", new Vector3(0f, -0.075f, 0f), new Vector3(0.2f, 0.012f, 0.2f), Vector3.zero, "Caramelo", new Color32(180, 83, 9, 255));
+                    var apple = root.AddComponent<SphereCollider>();
+                    apple.radius = 0.09f;
+                    collider = apple;
+                    bottom = 0.085f;
+                    angularDamping = 3f;
                     break;
 
                 default:

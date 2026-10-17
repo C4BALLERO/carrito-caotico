@@ -36,6 +36,12 @@ namespace CarritoCaotico
         [SerializeField] CameraController cameraController;
         [SerializeField] RivalManager rivals;
 
+        [Header("Supermercado")]
+        [Tooltip("Supermercado que representa esta escena.")]
+        [SerializeField] StoreId store = StoreId.Clasico;
+        [Tooltip("Lista fija del tutorial (tipos que hay cerca de la salida).")]
+        [SerializeField] ProductType[] tutorialProducts = { ProductType.Sandia, ProductType.Manzana };
+
         [Header("Flujo")]
         [Tooltip("Segundos de preparación para que el Agarrador lea la lista.")]
         [SerializeField, Min(0f)] float preparationTime = 4f;
@@ -53,7 +59,9 @@ namespace CarritoCaotico
         public int CurrentLevel => CurrentConfig != null ? CurrentConfig.Level : GameSession.CurrentLevel;
         public bool IsPaused { get; private set; }
         public bool IsGameOver => State == GameState.CompraEntregada || State == GameState.TiempoAgotado;
-        public bool CanAdvance => State == GameState.CompraEntregada && LastReceipt != null && LastReceipt.IsComplete;
+        public bool CanAdvance => !IsTutorial && State == GameState.CompraEntregada && LastReceipt != null && LastReceipt.IsComplete;
+        public bool IsTutorial { get; private set; }
+        public StoreId Store => store;
 
         public event Action<GameState> StateChanged;
         public event Action<ShoppingReceipt> GameEnded;
@@ -89,10 +97,12 @@ namespace CarritoCaotico
             if (showMenuOnStart && !GameSession.StartDirectly)
             {
                 GameInput.Scheme = ControlScheme.Normal;
+                GameSession.SelectStore(store);
                 ChangeState(GameState.Menu);
                 return;
             }
-            BeginLevel(GameSession.CurrentLevel);
+            if (GameSession.Mode == GameMode.Tutorial) BeginTutorial();
+            else BeginLevel(GameSession.CurrentLevel);
         }
 
         void Update()
@@ -119,12 +129,56 @@ namespace CarritoCaotico
 
         // ---------- Niveles ----------
 
-        /// <summary>Empieza un nivel desde el menú, sin recargar la escena.</summary>
-        public void StartGame(int level)
+        /// <summary>Empieza un nivel desde el menú en el supermercado de esta escena.</summary>
+        public void StartGame(int level) => StartGame(level, store);
+
+        /// <summary>
+        /// Empieza un nivel desde el menú. Si el supermercado es otro, carga su escena con la
+        /// pantalla de carga; si es este, empieza sin recargar.
+        /// </summary>
+        public void StartGame(int level, StoreId targetStore)
         {
             if (State != GameState.Menu) return;
-            GameSession.Begin(level);
+            GameSession.Begin(level, targetStore);
+            if (targetStore != store)
+            {
+                LoadingScreen.LoadStore(targetStore, $"{StoreCatalog.DisplayName(targetStore)} · Nivel {GameSession.CurrentLevel}");
+                return;
+            }
             BeginLevel(GameSession.CurrentLevel);
+        }
+
+        /// <summary>Tutorial guiado: siempre en el supermercado clásico.</summary>
+        public void StartTutorial()
+        {
+            if (State != GameState.Menu) return;
+            GameSession.BeginTutorial();
+            if (store != StoreId.Clasico)
+            {
+                LoadingScreen.LoadStore(StoreId.Clasico, "Tutorial");
+                return;
+            }
+            BeginTutorial();
+        }
+
+        void BeginTutorial()
+        {
+            IsTutorial = true;
+            CurrentConfig = LevelProgression.Get(1, GameSession.SessionSeed);
+            CurrentConfig.RivalCount = 0;
+            GameInput.Scheme = ControlScheme.Normal;
+            if (timer != null) timer.SetDuration(CurrentConfig.Duration);
+            if (shoppingList != null)
+            {
+                var items = new (ProductType, int)[tutorialProducts.Length];
+                for (int i = 0; i < tutorialProducts.Length; i++) items[i] = (tutorialProducts[i], 1);
+                shoppingList.SetFixed(items);
+            }
+            LevelConfigured?.Invoke(CurrentConfig);
+            // Sin cuenta atrás ni reloj: el tutorial avanza a su ritmo.
+            SetPlayersEnabled(true);
+            SetCursorLocked(lockCursorWhilePlaying);
+            ChangeState(GameState.EnJuego);
         }
 
         void BeginLevel(int level)
@@ -155,25 +209,26 @@ namespace CarritoCaotico
             ChangeState(GameState.EnJuego);
         }
 
-        /// <summary>Recarga la escena y repite el nivel actual.</summary>
+        /// <summary>Recarga la escena y repite el nivel actual (o el tutorial).</summary>
         public void Restart()
         {
-            GameSession.Begin(CurrentLevel);
-            ReloadScene();
+            if (IsTutorial) GameSession.BeginTutorial();
+            else GameSession.Begin(CurrentLevel, store);
+            ReloadScene(IsTutorial ? "Tutorial" : $"Reintentar · Nivel {CurrentLevel}");
         }
 
         /// <summary>Pasa al siguiente nivel (solo tras una compra completa).</summary>
         public void NextLevel()
         {
             if (!CanAdvance) return;
-            GameSession.Begin(CurrentLevel + 1);
-            ReloadScene();
+            GameSession.Begin(CurrentLevel + 1, store);
+            ReloadScene($"{StoreCatalog.DisplayName(store)} · Nivel {CurrentLevel + 1}");
         }
 
         public void GoToMenu()
         {
             GameSession.ReturnToMenu();
-            ReloadScene();
+            ReloadScene("Menú principal");
         }
 
         public void QuitGame()
@@ -213,12 +268,13 @@ namespace CarritoCaotico
 
             if (timer != null) timer.StopTimer();
             SetPlayersEnabled(false);
+            if (IsTutorial) GameSession.MarkTutorialDone();
 
             cartContents.FillCounts(deliveredSnapshot);
             float elapsed = timer != null ? timer.Elapsed : 0f;
             float remaining = timer != null ? timer.Remaining : 0f;
             LastReceipt = ShoppingRules.Evaluate(shoppingList.Required, deliveredSnapshot, elapsed, remaining, true);
-            if (LastReceipt.IsComplete) GameSession.Unlock(CurrentLevel + 1);
+            if (LastReceipt.IsComplete && !IsTutorial) GameSession.Unlock(CurrentLevel + 1);
 
             EndGame(GameState.CompraEntregada);
             return CheckoutAttempt.Accepted;
@@ -242,23 +298,11 @@ namespace CarritoCaotico
             GameEnded?.Invoke(LastReceipt);
         }
 
-        void ReloadScene()
+        void ReloadScene(string heading)
         {
             Time.timeScale = 1f;
             SetCursorLocked(false);
-            Scene scene = SceneManager.GetActiveScene();
-            if (scene.buildIndex >= 0)
-            {
-                SceneManager.LoadScene(scene.buildIndex);
-                return;
-            }
-#if UNITY_EDITOR
-            // La escena no está en Build Settings: recarga por ruta dentro del Editor.
-            UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode(scene.path,
-                new LoadSceneParameters(LoadSceneMode.Single));
-#else
-            SceneManager.LoadScene(scene.name);
-#endif
+            LoadingScreen.Load(SceneManager.GetActiveScene().path, store, heading);
         }
 
         void ChangeState(GameState newState)

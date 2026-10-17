@@ -153,6 +153,13 @@ namespace CarritoCaotico
             return AnyPadStartPressed();
         }
 
+        /// <summary>Tutorial: saltar el paso actual.</summary>
+        public static bool TutorialSkipPressed()
+        {
+            var keyboard = Keyboard.current;
+            return keyboard != null && keyboard.tabKey.wasPressedThisFrame;
+        }
+
         public static bool NextLevelPressed()
         {
             var keyboard = Keyboard.current;

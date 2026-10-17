@@ -63,6 +63,28 @@ namespace CarritoCaotico.Tests
         }
 
         [Test]
+        public void Generate_UsesOnlyTheStoreProducts()
+        {
+            var halloween = new[] { ProductType.Calabaza, ProductType.Vela, ProductType.Pocion, ProductType.Murcielago };
+            var list = new Dictionary<ProductType, int>();
+            for (int seed = 1; seed <= 200; seed++)
+            {
+                ShoppingRules.GenerateList(new System.Random(seed), 3, 8, 3, list, halloween);
+                foreach (ProductType type in list.Keys)
+                    CollectionAssert.Contains(halloween, type);
+            }
+        }
+
+        [Test]
+        public void Stores_HaveDistinctScenesAndLoadingImages()
+        {
+            Assert.AreNotEqual(StoreCatalog.SceneName(StoreId.Clasico), StoreCatalog.SceneName(StoreId.Halloween));
+            Assert.AreNotEqual(StoreCatalog.LoadingPrefix(StoreId.Clasico), StoreCatalog.LoadingPrefix(StoreId.Halloween));
+            foreach (StoreId store in StoreCatalog.All)
+                Assert.Greater(StoreCatalog.Tips(store).Length, 0);
+        }
+
+        [Test]
         public void KeyLabels_ExistForEveryScheme()
         {
             foreach (ControlScheme scheme in new[] { ControlScheme.Normal, ControlScheme.Intercambiado, ControlScheme.Invertido })

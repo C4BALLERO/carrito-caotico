@@ -12,8 +12,9 @@ namespace CarritoCaotico.EditorTools
 {
     /// <summary>
     /// Construye la interfaz de Carrito Caótico con estilo "claymorphism" para juegos casuales:
-    /// tarjetas redondeadas con borde grueso y sombra suave, paleta de supermercado (verde fresco
-    /// + ámbar), contraste mínimo 4.5:1 en texto y estados que nunca dependen solo del color.
+    /// tarjetas redondeadas con borde grueso y sombra suave, contraste mínimo 4.5:1 en texto y
+    /// estados que nunca dependen solo del color. Durante la partida solo se muestra la Lista del
+    /// Agarrador; los controles viven en el tutorial, la preparación y la pausa.
     /// Las texturas de la interfaz (esquinas redondeadas, círculo y check) se generan aquí.
     /// </summary>
     internal static class HudBuilder
@@ -32,25 +33,49 @@ namespace CarritoCaotico.EditorTools
         static readonly Color32 WarningText = new Color32(180, 83, 9, 255);
         static readonly Color32 Danger = new Color32(220, 38, 38, 255);
         static readonly Color32 PusherBlue = new Color32(37, 99, 235, 255);  // Jugador 1 (igual que su personaje)
-        static readonly Color32 GrabberPurple = new Color32(124, 58, 237, 255); // Jugador 2
         static readonly Color32 Shadow = new Color32(15, 23, 42, 60);
 
         const float BorderWidth = 3f;
         const float ShadowOffset = 6f;
+
+        /// <summary>Colores que cambian con el tema del supermercado.</summary>
+        struct Theme
+        {
+            public Color Accent;        // cabecera de la lista y del menú (texto blanco encima)
+            public Color MenuBack;
+            public Color MenuStripe;
+            public Color MenuSubtitle;
+        }
 
         static Font font;
         static Sprite rounded;
         static Sprite circle;
         static Sprite check;
         static int elementCount;
+        static Theme theme;
 
         public static int ElementCount => elementCount;
 
-        /// <summary>Construye el HUD, el menú principal y el menú de pausa.</summary>
-        public static (GameUI ui, MenuUI menu) Build(Font uiFont)
+        /// <summary>Construye el HUD, el tutorial, el menú principal y el menú de pausa.</summary>
+        public static (GameUI ui, MenuUI menu, TutorialController tutorial) Build(Font uiFont, StoreId store)
         {
             font = uiFont;
             elementCount = 0;
+            theme = store == StoreId.Halloween
+                ? new Theme
+                {
+                    Accent = new Color32(194, 65, 12, 255),       // naranja calabaza oscuro (5.2:1 con blanco)
+                    MenuBack = new Color32(30, 16, 46, 255),
+                    MenuStripe = new Color32(46, 24, 70, 255),
+                    MenuSubtitle = new Color32(254, 215, 170, 255)
+                }
+                : new Theme
+                {
+                    Accent = new Color32(124, 58, 237, 255),      // morado del Agarrador
+                    MenuBack = new Color32(236, 253, 245, 255),
+                    MenuStripe = new Color32(209, 250, 229, 255),
+                    MenuSubtitle = new Color32(209, 250, 229, 255)
+                };
             EnsureSprites();
 
             var canvasGo = new GameObject("HUD", typeof(RectTransform));
@@ -64,20 +89,19 @@ namespace CarritoCaotico.EditorTools
             Transform root = canvasGo.transform;
             var refs = new Dictionary<string, object>();
             var menuRefs = new Dictionary<string, object>();
+            var tutorialRefs = new Dictionary<string, object>();
 
-            // Paneles de juego en un contenedor que se oculta en el menú principal.
+            // Durante la partida solo se ve la lista (y avisos breves).
             Transform game = Container(root, "Juego");
             refs["hudRoot"] = game.gameObject;
-            BuildTimer(game, refs);
-            BuildStatusChips(game, refs, menuRefs);
-            BuildPusherPanel(game, refs);
-            ShoppingListRow[] rows = BuildGrabberPanel(game, refs);
+            ShoppingListRow[] rows = BuildListPanel(game, refs);
             BuildMessage(game, refs);
 
+            BuildTutorial(root, tutorialRefs);
             BuildPreparation(root, refs);
             BuildReceipt(root, refs);
-            BuildPause(root, menuRefs);
-            BuildMenu(root, menuRefs);
+            BuildPause(root, refs, menuRefs);
+            BuildMenu(root, menuRefs, store);
 
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
@@ -88,7 +112,9 @@ namespace CarritoCaotico.EditorTools
             WireRows(ui, rows);
             var menu = canvasGo.AddComponent<MenuUI>();
             Wire(menu, menuRefs);
-            return (ui, menu);
+            var tutorial = canvasGo.AddComponent<TutorialController>();
+            Wire(tutorial, tutorialRefs);
+            return (ui, menu, tutorial);
         }
 
         static Transform Container(Transform parent, string name)
@@ -100,132 +126,56 @@ namespace CarritoCaotico.EditorTools
         }
 
         // ======================================================================
-        // Secciones
+        // Partida: solo la Lista del Agarrador
         // ======================================================================
 
-        static void BuildTimer(Transform root, Dictionary<string, object> refs)
+        static ShoppingListRow[] BuildListPanel(Transform root, Dictionary<string, object> refs)
         {
-            Image fill = CardBox(root, "Temporizador", new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(300f, 120f), Success, 1f);
-            Text digits = Label(fill.transform, "Tiempo", "2:00", 66, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(digits.rectTransform, new Vector2(0f, 0.25f), Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, -4f));
+            Image fill = CardBox(root, "Panel_Agarrador", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(540f, 616f), Card, 1f);
 
-            // Barra de tiempo restante: progreso lineal, sin depender solo del color.
-            Image track = Box(fill.transform, "Barra", new Color(1f, 1f, 1f, 0.35f), circleSprite: false, ppu: 3f);
-            Anchor(track.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(22f, 16f), new Vector2(-22f, 30f));
-            Image bar = Box(track.transform, "Relleno", Color.white, circleSprite: false, ppu: 3f);
-            Anchor(bar.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            // Cabecera: título + reloj integrado.
+            Image band = Box(fill.transform, "Cabecera", theme.Accent, circleSprite: false, ppu: 1.2f);
+            Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -80f), new Vector2(-8f, -8f));
+            Text title = Label(band.transform, "Titulo", "Lista del Agarrador", 30, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Anchor(title.rectTransform, Vector2.zero, Vector2.one, new Vector2(16f, 0f), new Vector2(-160f, 0f));
+            Image timerPill = Box(band.transform, "Reloj", Color.white, circleSprite: false, ppu: 1.6f);
+            Anchor(timerPill.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-150f, -25f), new Vector2(-12f, 25f));
+            Text timerText = Label(timerPill.transform, "Tiempo", "2:00", 30, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Anchor(timerText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            timerText.resizeTextForBestFit = true;
+            timerText.resizeTextMinSize = 16;
+            timerText.resizeTextMaxSize = 30;
 
-            refs["timerText"] = digits;
-            refs["timerBackground"] = fill;
-            refs["timerBarFill"] = bar.rectTransform;
-        }
+            Text subtitle = Label(fill.transform, "Subtitulo", "Nivel 1", 19, MutedInk, TextAnchor.MiddleLeft, FontStyle.Italic);
+            Place(subtitle.rectTransform, new Vector2(22f, -88f), new Vector2(500f, 28f));
+            subtitle.resizeTextForBestFit = true;
+            subtitle.resizeTextMinSize = 13;
+            subtitle.resizeTextMaxSize = 19;
+            subtitle.horizontalOverflow = HorizontalWrapMode.Wrap;
+            subtitle.verticalOverflow = VerticalWrapMode.Truncate;
 
-        static void BuildStatusChips(Transform root, Dictionary<string, object> refs, Dictionary<string, object> menuRefs)
-        {
-            Image level = CardBox(root, "Nivel", new Vector2(0.5f, 1f), new Vector2(-265f, -24f), new Vector2(190f, 52f), Card, 1.5f);
-            Text levelText = Label(level.transform, "Texto", "NIVEL 1", 24, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(levelText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-
-            Button pause = CardButton(root, "Boton_Pausa", "Pausa", "P", Card, Ink, new Vector2(0.5f, 1f), new Vector2(-265f, -88f), new Vector2(190f, 50f), 22, 1.5f);
-
-            Image rivals = CardBox(root, "Rivales", new Vector2(0.5f, 1f), new Vector2(275f, -24f), new Vector2(210f, 52f), Card, 1.5f);
-            Text rivalsText = Label(rivals.transform, "Texto", "Sin rivales", 19, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(rivalsText.rectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
-            rivalsText.resizeTextForBestFit = true;
-            rivalsText.resizeTextMinSize = 13;
-            rivalsText.resizeTextMaxSize = 19;
-            rivalsText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            rivalsText.verticalOverflow = VerticalWrapMode.Truncate;
-
-            refs["levelText"] = levelText;
-            refs["rivalsText"] = rivalsText;
-            menuRefs["hudPauseButton"] = pause;
-        }
-
-        static void BuildPusherPanel(Transform root, Dictionary<string, object> refs)
-        {
-            Image fill = CardBox(root, "Panel_Empujador", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(560f, 312f), Card, 1f);
-            var (pusherChip, pusherChipText) = Header(fill.transform, "EMPUJADOR", "Jugador 1", PusherBlue, 64f);
-
-            float y = -84f;
-            var keys = new List<Text>();
-            keys.AddRange(KeyRow(fill.transform, y, ("W", "Acelerar", 48f), ("S", "Frenar / atrás", 48f)));
-            keys.AddRange(KeyRow(fill.transform, y - 46f, ("A  D", "Girar", 72f), ("Shift izq.", "Derrapar", 0f)));
-            KeyRow(fill.transform, y - 92f, ("Mouse", "Cámara", 0f), ("Esc / P", "Pausa", 0f));
-            refs["pusherKeyLabels"] = keys.ToArray();
-            refs["pusherChip"] = pusherChip;
-            refs["pusherChipText"] = pusherChipText;
-
-            Text caption = Label(fill.transform, "Carga_Titulo", "CARGA DEL CARRITO", 18, MutedInk, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Place(caption.rectTransform, new Vector2(20f, -232f), new Vector2(260f, 26f));
-            Text value = Label(fill.transform, "Carga", "0.0 kg  ·  0 productos", 22, Ink, TextAnchor.MiddleRight, FontStyle.Bold);
-            Place(value.rectTransform, new Vector2(240f, -232f), new Vector2(300f, 26f));
-
-            Image track = Box(fill.transform, "Medidor", Neutral, circleSprite: false, ppu: 3f);
-            Place(track.rectTransform, new Vector2(20f, -266f), new Vector2(520f, 18f));
-            Image bar = Box(track.transform, "Relleno", Success, circleSprite: false, ppu: 3f);
-            Anchor(bar.rectTransform, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-
-            refs["cargoText"] = value;
-            refs["cargoBarFill"] = bar.rectTransform;
-            refs["cargoBarImage"] = bar;
-        }
-
-        static ShoppingListRow[] BuildGrabberPanel(Transform root, Dictionary<string, object> refs)
-        {
-            Image fill = CardBox(root, "Panel_Agarrador", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(540f, 812f), Card, 1f);
-            var (grabberChip, grabberChipText) = Header(fill.transform, "Lista del Agarrador", "Jugador 2", GrabberPurple, 72f, 32);
-            refs["grabberChip"] = grabberChip;
-            refs["grabberChipText"] = grabberChipText;
-
-            Text note = Label(fill.transform, "Aviso", "Solo el Agarrador mira esta lista y guía al Empujador.", 19, MutedInk, TextAnchor.MiddleLeft, FontStyle.Italic);
-            Place(note.rectTransform, new Vector2(22f, -84f), new Vector2(500f, 28f));
-
-            // La lista nunca tiene más de LevelProgression.MaxListUnits tipos distintos.
             int rowCount = LevelProgression.MaxListUnits;
             var rows = new ShoppingListRow[rowCount];
             for (int i = 0; i < rowCount; i++)
-                rows[i] = ListRow(fill.transform, i, -120f - i * 46f);
+                rows[i] = ListRow(fill.transform, i, -124f - i * 46f);
 
             Text extra = Label(fill.transform, "Sobrantes", "", 20, WarningText, TextAnchor.UpperLeft, FontStyle.Bold);
-            Place(extra.rectTransform, new Vector2(22f, -492f), new Vector2(500f, 48f));
+            Place(extra.rectTransform, new Vector2(22f, -496f), new Vector2(500f, 46f));
             extra.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             Text progress = Label(fill.transform, "Progreso", "Conseguido: 0 de 0 unidades", 22, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Place(progress.rectTransform, new Vector2(22f, -544f), new Vector2(500f, 30f));
+            Place(progress.rectTransform, new Vector2(22f, -546f), new Vector2(500f, 30f));
             Image track = Box(fill.transform, "Barra_Progreso", Neutral, circleSprite: false, ppu: 3f);
-            Place(track.rectTransform, new Vector2(22f, -578f), new Vector2(496f, 18f));
+            Place(track.rectTransform, new Vector2(22f, -582f), new Vector2(496f, 18f));
             Image bar = Box(track.transform, "Relleno", Success, circleSprite: false, ppu: 3f);
             Anchor(bar.rectTransform, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
 
-            // Estado de la mano: punto de color + texto.
-            Image handChip = Box(fill.transform, "Estado_Mano", KeyCap, circleSprite: false, ppu: 2f);
-            Place(handChip.rectTransform, new Vector2(22f, -606f), new Vector2(496f, 46f));
-            Image dot = Box(handChip.transform, "Punto", MutedInk, circleSprite: true, ppu: 1f);
-            Place(dot.rectTransform, new Vector2(16f, -13f), new Vector2(20f, 20f));
-            Text hand = Label(handChip.transform, "Texto", "Mano vacía: acércala a un producto", 20, Ink, TextAnchor.MiddleLeft, FontStyle.Normal);
-            Anchor(hand.rectTransform, Vector2.zero, Vector2.one, new Vector2(46f, 0f), new Vector2(-10f, 0f));
-            // El texto se reduce si no cabe, en lugar de salirse del panel.
-            hand.horizontalOverflow = HorizontalWrapMode.Wrap;
-            hand.verticalOverflow = VerticalWrapMode.Truncate;
-            hand.resizeTextForBestFit = true;
-            hand.resizeTextMinSize = 14;
-            hand.resizeTextMaxSize = 20;
-
-            // Controles del Agarrador.
-            Image divider = Box(fill.transform, "Separador", Neutral, circleSprite: false, ppu: 8f);
-            Place(divider.rectTransform, new Vector2(22f, -666f), new Vector2(496f, 3f));
-            var grabberKeys = new List<Text>();
-            grabberKeys.AddRange(KeyRow(fill.transform, -678f, ("Flechas", "Mover brazo", 112f)));
-            grabberKeys.AddRange(KeyRow(fill.transform, -720f, ("Enter", "Agarrar / soltar", 112f)));
-            grabberKeys.AddRange(KeyRow(fill.transform, -762f, ("Ctrl der.", "Lanzar", 112f)));
-            refs["grabberKeyLabels"] = grabberKeys.ToArray();
-
+            refs["listSubtitleText"] = subtitle;
+            refs["timerText"] = timerText;
+            refs["timerBackground"] = timerPill;
             refs["listExtraText"] = extra;
             refs["listProgressText"] = progress;
             refs["listProgressFill"] = bar.rectTransform;
-            refs["handText"] = hand;
-            refs["handDot"] = dot;
             return rows;
         }
 
@@ -247,7 +197,10 @@ namespace CarritoCaotico.EditorTools
             elementCount++;
 
             Text name = Label(go.transform, "Nombre", "1 × Producto", 24, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Place(name.rectTransform, new Vector2(48f, 0f), new Vector2(330f, 42f));
+            Place(name.rectTransform, new Vector2(48f, 0f), new Vector2(336f, 42f));
+            name.resizeTextForBestFit = true;
+            name.resizeTextMinSize = 16;
+            name.resizeTextMaxSize = 24;
 
             Image pill = Box(go.transform, "Cantidad", Neutral, circleSprite: false, ppu: 2f);
             Place(pill.rectTransform, new Vector2(390f, -5f), new Vector2(106f, 32f));
@@ -259,45 +212,135 @@ namespace CarritoCaotico.EditorTools
 
         static void BuildMessage(Transform root, Dictionary<string, object> refs)
         {
-            Image fill = CardBox(root, "Mensaje", new Vector2(0.5f, 1f), new Vector2(10f, -164f), new Vector2(740f, 78f), Ink, 1f);
+            Image fill = CardBox(root, "Mensaje", new Vector2(0.5f, 1f), new Vector2(-260f, -24f), new Vector2(760f, 78f), Ink, 1f);
             Text text = Label(fill.transform, "Texto", "", 30, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(20f, 0f), new Vector2(-20f, 0f));
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 18;
+            text.resizeTextMaxSize = 30;
             refs["messagePanel"] = fill.transform.parent.gameObject;
             refs["messageText"] = text;
             refs["messageBackground"] = fill;
         }
 
+        // ======================================================================
+        // Tutorial
+        // ======================================================================
+
+        static void BuildTutorial(Transform root, Dictionary<string, object> refs)
+        {
+            Image card = CardBox(root, "Tutorial", new Vector2(0.5f, 0f), new Vector2(-250f, 30f), new Vector2(1000f, 262f), Card, 1f);
+
+            Image who = Box(card.transform, "Jugador", PusherBlue, circleSprite: false, ppu: 2f);
+            Place(who.rectTransform, new Vector2(22f, -18f), new Vector2(320f, 40f));
+            Text whoText = Label(who.transform, "Texto", "EMPUJADOR · Jugador 1", 20, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Anchor(whoText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            Text progress = Label(card.transform, "Progreso", "Paso 1 de 10", 18, MutedInk, TextAnchor.MiddleRight, FontStyle.Bold);
+            Place(progress.rectTransform, new Vector2(500f, -18f), new Vector2(380f, 40f));
+
+            Image done = Box(card.transform, "Hecho", Success, circleSprite: true, ppu: 1f);
+            Anchor(done.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-84f, -82f), new Vector2(-22f, -20f));
+            var doneMark = new GameObject("Check", typeof(RectTransform)).AddComponent<Image>();
+            doneMark.transform.SetParent(done.transform, false);
+            doneMark.sprite = check;
+            doneMark.raycastTarget = false;
+            Anchor(doneMark.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 10f), new Vector2(-10f, -10f));
+            elementCount++;
+
+            Text title = Label(card.transform, "Titulo", "Empuja el carrito", 36, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Place(title.rectTransform, new Vector2(22f, -66f), new Vector2(860f, 48f));
+            Text body = Label(card.transform, "Texto", "", 23, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
+            Place(body.rectTransform, new Vector2(22f, -118f), new Vector2(940f, 64f));
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            // Fila de teclas: el controlador copia la plantilla para cada tecla del paso.
+            var keysGo = new GameObject("Teclas", typeof(RectTransform));
+            keysGo.transform.SetParent(card.transform, false);
+            Place((RectTransform)keysGo.transform, new Vector2(22f, -190f), new Vector2(940f, 52f));
+            var layout = keysGo.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.spacing = 12f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            Image template = KeyCapChip(keysGo.transform, "W", 60f, out Text templateText);
+            templateText.fontSize = 22;
+            var element = template.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = 60f;
+            element.preferredHeight = 48f;
+            template.gameObject.name = "Plantilla_Tecla";
+
+            // Tarjeta final.
+            Transform overlay = Overlay(root, "Tutorial_Completado", new Color(0.06f, 0.09f, 0.16f, 0.62f));
+            Image doneCard = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 400f), Card, 1f);
+            Text doneTitle = Label(doneCard.transform, "Titulo", "¡Tutorial completado!", 50, Success, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(doneTitle.rectTransform, new Vector2(20f, -30f), new Vector2(660f, 70f));
+            Text doneBody = Label(doneCard.transform, "Texto", "Ya saben conducir, agarrar, soltar, lanzar y pagar.\nEn partida solo verán la lista: ¡a comunicarse!", 24, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Place(doneBody.rectTransform, new Vector2(30f, -110f), new Vector2(640f, 90f));
+            doneBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Button play = CardButton(doneCard.transform, "Boton_Jugar", "Jugar nivel 1", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-120f, -240f), new Vector2(380f, 84f), 28, 1f);
+            Button menu = CardButton(doneCard.transform, "Boton_Menu", "Menú", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(200f, -240f), new Vector2(200f, 84f), 28, 1f);
+            overlay.gameObject.SetActive(false);
+
+            card.transform.parent.gameObject.SetActive(false);
+            refs["panel"] = card.transform.parent.gameObject;
+            refs["whoChip"] = who;
+            refs["whoText"] = whoText;
+            refs["titleText"] = title;
+            refs["bodyText"] = body;
+            refs["progressText"] = progress;
+            refs["keysRow"] = keysGo.transform;
+            refs["keyTemplate"] = template.gameObject;
+            refs["doneBadge"] = done;
+            refs["completePanel"] = overlay.gameObject;
+            refs["playButton"] = play;
+            refs["menuButton"] = menu;
+        }
+
+        // ======================================================================
+        // Preparación, recibo y pausa
+        // ======================================================================
+
         static void BuildPreparation(Transform root, Dictionary<string, object> refs)
         {
-            Image fill = CardBox(root, "Preparacion", new Vector2(0.5f, 0.5f), new Vector2(-110f, 10f), new Vector2(700f, 340f), Card, 1f);
+            Image fill = CardBox(root, "Preparacion", new Vector2(0.5f, 0.5f), new Vector2(-250f, 30f), new Vector2(900f, 470f), Card, 1f);
             Text title = Label(fill.transform, "Titulo", "Nivel 1 · ¡Prepárense!", 46, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(title.rectTransform, new Vector2(20f, -22f), new Vector2(660f, 60f));
-            Text count = Label(fill.transform, "Cuenta", "4", 110, Success, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(count.rectTransform, new Vector2(20f, -80f), new Vector2(660f, 124f));
+            Place(title.rectTransform, new Vector2(20f, -22f), new Vector2(860f, 60f));
+            Text count = Label(fill.transform, "Cuenta", "4", 104, Success, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(count.rectTransform, new Vector2(20f, -78f), new Vector2(860f, 116f));
             Text hint = Label(fill.transform, "Pista", "Agarrador: lee la lista y guía al Empujador.", 23, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
-            Place(hint.rectTransform, new Vector2(30f, -214f), new Vector2(640f, 104f));
+            Place(hint.rectTransform, new Vector2(30f, -198f), new Vector2(840f, 70f));
             hint.horizontalOverflow = HorizontalWrapMode.Wrap;
             hint.lineSpacing = 1.15f;
+
+            Image controlsBack = Box(fill.transform, "Controles", KeyCap, circleSprite: false, ppu: 1.5f);
+            Place(controlsBack.rectTransform, new Vector2(24f, -282f), new Vector2(852f, 160f));
+            Text controlsTitle = Label(controlsBack.transform, "Titulo", "CONTROLES", 18, MutedInk, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Place(controlsTitle.rectTransform, new Vector2(18f, -10f), new Vector2(400f, 26f));
+            Text controls = Label(controlsBack.transform, "Texto", "", 20, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
+            Place(controls.rectTransform, new Vector2(18f, -42f), new Vector2(816f, 110f));
+            controls.horizontalOverflow = HorizontalWrapMode.Wrap;
+            controls.lineSpacing = 1.3f;
+
             refs["preparationPanel"] = fill.transform.parent.gameObject;
             refs["preparationTitleText"] = title;
             refs["preparationCountText"] = count;
             refs["preparationHintText"] = hint;
+            refs["preparationControlsText"] = controls;
         }
 
         static void BuildReceipt(Transform root, Dictionary<string, object> refs)
         {
             // Fondo atenuado a pantalla completa (el test busca el objeto "Recibo").
-            var overlayGo = new GameObject("Recibo", typeof(RectTransform));
-            overlayGo.transform.SetParent(root, false);
-            var overlay = overlayGo.AddComponent<Image>();
-            overlay.color = new Color(0.06f, 0.09f, 0.16f, 0.62f);
-            Anchor(overlay.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            elementCount++;
+            Transform overlay = Overlay(root, "Recibo", new Color(0.06f, 0.09f, 0.16f, 0.62f));
 
-            Image paper = CardBox(overlayGo.transform, "Papel", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 920f), Paper, 1f);
+            Image paper = CardBox(overlay, "Papel", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 920f), Paper, 1f);
             Image header = Box(paper.transform, "Cabecera", Success, circleSprite: false, ppu: 1f);
             Anchor(header.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -96f), new Vector2(-10f, -10f));
-            Text title = Label(header.transform, "Titulo", "Recibo · Súper Caótico", 42, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Text title = Label(header.transform, "Titulo", "Recibo", 42, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(title.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             Text time = Label(paper.transform, "Tiempo", "", 22, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
@@ -329,7 +372,6 @@ namespace CarritoCaotico.EditorTools
             Text delivered = Column("Entregados", 460f, 150f, TextAnchor.UpperCenter, FontStyle.Normal);
             Text status = Column("Estados", 610f, 170f, TextAnchor.UpperRight, FontStyle.Bold);
 
-            // Tres casillas de resumen.
             float tilesTop = tableTop - 412f;
             Text Tile(string label, float x, Color numberColor)
             {
@@ -355,8 +397,7 @@ namespace CarritoCaotico.EditorTools
             Text result = Label(badge.transform, "Texto", "", 26, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(result.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
 
-            // Botones con atajo de teclado visible. El de "Siguiente nivel" solo aparece si la
-            // compra está completa; el grupo horizontal recoloca los demás automáticamente.
+            // Botones con atajo visible. "Siguiente nivel" solo aparece si la compra está completa.
             var buttonsGo = new GameObject("Botones", typeof(RectTransform));
             buttonsGo.transform.SetParent(paper.transform, false);
             Anchor((RectTransform)buttonsGo.transform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(20f, 34f), new Vector2(-20f, 120f));
@@ -371,9 +412,9 @@ namespace CarritoCaotico.EditorTools
             Button retry = CardButton(buttonsGo.transform, "Boton_Reintentar", "Reintentar", "R", Card, Ink, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(230f, 80f), 26, 1f);
             Button menu = CardButton(buttonsGo.transform, "Boton_Menu", "Menú", "M", Card, Ink, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(190f, 80f), 26, 1f);
 
-            overlayGo.SetActive(false);
+            overlay.gameObject.SetActive(false);
 
-            refs["receiptPanel"] = overlayGo;
+            refs["receiptPanel"] = overlay.gameObject;
             refs["receiptTitleText"] = title;
             refs["receiptTimeText"] = time;
             refs["receiptNamesText"] = names;
@@ -391,78 +432,116 @@ namespace CarritoCaotico.EditorTools
             refs["menuButton"] = menu;
         }
 
-        static void BuildPause(Transform root, Dictionary<string, object> refs)
+        static void BuildPause(Transform root, Dictionary<string, object> uiRefs, Dictionary<string, object> menuRefs)
         {
             Transform overlay = Overlay(root, "Pausa", new Color(0.06f, 0.09f, 0.16f, 0.62f));
-            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 470f), Card, 1f);
+            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 640f), Card, 1f);
             Text title = Label(card.transform, "Titulo", "Pausa", 58, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(title.rectTransform, new Vector2(20f, -26f), new Vector2(520f, 74f));
+            Place(title.rectTransform, new Vector2(20f, -24f), new Vector2(860f, 74f));
             Text hint = Label(card.transform, "Pista", "El tiempo y los rivales están detenidos.", 22, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
-            Place(hint.rectTransform, new Vector2(20f, -98f), new Vector2(520f, 32f));
+            Place(hint.rectTransform, new Vector2(20f, -96f), new Vector2(860f, 32f));
 
-            Button resume = CardButton(card.transform, "Boton_Continuar", "Continuar", "Esc", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(420f, 80f), 28, 1f);
-            Button restart = CardButton(card.transform, "Boton_Reintentar", "Reintentar nivel", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -250f), new Vector2(420f, 70f), 26, 1f);
-            Button menu = CardButton(card.transform, "Boton_Menu", "Menú principal", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -340f), new Vector2(420f, 70f), 26, 1f);
+            Image controlsBack = Box(card.transform, "Controles", KeyCap, circleSprite: false, ppu: 1.5f);
+            Place(controlsBack.rectTransform, new Vector2(30f, -140f), new Vector2(840f, 150f));
+            Text controlsTitle = Label(controlsBack.transform, "Titulo", "CONTROLES DE ESTE NIVEL", 18, MutedInk, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Place(controlsTitle.rectTransform, new Vector2(18f, -10f), new Vector2(600f, 26f));
+            Text controls = Label(controlsBack.transform, "Texto", "", 20, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
+            Place(controls.rectTransform, new Vector2(18f, -42f), new Vector2(804f, 100f));
+            controls.horizontalOverflow = HorizontalWrapMode.Wrap;
+            controls.lineSpacing = 1.3f;
+
+            Button resume = CardButton(card.transform, "Boton_Continuar", "Continuar", "Esc", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -320f), new Vector2(460f, 84f), 30, 1f);
+            Button restart = CardButton(card.transform, "Boton_Reintentar", "Reintentar nivel", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -424f), new Vector2(460f, 72f), 26, 1f);
+            Button menu = CardButton(card.transform, "Boton_Menu", "Menú principal", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -516f), new Vector2(460f, 72f), 26, 1f);
             overlay.gameObject.SetActive(false);
 
-            refs["pausePanel"] = overlay.gameObject;
-            refs["resumeButton"] = resume;
-            refs["pauseRestartButton"] = restart;
-            refs["pauseMenuButton"] = menu;
+            uiRefs["pauseControlsText"] = controls;
+            menuRefs["pausePanel"] = overlay.gameObject;
+            menuRefs["resumeButton"] = resume;
+            menuRefs["pauseRestartButton"] = restart;
+            menuRefs["pauseMenuButton"] = menu;
         }
 
-        static void BuildMenu(Transform root, Dictionary<string, object> refs)
+        // ======================================================================
+        // Menú principal
+        // ======================================================================
+
+        static void BuildMenu(Transform root, Dictionary<string, object> refs, StoreId store)
         {
-            // Fondo verde claro de supermercado con franjas suaves de "baldosas".
-            Transform overlay = Overlay(root, "Menu_Principal", new Color32(236, 253, 245, 255));
+            Transform overlay = Overlay(root, "Menu_Principal", theme.MenuBack);
             for (int i = 0; i < 8; i++)
             {
-                Image stripe = Box(overlay, "Franja", new Color32(209, 250, 229, 255), circleSprite: false, ppu: 8f);
+                Image stripe = Box(overlay, "Franja", theme.MenuStripe, circleSprite: false, ppu: 8f);
                 Anchor(stripe.rectTransform, new Vector2(i / 8f, 0f), new Vector2(i / 8f + 0.0625f, 1f), Vector2.zero, Vector2.zero);
             }
 
-            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(960f, 780f), Card, 1f);
-            Image band = Box(card.transform, "Cabecera", Success, circleSprite: false, ppu: 1f);
-            Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -186f), new Vector2(-10f, -10f));
-            Text title = Label(band.transform, "Titulo", "Carrito Caótico", 88, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(1000f, 960f), Card, 1f);
+            Image band = Box(card.transform, "Cabecera", store == StoreId.Halloween ? (Color)theme.Accent : (Color)Success, circleSprite: false, ppu: 1f);
+            Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -176f), new Vector2(-10f, -10f));
+            Text title = Label(band.transform, "Titulo", "Carrito Caótico", 86, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(title.rectTransform, new Vector2(0f, 0.32f), Vector2.one, Vector2.zero, Vector2.zero);
-            Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo local para dos  ·  Better Together", 26, new Color32(209, 250, 229, 255), TextAnchor.MiddleCenter, FontStyle.Bold);
+            Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo local para dos  ·  Better Together", 26, theme.MenuSubtitle, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(subtitle.rectTransform, Vector2.zero, new Vector2(1f, 0.36f), new Vector2(0f, 12f), Vector2.zero);
 
+            // Selector de supermercado.
+            var (previousStore, storeText, nextStore, storeDetail) = Selector(card.transform, "SUPERMERCADO", -196f, StoreCatalog.DisplayName(store), 420f);
             // Selector de nivel.
-            Text caption = Label(card.transform, "Nivel_Titulo", "ELIGE EL NIVEL", 20, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(caption.rectTransform, new Vector2(20f, -210f), new Vector2(920f, 30f));
-            Button previous = CardButton(card.transform, "Nivel_Anterior", "<", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-230f, -250f), new Vector2(80f, 80f), 40, 1.5f);
-            Image levelBox = Box(card.transform, "Nivel", KeyCap, circleSprite: false, ppu: 1.5f);
-            Anchor(levelBox.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-170f, -330f), new Vector2(170f, -250f));
-            Text levelText = Label(levelBox.transform, "Texto", "Nivel 1", 44, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(levelText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            Button next = CardButton(card.transform, "Nivel_Siguiente", ">", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(230f, -250f), new Vector2(80f, 80f), 40, 1.5f);
-            Text detail = Label(card.transform, "Detalle", "", 22, MutedInk, TextAnchor.UpperCenter, FontStyle.Normal);
-            Place(detail.rectTransform, new Vector2(40f, -348f), new Vector2(880f, 64f));
-            detail.lineSpacing = 1.2f;
+            var (previousLevel, levelText, nextLevel, levelDetail) = Selector(card.transform, "NIVEL", -386f, "Nivel 1", 300f);
 
-            Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -430f), new Vector2(460f, 96f), 40, 1f);
-            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -546f), new Vector2(260f, 64f), 26, 1.5f);
+            Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -584f), new Vector2(420f, 96f), 40, 1f);
+            Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -584f), new Vector2(240f, 96f), 30, 1f);
+            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -700f), new Vector2(240f, 62f), 24, 1.5f);
 
-            // Resumen de roles.
             Text roles = Label(card.transform, "Roles",
-                "<b>Jugador 1 · Empujador:</b> conduce con WASD y mira con el mouse.\n" +
-                "<b>Jugador 2 · Agarrador:</b> lee la lista y agarra con flechas + Enter.\n" +
-                "Cuidado: los compradores rivales se llevan productos y los controles pueden cambiar.",
+                "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
+                "¿Primera vez? Hagan el <b>Tutorial</b>: en partida solo se ve la lista de compras.\n" +
+                "Cuidado con los rivales, los charcos y los controles que cambian a partir del nivel 4.",
                 21, Ink, TextAnchor.UpperCenter, FontStyle.Normal);
-            Place(roles.rectTransform, new Vector2(40f, -640f), new Vector2(880f, 110f));
-            roles.lineSpacing = 1.2f;
+            Place(roles.rectTransform, new Vector2(40f, -788f), new Vector2(920f, 140f));
+            roles.lineSpacing = 1.25f;
+            roles.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             overlay.gameObject.SetActive(false);
             refs["menuPanel"] = overlay.gameObject;
             refs["playButton"] = play;
-            refs["previousLevelButton"] = previous;
-            refs["nextLevelButton"] = next;
+            refs["tutorialButton"] = tutorial;
+            refs["previousStoreButton"] = previousStore;
+            refs["nextStoreButton"] = nextStore;
+            refs["storeText"] = storeText;
+            refs["storeDetailText"] = storeDetail;
+            refs["previousLevelButton"] = previousLevel;
+            refs["nextLevelButton"] = nextLevel;
             refs["levelText"] = levelText;
-            refs["levelDetailText"] = detail;
+            refs["levelDetailText"] = levelDetail;
             refs["quitButton"] = quit;
         }
+
+        /// <summary>Selector "&lt; valor &gt;" con título y línea de detalle.</summary>
+        static (Button previous, Text value, Button next, Text detail) Selector(Transform parent, string caption, float top, string initial, float valueWidth)
+        {
+            Text captionText = Label(parent, "Titulo_" + caption, caption, 20, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(captionText.rectTransform, new Vector2(20f, top), new Vector2(960f, 30f));
+
+            float half = valueWidth * 0.5f;
+            Button previous = CardButton(parent, "Anterior_" + caption, "<", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-half - 60f, top - 38f), new Vector2(80f, 80f), 40, 1.5f);
+            Image box = Box(parent, "Valor_" + caption, KeyCap, circleSprite: false, ppu: 1.5f);
+            Anchor(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-half, top - 118f), new Vector2(half, top - 38f));
+            Text value = Label(box.transform, "Texto", initial, 40, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Anchor(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+            value.resizeTextForBestFit = true;
+            value.resizeTextMinSize = 22;
+            value.resizeTextMaxSize = 40;
+            Button next = CardButton(parent, "Siguiente_" + caption, ">", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(half + 60f, top - 38f), new Vector2(80f, 80f), 40, 1.5f);
+
+            Text detail = Label(parent, "Detalle_" + caption, "", 21, MutedInk, TextAnchor.UpperCenter, FontStyle.Normal);
+            Place(detail.rectTransform, new Vector2(40f, top - 128f), new Vector2(920f, 54f));
+            detail.horizontalOverflow = HorizontalWrapMode.Wrap;
+            return (previous, value, next, detail);
+        }
+
+        // ======================================================================
+        // Componentes reutilizables
+        // ======================================================================
 
         static Transform Overlay(Transform parent, string name, Color color)
         {
@@ -506,10 +585,6 @@ namespace CarritoCaotico.EditorTools
             return button;
         }
 
-        // ======================================================================
-        // Componentes reutilizables
-        // ======================================================================
-
         /// <summary>
         /// Tarjeta "clay": sombra desplazada + borde de tinta + relleno. Devuelve el relleno,
         /// que es donde se coloca el contenido. pivot y anclaje coinciden con <paramref name="anchor"/>.
@@ -532,45 +607,6 @@ namespace CarritoCaotico.EditorTools
             Anchor(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(BorderWidth, BorderWidth), new Vector2(-BorderWidth, -BorderWidth));
             body.raycastTarget = true;
             return body;
-        }
-
-        /// <summary>Cabecera de color con título y chip del jugador.</summary>
-        static (Image chip, Text text) Header(Transform parent, string title, string player, Color color, float height, int titleSize = 28)
-        {
-            Image band = Box(parent, "Cabecera", color, circleSprite: false, ppu: 1.2f);
-            Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -8f - height), new Vector2(-8f, -8f));
-            Text label = Label(band.transform, "Titulo", title, titleSize, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Anchor(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(16f, 0f), new Vector2(-150f, 0f));
-
-            Image chip = Box(band.transform, "Jugador", Color.white, circleSprite: false, ppu: 2f);
-            Anchor(chip.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-142f, -17f), new Vector2(-14f, 17f));
-            Text chipText = Label(chip.transform, "Texto", player, 19, color, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(chipText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            return (chip, chipText);
-        }
-
-        /// <summary>
-        /// Fila de controles: teclas dibujadas como teclas reales y su acción. width = 0 calcula
-        /// el ancho de la tecla según la etiqueta. Devuelve los textos de las teclas.
-        /// </summary>
-        static List<Text> KeyRow(Transform parent, float y, params (string key, string action, float width)[] items)
-        {
-            var labels = new List<Text>();
-            float x = 20f;
-            foreach (var (keyLabel, action, fixedWidth) in items)
-            {
-                float width = fixedWidth > 0f ? fixedWidth : Mathf.Max(42f, 18f + keyLabel.Length * 13f);
-                Image key = KeyCapChip(parent, keyLabel, width, out Text keyText);
-                Place(key.rectTransform, new Vector2(x, y), new Vector2(width, 38f));
-                labels.Add(keyText);
-                x += width + 10f;
-
-                Text text = Label(parent, "Accion_" + action, action, 21, Ink, TextAnchor.MiddleLeft, FontStyle.Normal);
-                float textWidth = 22f + action.Length * 10.5f;
-                Place(text.rectTransform, new Vector2(x, y), new Vector2(textWidth, 38f));
-                x += textWidth + 18f;
-            }
-            return labels;
         }
 
         static Image KeyCapChip(Transform parent, string label, float width, out Text text)
@@ -693,7 +729,7 @@ namespace CarritoCaotico.EditorTools
         }
 
         // ======================================================================
-        // Texturas generadas (idempotente: se reescriben con el mismo contenido)
+        // Texturas generadas (idempotente: solo se reescriben si cambian)
         // ======================================================================
 
         static void EnsureSprites()

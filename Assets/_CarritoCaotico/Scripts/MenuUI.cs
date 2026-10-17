@@ -5,8 +5,8 @@ using UnityEngine.UI;
 namespace CarritoCaotico
 {
     /// <summary>
-    /// Menú principal (jugar, elegir nivel desbloqueado, salir), menú de pausa y botón de pausa
-    /// del HUD. Se maneja con mouse o teclado (flechas + Enter) gracias al EventSystem.
+    /// Menú principal (tienda, nivel desbloqueado, jugar, tutorial, salir), menú de pausa y botón
+    /// de pausa. Se maneja con mouse o teclado (flechas + Enter) gracias al EventSystem.
     /// </summary>
     public class MenuUI : MonoBehaviour
     {
@@ -15,6 +15,11 @@ namespace CarritoCaotico
         [Header("Menú principal")]
         [SerializeField] GameObject menuPanel;
         [SerializeField] Button playButton;
+        [SerializeField] Button tutorialButton;
+        [SerializeField] Button previousStoreButton;
+        [SerializeField] Button nextStoreButton;
+        [SerializeField] Text storeText;
+        [SerializeField] Text storeDetailText;
         [SerializeField] Button previousLevelButton;
         [SerializeField] Button nextLevelButton;
         [SerializeField] Text levelText;
@@ -26,11 +31,12 @@ namespace CarritoCaotico
         [SerializeField] Button resumeButton;
         [SerializeField] Button pauseRestartButton;
         [SerializeField] Button pauseMenuButton;
-        [SerializeField] Button hudPauseButton;
 
         int selectedLevel = 1;
+        int storeIndex;
 
         public int SelectedLevel => selectedLevel;
+        public StoreId SelectedStore => StoreCatalog.All[storeIndex];
 
         void OnEnable()
         {
@@ -40,13 +46,15 @@ namespace CarritoCaotico
                 gameManager.PauseChanged += OnPauseChanged;
             }
             Listen(playButton, OnPlay);
+            Listen(tutorialButton, () => { if (gameManager != null) gameManager.StartTutorial(); });
+            Listen(previousStoreButton, () => ChangeStore(-1));
+            Listen(nextStoreButton, () => ChangeStore(1));
             Listen(previousLevelButton, () => ChangeLevel(-1));
             Listen(nextLevelButton, () => ChangeLevel(1));
             Listen(quitButton, () => { if (gameManager != null) gameManager.QuitGame(); });
             Listen(resumeButton, () => { if (gameManager != null) gameManager.SetPaused(false); });
             Listen(pauseRestartButton, () => { if (gameManager != null) gameManager.Restart(); });
             Listen(pauseMenuButton, () => { if (gameManager != null) gameManager.GoToMenu(); });
-            Listen(hudPauseButton, () => { if (gameManager != null) gameManager.SetPaused(true); });
         }
 
         void OnDisable()
@@ -56,13 +64,17 @@ namespace CarritoCaotico
                 gameManager.StateChanged -= OnStateChanged;
                 gameManager.PauseChanged -= OnPauseChanged;
             }
-            foreach (Button b in new[] { playButton, previousLevelButton, nextLevelButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton, hudPauseButton })
+            foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton })
                 if (b != null) b.onClick.RemoveAllListeners();
         }
 
         void Start()
         {
             selectedLevel = GameSession.MaxUnlockedLevel;
+            StoreId current = gameManager != null ? gameManager.Store : StoreId.Clasico;
+            storeIndex = System.Array.IndexOf(StoreCatalog.All, current);
+            if (storeIndex < 0) storeIndex = 0;
+            RefreshStore();
             RefreshLevel();
             if (pausePanel != null) pausePanel.SetActive(false);
             if (gameManager != null) OnStateChanged(gameManager.State);
@@ -77,8 +89,7 @@ namespace CarritoCaotico
         {
             bool menu = state == GameState.Menu;
             if (menuPanel != null) menuPanel.SetActive(menu);
-            if (hudPauseButton != null) hudPauseButton.gameObject.SetActive(state == GameState.Preparacion || state == GameState.EnJuego);
-            if (menu) Select(playButton);
+            if (menu) Select(GameSession.TutorialDone ? playButton : tutorialButton);
         }
 
         void OnPauseChanged(bool paused)
@@ -89,13 +100,27 @@ namespace CarritoCaotico
 
         void OnPlay()
         {
-            if (gameManager != null) gameManager.StartGame(selectedLevel);
+            if (gameManager != null) gameManager.StartGame(selectedLevel, SelectedStore);
+        }
+
+        void ChangeStore(int delta)
+        {
+            int count = StoreCatalog.All.Length;
+            storeIndex = (storeIndex + delta + count) % count;
+            GameSession.SelectStore(SelectedStore);
+            RefreshStore();
         }
 
         void ChangeLevel(int delta)
         {
             selectedLevel = Mathf.Clamp(selectedLevel + delta, 1, GameSession.MaxUnlockedLevel);
             RefreshLevel();
+        }
+
+        void RefreshStore()
+        {
+            if (storeText != null) storeText.text = StoreCatalog.DisplayName(SelectedStore);
+            if (storeDetailText != null) storeDetailText.text = StoreCatalog.Description(SelectedStore);
         }
 
         void RefreshLevel()
@@ -108,10 +133,8 @@ namespace CarritoCaotico
             if (levelDetailText == null) return;
             LevelConfig config = LevelProgression.Get(selectedLevel, GameSession.SessionSeed);
             string rivals = config.RivalCount == 0 ? "sin rivales" : config.RivalCount == 1 ? "1 rival" : $"{config.RivalCount} rivales";
-            string controls = selectedLevel >= LevelProgression.ControlSwapStartLevel
-                ? "Los controles pueden cambiar"
-                : "Controles normales";
-            levelDetailText.text = $"Lista de {config.MinUnits} a {config.MaxUnits} unidades  ·  {GameTimer.Format(config.Duration)}  ·  {rivals}\n{controls}  ·  Desbloqueado hasta el nivel {max}";
+            string controls = selectedLevel >= LevelProgression.ControlSwapStartLevel ? "los controles pueden cambiar" : "controles normales";
+            levelDetailText.text = $"Lista de {config.MinUnits} a {config.MaxUnits} unidades  ·  {GameTimer.Format(config.Duration)}  ·  {rivals}  ·  {controls}";
         }
 
         static void Select(Button button)

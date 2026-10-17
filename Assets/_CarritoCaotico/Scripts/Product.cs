@@ -20,7 +20,16 @@ namespace CarritoCaotico
         Platano = 8,
         Queso = 9,
         Agua = 10,
-        Detergente = 11
+        Detergente = 11,
+        // Supermercado de Halloween
+        Calabaza = 12,
+        Caramelos = 13,
+        Vela = 14,
+        Calavera = 15,
+        Pocion = 16,
+        SombreroBruja = 17,
+        Murcielago = 18,
+        ManzanaAcaramelada = 19
     }
 
     /// <summary>Datos por defecto de cada tipo de producto.</summary>
@@ -44,6 +53,14 @@ namespace CarritoCaotico
                 case ProductType.Queso: return "Queso";
                 case ProductType.Agua: return "Agua";
                 case ProductType.Detergente: return "Detergente";
+                case ProductType.Calabaza: return "Calabaza";
+                case ProductType.Caramelos: return "Caramelos";
+                case ProductType.Vela: return "Vela";
+                case ProductType.Calavera: return "Calavera de azúcar";
+                case ProductType.Pocion: return "Poción";
+                case ProductType.SombreroBruja: return "Sombrero de bruja";
+                case ProductType.Murcielago: return "Murciélago de peluche";
+                case ProductType.ManzanaAcaramelada: return "Manzana de caramelo";
                 default: return type.ToString();
             }
         }
@@ -65,6 +82,14 @@ namespace CarritoCaotico
                 case ProductType.Queso: return 1.5f;
                 case ProductType.Agua: return 1.5f;
                 case ProductType.Detergente: return 3.0f;
+                case ProductType.Calabaza: return 4.5f;
+                case ProductType.Caramelos: return 0.4f;
+                case ProductType.Vela: return 0.5f;
+                case ProductType.Calavera: return 0.3f;
+                case ProductType.Pocion: return 0.8f;
+                case ProductType.SombreroBruja: return 0.3f;
+                case ProductType.Murcielago: return 0.25f;
+                case ProductType.ManzanaAcaramelada: return 0.3f;
                 default: return 1f;
             }
         }
