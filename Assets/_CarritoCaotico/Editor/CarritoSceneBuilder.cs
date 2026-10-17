@@ -29,18 +29,21 @@ namespace CarritoCaotico.EditorTools
         public const string ScenePath = ScenesFolder + "/CarritoCaotico_Prueba.unity";
 
         // ---------- Distribución del nivel (metros) ----------
-        const float FloorHalfWidth = 13f;
-        const float FloorHalfLength = 21f;
-        const float WallHeight = 3f;
+        const float FloorHalfWidth = 21f;
+        const float FloorHalfLength = 25f;
+        const float WallHeight = 3.5f;
         const float ShelfDepth = 1.2f;
-        const float ShelfHalfLength = 9f;
         const float ShelfBoardTop = 0.9f;
         const float AisleSpacing = 5.7f;          // distancia entre centros de pasillo
         const float AisleHalfClearWidth = 2.25f;  // medio ancho libre del pasillo
-        const float ProductInset = 0.3f;          // distancia del producto al borde del estante
-        const float StartZ = -16f;
-        const float CheckoutZ = 16f;
-        static readonly float[] ProductZ = { -6f, -2f, 2f, 6f };
+        const float ProductInset = 0.29f;         // distancia del producto al borde del estante
+        // Cada estante tiene dos tramos separados por un pasillo transversal en z = 0.
+        const float ShelfOuterZ = 13f;
+        const float ShelfInnerZ = 1.5f;
+        const float StartX = -AisleSpacing * 0.5f;
+        const float StartZ = -20f;
+        const float CheckoutZ = 20f;
+        static readonly float[] ProductZ = { -11f, -7.25f, -3.5f, 3.5f, 7.25f, 11f };
 
         static readonly Color32 Teal = new Color32(15, 118, 110, 255);
         static readonly Color32 Yellow = new Color32(255, 201, 60, 255);
@@ -48,36 +51,21 @@ namespace CarritoCaotico.EditorTools
         static readonly Color32 Ink = new Color32(31, 41, 51, 255);
         static readonly Color32 Paper = new Color32(255, 253, 247, 255);
 
-        struct ProductSpec
-        {
-            public ProductType Type;
-            public PrimitiveType Shape;
-            public Vector3 Scale;
-            public Color32 Color;
-            public float HalfHeight;
-        }
-
-        static readonly ProductSpec[] ProductSpecs =
-        {
-            new ProductSpec { Type = ProductType.Leche, Shape = PrimitiveType.Cylinder, Scale = new Vector3(0.24f, 0.18f, 0.24f), Color = new Color32(250, 250, 250, 255), HalfHeight = 0.18f },
-            new ProductSpec { Type = ProductType.Sandia, Shape = PrimitiveType.Sphere, Scale = new Vector3(0.48f, 0.48f, 0.48f), Color = new Color32(46, 160, 67, 255), HalfHeight = 0.24f },
-            new ProductSpec { Type = ProductType.Cereal, Shape = PrimitiveType.Cube, Scale = new Vector3(0.3f, 0.42f, 0.14f), Color = new Color32(250, 204, 21, 255), HalfHeight = 0.21f },
-            new ProductSpec { Type = ProductType.Huevos, Shape = PrimitiveType.Cube, Scale = new Vector3(0.28f, 0.12f, 0.2f), Color = new Color32(232, 214, 176, 255), HalfHeight = 0.06f },
-            new ProductSpec { Type = ProductType.PapelHigienico, Shape = PrimitiveType.Cylinder, Scale = new Vector3(0.24f, 0.14f, 0.24f), Color = new Color32(244, 143, 177, 255), HalfHeight = 0.14f },
-            new ProductSpec { Type = ProductType.Lata, Shape = PrimitiveType.Cylinder, Scale = new Vector3(0.15f, 0.09f, 0.15f), Color = new Color32(220, 38, 38, 255), HalfHeight = 0.09f },
-        };
-
         /// <summary>Pasillos: centro X, tipo en la cara izquierda, tipo en la cara derecha y rótulo.</summary>
         static readonly (float x, ProductType left, ProductType right, string label)[] Aisles =
         {
-            (-AisleSpacing, ProductType.Leche, ProductType.Huevos, "Pasillo 1 · Lácteos"),
-            (0f, ProductType.Cereal, ProductType.Lata, "Pasillo 2 · Desayuno"),
-            (AisleSpacing, ProductType.Sandia, ProductType.PapelHigienico, "Pasillo 3 · Fruta y hogar"),
+            (-AisleSpacing * 2.5f, ProductType.Leche, ProductType.Queso, "1 · Lácteos"),
+            (-AisleSpacing * 1.5f, ProductType.Cereal, ProductType.Huevos, "2 · Desayuno"),
+            (-AisleSpacing * 0.5f, ProductType.Sandia, ProductType.Manzana, "3 · Frutas"),
+            (AisleSpacing * 0.5f, ProductType.Platano, ProductType.Pan, "4 · Plátanos y pan"),
+            (AisleSpacing * 1.5f, ProductType.Agua, ProductType.Lata, "5 · Bebidas y latas"),
+            (AisleSpacing * 2.5f, ProductType.PapelHigienico, ProductType.Detergente, "6 · Hogar"),
         };
 
         // ---------- Estado de la construcción ----------
         static readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
         static readonly Dictionary<ProductType, GameObject> ProductPrefabs = new Dictionary<ProductType, GameObject>();
+        static readonly Dictionary<ProductType, float> ProductBottoms = new Dictionary<ProductType, float>();
         static readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
         static Shader litShader;
         static Font uiFont;
@@ -163,6 +151,7 @@ namespace CarritoCaotico.EditorTools
             Stats.Clear();
             Materials.Clear();
             ProductPrefabs.Clear();
+            ProductBottoms.Clear();
 
             EnsureFolders();
             BackupExistingScene();
@@ -316,8 +305,8 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Carton", new Color32(196, 145, 92, 255));
             GetMaterial("PisoMojado", Yellow);
             GetMaterial("Cartel", Paper);
-            foreach (ProductSpec spec in ProductSpecs)
-                GetMaterial("Producto_" + spec.Type, spec.Color);
+            foreach (ProductType type in ProductCatalog.AllTypes)
+                GetMaterial("Stock_" + type, Color.Lerp(ProductModels.MainColor(type), new Color(0.45f, 0.45f, 0.45f), 0.35f));
         }
 
         static Material GetMaterial(string name, Color color)
@@ -428,36 +417,44 @@ namespace CarritoCaotico.EditorTools
             Prim(PrimitiveType.Cube, "Pared_Este", walls, new Vector3(FloorHalfWidth + t * 0.5f, WallHeight * 0.5f, 0f), new Vector3(t, WallHeight, FloorHalfLength * 2f), "Pared");
             Prim(PrimitiveType.Cube, "Pared_Oeste", walls, new Vector3(-FloorHalfWidth - t * 0.5f, WallHeight * 0.5f, 0f), new Vector3(t, WallHeight, FloorHalfLength * 2f), "Pared");
 
-            Prim(PrimitiveType.Cube, "Zona_Inicio", level, new Vector3(0f, 0.005f, StartZ), new Vector3(3f, 0.01f, 3f), "ZonaInicio", false);
+            Prim(PrimitiveType.Cube, "Zona_Inicio", level, new Vector3(StartX, 0.005f, StartZ), new Vector3(3f, 0.01f, 3f), "ZonaInicio", false);
         }
 
         static void BuildShelves(Transform level)
         {
             Transform shelves = Empty("Estantes", level, Vector3.zero).transform;
-            // Estantes entre y a los lados de los tres pasillos.
-            float[] shelfCenters =
+            // Siete estantes: uno entre cada par de pasillos y uno en cada extremo.
+            for (int i = 0; i <= Aisles.Length; i++)
             {
-                -AisleSpacing * 1.5f, -AisleSpacing * 0.5f, AisleSpacing * 0.5f, AisleSpacing * 1.5f
-            };
-            for (int i = 0; i < shelfCenters.Length; i++)
-                BuildShelf(shelves, $"Estante_{i + 1}", shelfCenters[i]);
+                float x = (i - Aisles.Length * 0.5f) * AisleSpacing;
+                // Tipo de producto de cada cara, para el stock decorativo de la balda inferior.
+                ProductType? leftFace = i > 0 ? Aisles[i - 1].right : (ProductType?)null;
+                ProductType? rightFace = i < Aisles.Length ? Aisles[i].left : (ProductType?)null;
+                BuildShelf(shelves, $"Estante_{i + 1}_Sur", x, -ShelfOuterZ, -ShelfInnerZ, leftFace, rightFace);
+                BuildShelf(shelves, $"Estante_{i + 1}_Norte", x, ShelfInnerZ, ShelfOuterZ, leftFace, rightFace);
+            }
 
             Transform signs = Empty("Carteles", level, Vector3.zero).transform;
             foreach (var aisle in Aisles)
             {
-                AddSign(signs, aisle.label, new Vector3(aisle.x, 2.5f, -ShelfHalfLength - 0.4f), 0f, 4.4f);
-                AddSign(signs, aisle.label, new Vector3(aisle.x, 2.5f, ShelfHalfLength + 0.4f), 180f, 4.4f);
+                string label = "Pasillo " + aisle.label;
+                AddSign(signs, label, new Vector3(aisle.x, 3.05f, -ShelfOuterZ - 0.4f), 0f, 4.4f);
+                AddSign(signs, label, new Vector3(aisle.x, 3.05f, ShelfOuterZ + 0.4f), 180f, 4.4f);
+                AddSign(signs, label, new Vector3(aisle.x, 3.05f, 0f), 0f, 4.4f);
             }
         }
 
-        static void BuildShelf(Transform parent, string name, float x)
+        /// <summary>Tramo de estante doble cara entre zStart y zEnd.</summary>
+        static void BuildShelf(Transform parent, string name, float x, float zStart, float zEnd,
+            ProductType? leftFace, ProductType? rightFace)
         {
-            Transform shelf = Empty(name, parent, new Vector3(x, 0f, 0f)).transform;
-            float length = ShelfHalfLength * 2f;
+            float length = zEnd - zStart;
+            Transform shelf = Empty(name, parent, new Vector3(x, 0f, (zStart + zEnd) * 0.5f)).transform;
 
             Prim(PrimitiveType.Cube, "Base", shelf, new Vector3(0f, 0.15f, 0f), new Vector3(ShelfDepth, 0.3f, length), "Estante");
             Prim(PrimitiveType.Cube, "Balda", shelf, new Vector3(0f, ShelfBoardTop - 0.05f, 0f), new Vector3(ShelfDepth, 0.1f, length), "Estante");
-            Prim(PrimitiveType.Cube, "Balda_Superior", shelf, new Vector3(0f, 1.65f, 0f), new Vector3(ShelfDepth, 0.08f, length), "Estante");
+            // Balda superior estrecha: no tapa los productos vistos desde la cámara elevada.
+            Prim(PrimitiveType.Cube, "Balda_Superior", shelf, new Vector3(0f, 1.65f, 0f), new Vector3(0.36f, 0.08f, length), "Estante");
             Prim(PrimitiveType.Cube, "Fondo", shelf, new Vector3(0f, 1.0f, 0f), new Vector3(0.08f, 1.9f, length), "EstanteFondo");
 
             // Bordes para que los productos no rueden fuera de la balda.
@@ -465,10 +462,25 @@ namespace CarritoCaotico.EditorTools
             Prim(PrimitiveType.Cube, "Borde_Izq", shelf, new Vector3(-edge, ShelfBoardTop + 0.04f, 0f), new Vector3(0.04f, 0.08f, length), "Metal");
             Prim(PrimitiveType.Cube, "Borde_Der", shelf, new Vector3(edge, ShelfBoardTop + 0.04f, 0f), new Vector3(0.04f, 0.08f, length), "Metal");
 
-            foreach (float z in new[] { -ShelfHalfLength, 0f, ShelfHalfLength })
+            float half = length * 0.5f;
+            foreach (float z in new[] { -half, 0f, half })
                 Prim(PrimitiveType.Cube, "Poste", shelf, new Vector3(0f, 0.95f, z), new Vector3(ShelfDepth, 1.9f, 0.08f), "Estante");
 
-            Count("Estantes");
+            // Stock decorativo (sin collider) en la balda inferior, del color de los productos
+            // de cada cara, para reconocer el pasillo de lejos.
+            Transform stock = Empty("Stock", shelf, Vector3.zero).transform;
+            float side = ShelfDepth * 0.5f - 0.3f;
+            for (float z = -half + 0.7f; z < half - 0.5f; z += 1.6f)
+            {
+                if (leftFace.HasValue)
+                    Prim(PrimitiveType.Cube, "Paquete", stock, new Vector3(-side, 0.45f, z + 0.4f), new Vector3(0.4f, 0.3f, 0.7f), "Stock_" + leftFace.Value, false);
+                if (rightFace.HasValue)
+                    Prim(PrimitiveType.Cube, "Paquete", stock, new Vector3(side, 0.45f, z + 0.4f), new Vector3(0.4f, 0.3f, 0.7f), "Stock_" + rightFace.Value, false);
+            }
+            foreach (Transform child in stock)
+                GameObjectUtility.SetStaticEditorFlags(child.gameObject, StaticEditorFlags.BatchingStatic);
+
+            Count("Tramos de estante");
         }
 
         static void BuildObstacles(Transform level)
@@ -476,7 +488,7 @@ namespace CarritoCaotico.EditorTools
             Transform obstacles = Empty("Obstaculos", level, Vector3.zero).transform;
 
             // Pirámide de cajas de promoción: se puede derribar.
-            Transform pyramid = Empty("Promocion_Cajas", obstacles, new Vector3(AisleSpacing, 0f, -12.5f)).transform;
+            Transform pyramid = Empty("Promocion_Cajas", obstacles, new Vector3(AisleSpacing * 1.5f, 0f, -17f)).transform;
             int[] rows = { 3, 2, 1 };
             float size = 0.5f;
             for (int row = 0; row < rows.Length; row++)
@@ -493,7 +505,7 @@ namespace CarritoCaotico.EditorTools
             }
 
             // Cartel de piso mojado.
-            GameObject wetSign = Prim(PrimitiveType.Cube, "Piso_Mojado", obstacles, new Vector3(-AisleSpacing, 0.35f, 12f),
+            GameObject wetSign = Prim(PrimitiveType.Cube, "Piso_Mojado", obstacles, new Vector3(-AisleSpacing, 0.35f, 0f),
                 new Vector3(0.5f, 0.7f, 0.3f), "PisoMojado");
             var wetBody = wetSign.AddComponent<Rigidbody>();
             wetBody.mass = 2f;
@@ -504,18 +516,23 @@ namespace CarritoCaotico.EditorTools
         {
             Transform area = Empty("Caja_Registradora", level, new Vector3(0f, 0f, CheckoutZ)).transform;
 
-            Prim(PrimitiveType.Cube, "Mostrador", area, new Vector3(2.6f, 0.5f, 0f), new Vector3(1.2f, 1f, 3f), "Caja");
-            Prim(PrimitiveType.Cube, "Cinta", area, new Vector3(2.6f, 1.02f, 0.2f), new Vector3(1f, 0.04f, 2.4f), "CajaCinta", false);
-            Prim(PrimitiveType.Cube, "Registradora", area, new Vector3(2.6f, 1.25f, -1.1f), new Vector3(0.5f, 0.45f, 0.45f), "Registradora");
-            Prim(PrimitiveType.Cube, "Pantalla", area, new Vector3(2.35f, 1.6f, -1.1f), new Vector3(0.05f, 0.3f, 0.4f), "ZonaEntrega", false);
-            AddSign(area, "CAJA  ·  Entrega aquí", new Vector3(0f, 2.6f, 2.2f), 0f, 4f);
+            // Mostradores a ambos lados de la zona de entrega.
+            foreach (float x in new[] { -6.5f, -3.2f, 3.2f, 6.5f })
+            {
+                Transform counter = Empty("Mostrador", area, new Vector3(x, 0f, 0f)).transform;
+                Prim(PrimitiveType.Cube, "Mueble", counter, new Vector3(0f, 0.5f, 0f), new Vector3(1.2f, 1f, 3f), "Caja");
+                Prim(PrimitiveType.Cube, "Cinta", counter, new Vector3(0f, 1.02f, 0.2f), new Vector3(1f, 0.04f, 2.4f), "CajaCinta", false);
+                Prim(PrimitiveType.Cube, "Registradora", counter, new Vector3(0f, 1.25f, -1.1f), new Vector3(0.5f, 0.45f, 0.45f), "Registradora");
+                Prim(PrimitiveType.Cube, "Pantalla", counter, new Vector3(-0.25f, 1.6f, -1.1f), new Vector3(0.05f, 0.3f, 0.4f), "ZonaEntrega", false);
+            }
+            AddSign(area, "CAJA  ·  Entrega aquí", new Vector3(0f, 2.8f, 2.2f), 0f, 4.4f);
 
-            Prim(PrimitiveType.Cube, "Marca_Entrega", area, new Vector3(0f, 0.005f, 0f), new Vector3(3.6f, 0.01f, 3f), "ZonaEntrega", false);
+            Prim(PrimitiveType.Cube, "Marca_Entrega", area, new Vector3(0f, 0.005f, 0f), new Vector3(4.6f, 0.01f, 3f), "ZonaEntrega", false);
 
             GameObject zone = Empty("Zona_Entrega", area, new Vector3(0f, 1f, 0f));
             var trigger = zone.AddComponent<BoxCollider>();
             trigger.isTrigger = true;
-            trigger.size = new Vector3(3.6f, 2f, 3f);
+            trigger.size = new Vector3(4.6f, 2f, 3f);
             var checkout = zone.AddComponent<Checkout>();
             Count("Caja registradora y zona de entrega");
             return checkout;
@@ -525,38 +542,18 @@ namespace CarritoCaotico.EditorTools
 
         static void CreateProductPrefabs()
         {
-            foreach (ProductSpec spec in ProductSpecs)
+            foreach (ProductType type in ProductCatalog.AllTypes)
             {
-                GameObject template = GameObject.CreatePrimitive(spec.Shape);
-                template.name = "Producto_" + spec.Type;
-                template.transform.localScale = spec.Scale;
-                template.GetComponent<Renderer>().sharedMaterial = Materials["Producto_" + spec.Type];
+                ProductModels.Model model = ProductModels.Build(type, GetMaterial, productPhysicsMaterial);
+                GameObject template = model.Root;
+                SetRefs(template.GetComponent<Product>(), ("body", template.GetComponent<Rigidbody>()));
 
-                Collider collider = template.GetComponent<Collider>();
-                if (spec.Shape == PrimitiveType.Cylinder)
-                {
-                    // El cilindro primitivo trae una cápsula: una caja es más estable en las baldas.
-                    Object.DestroyImmediate(collider);
-                    collider = template.AddComponent<BoxCollider>();
-                }
-                collider.sharedMaterial = productPhysicsMaterial;
-
-                var body = template.AddComponent<Rigidbody>();
-                body.mass = ProductCatalog.DefaultWeight(spec.Type);
-                body.interpolation = RigidbodyInterpolation.Interpolate;
-                body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-                body.linearDamping = 0.05f;
-                body.angularDamping = spec.Shape == PrimitiveType.Sphere ? 2f : 0.5f;
-
-                var product = template.AddComponent<Product>();
-                product.Configure(spec.Type, ProductCatalog.DisplayName(spec.Type), ProductCatalog.DefaultWeight(spec.Type));
-                SetRefs(product, ("body", body));
-
-                string path = $"{PrefabsFolder}/Producto_{spec.Type}.prefab";
+                string path = $"{PrefabsFolder}/Producto_{type}.prefab";
                 bool existed = File.Exists(path);
                 GameObject prefab = PrefabUtility.SaveAsPrefabAsset(template, path);
                 Object.DestroyImmediate(template);
-                ProductPrefabs[spec.Type] = prefab;
+                ProductPrefabs[type] = prefab;
+                ProductBottoms[type] = model.BottomOffset;
                 Count(existed ? "Prefabs actualizados" : "Prefabs creados");
             }
         }
@@ -570,18 +567,20 @@ namespace CarritoCaotico.EditorTools
                 float rightX = aisle.x + AisleHalfClearWidth + ProductInset;
                 foreach (float z in ProductZ)
                 {
-                    PlaceProduct(root, aisle.left, new Vector3(leftX, 0f, z));
-                    PlaceProduct(root, aisle.right, new Vector3(rightX, 0f, z));
+                    // El frente del modelo (+Z) mira hacia el centro del pasillo.
+                    PlaceProduct(root, aisle.left, new Vector3(leftX, 0f, z), 90f);
+                    PlaceProduct(root, aisle.right, new Vector3(rightX, 0f, z), -90f);
                 }
             }
         }
 
-        static void PlaceProduct(Transform parent, ProductType type, Vector3 position)
+        static void PlaceProduct(Transform parent, ProductType type, Vector3 position, float yaw)
         {
-            ProductSpec spec = Array.Find(ProductSpecs, s => s.Type == type);
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(ProductPrefabs[type], parent.gameObject.scene);
             instance.transform.SetParent(parent, true);
-            instance.transform.position = new Vector3(position.x, ShelfBoardTop + spec.HalfHeight + 0.02f, position.z);
+            instance.transform.SetPositionAndRotation(
+                new Vector3(position.x, ShelfBoardTop + ProductBottoms[type] + 0.02f, position.z),
+                Quaternion.Euler(0f, yaw, 0f));
             Count("Productos colocados");
             Count("Productos: " + ProductCatalog.DisplayName(type));
         }
@@ -599,7 +598,7 @@ namespace CarritoCaotico.EditorTools
         static CartParts BuildCart()
         {
             var root = new GameObject("Carrito");
-            root.transform.position = new Vector3(0f, 0.02f, StartZ);
+            root.transform.position = new Vector3(StartX, 0.02f, StartZ);
             var body = root.AddComponent<Rigidbody>();
             body.mass = 30f;
             body.linearDamping = 0.3f;
