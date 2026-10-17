@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-No usa assets externos: todo se construye con primitivas, materiales de color plano y UI nativa.
+El escenario, los productos y los personajes se construyen con primitivas y materiales de color plano. Los botones, la música y los efectos de sonido son assets **CC0** descargados de [Kenney](https://kenney.nl) y [OpenGameArt](https://opengameart.org); la lista completa está en `Assets/_CarritoCaotico/05_Audio/CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -194,6 +194,14 @@ El tutorial guía a los dos jugadores paso a paso, en el supermercado clásico y
 
 Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción; `Tab` lo salta. Al terminar se puede pasar directamente al nivel 1.
 
+### Sonido y música
+
+- **Música en bucle** de cada supermercado: chiptune alegre en el Súper Caótico y ambiente tétrico en el Súper Embrujado. Sigue donde iba al reintentar o pasar de nivel, y baja de volumen en la pausa y en el recibo.
+- **Jingles** de victoria (compra completa) y de derrota.
+- **Efectos:** pasar por un botón y pulsarlo, agarrar, soltar, lanzar, producto en la canasta, rival que se lleva un producto, canasta vacía en la caja, cuenta atrás de la preparación, «¡A comprar!», tic tac de los últimos 10 segundos, pausa y conexión LAN.
+- El botón **Sonido** del menú cambia entre *todo*, *solo efectos* y *no*. La elección se guarda entre partidas.
+- En LAN los dos PC oyen los mismos eventos.
+
 ### Interfaz durante la partida
 
 Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó…!»). Los controles aparecen en tres sitios:
@@ -316,23 +324,28 @@ Assets/_CarritoCaotico/
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
+│   ├── Audio/
+│   │   └── GameAudio.cs         Música por supermercado, jingles, efectos de los eventos y modo de sonido
 │   └── UI/
 │       ├── GameUI.cs            HUD, lista, mensajes y recibo
-│       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial) y menú de pausa
+│       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial, LAN, sonido) y menú de pausa
+│       ├── UIButtonFeedback.cs  Animación de hover y pulsación de los botones, con sonido
 │       ├── TutorialController.cs  Tutorial guiado
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
-├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
+├── 05_Audio/                Música, jingles y efectos CC0, con CREDITOS.md
+├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
+│   ├── AudioBuilder.cs      Objeto Audio de cada escena con su música y sus efectos
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Tests/
-    ├── EditMode/            Reglas de la lista, evaluación, protocolo LAN y controles por rol
-    └── PlayMode/            Integración sobre la escena generada, incluida la LAN por 127.0.0.1
+    ├── EditMode/            Reglas, protocolo LAN, controles por rol, modo de sonido, créditos y escenas generadas
+    └── PlayMode/            Integración sobre la escena: LAN por 127.0.0.1, sonidos, animación de botones y jugabilidad
 ```
 
 Las carpetas siguen la numeración de la asignatura (`00_Scenes`, `01_Scripts`, `02_Prefabs`, `03_Materials`, `04_Fonts`/`04_Shaders`, `05_Audio`, `06_Models`, `07_Sprites`). Las que aún no tienen contenido se crean cuando hagan falta. `Editor` y `Resources` conservan su nombre porque Unity los trata de forma especial. Los scripts se agrupan por responsabilidad, no por tipo técnico.
@@ -348,6 +361,8 @@ Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism pa
 - **Temporizador:** una barra de tiempo restante que pasa de verde a ámbar (30 s) y a rojo (15 s), con un pulso suave en los últimos 10 s.
 - **Controles:** se dibujan como teclas, con un medidor de carga que cambia de color según el peso.
 - **Tipografía:** la fuente integrada de Unity en negrita. La skill propone Fredoka/Nunito, pero habría que importarlas.
+- **Botones:** sprites del *UI Pack* de Kenney con relieve: amarillo para la acción principal, gris para el resto y flechas en los selectores.
+- **Animación:** al pasar el mouse o seleccionar con teclado o mando, el botón crece un 6 %, sube 4 px y suena. Al pulsarlo se aplasta. El botón principal late suavemente. Funciona también en pausa.
 
 ## Pruebas
 
@@ -392,7 +407,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Próximas tareas
 
 - Juego por Internet (Unity Relay) además de la LAN.
-- Sonido: carrito, caja registradora y música.
+- Sonidos propios del carrito (ruedas, choques) y de la caja registradora.
 - Más productos, ofertas y obstáculos dinámicos, como clientes o reponedores.
 - Menú principal y selección de dificultad.
 - Ajuste fino de la física de la canasta.
