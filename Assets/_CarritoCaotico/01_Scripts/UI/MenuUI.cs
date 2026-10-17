@@ -80,6 +80,12 @@ namespace CarritoCaotico
             }
         }
 
+        void Awake()
+        {
+            // El GameManager puede cambiar de estado (y refrescar la LAN) antes de nuestro Start.
+            if (rolesText != null) defaultRolesText = rolesText.text;
+        }
+
         void OnEnable()
         {
             if (gameManager != null)
@@ -132,7 +138,6 @@ namespace CarritoCaotico
             StoreId current = gameManager != null ? gameManager.Store : StoreId.Clasico;
             storeIndex = System.Array.IndexOf(StoreCatalog.All, current);
             if (storeIndex < 0) storeIndex = 0;
-            if (rolesText != null) defaultRolesText = rolesText.text;
             if (lanAddressField != null) lanAddressField.text = PlayerPrefs.GetString(LanAddressKey, "");
             if (lanPanel != null) lanPanel.SetActive(false);
             shownLanStatus = LanSession.Instance != null ? LanSession.Instance.Status : LanSession.SessionStatus.Inactiva;
@@ -303,7 +308,19 @@ namespace CarritoCaotico
             if (lanCancelButton != null) lanCancelButton.gameObject.SetActive(status != LanSession.SessionStatus.Inactiva);
             if (lanCancelText != null) lanCancelText.text = connected ? "Desconectar" : "Cancelar";
             // El cliente conectado no tiene menú propio: espera al anfitrión.
-            if (lanBackButton != null) lanBackButton.gameObject.SetActive(!client);
+            if (lanBackButton != null)
+            {
+                lanBackButton.gameObject.SetActive(!client);
+                // Sin «Cancelar», «Volver» va centrado.
+                if (lanBackButton.transform is RectTransform back && lanCancelButton != null && lanCancelButton.transform is RectTransform cancel)
+                {
+                    bool both = status != LanSession.SessionStatus.Inactiva;
+                    float gap = 20f;
+                    float total = cancel.sizeDelta.x + gap + back.sizeDelta.x;
+                    back.anchoredPosition = new Vector2(both ? total * 0.5f - back.sizeDelta.x * 0.5f : 0f, back.anchoredPosition.y);
+                    cancel.anchoredPosition = new Vector2(-total * 0.5f + cancel.sizeDelta.x * 0.5f, cancel.anchoredPosition.y);
+                }
+            }
             if (lanStatusText != null) lanStatusText.text = LanStatus(session, status);
 
             if (lanButtonText != null) lanButtonText.text = connected ? "LAN: conectado" : "Jugar en LAN";
@@ -313,7 +330,7 @@ namespace CarritoCaotico
                 rolesText.text = connected
                     ? $"<b>Partida LAN con {session.PeerAddress}.</b>  Tú: <b>{NetRoles.Name(session.BaseRole)}</b>  ·  el otro PC: <b>{NetRoles.Name(NetRoles.Other(session.BaseRole))}</b>\n" +
                       (session.IsHost ? "Elige supermercado y nivel y pulsa <b>Jugar</b>: el otro PC empieza contigo." : "El anfitrión elige supermercado y nivel.")
-                    : defaultRolesText;
+                    : defaultRolesText ?? rolesText.text;
             }
 
             bool inMenu = gameManager == null || gameManager.State == GameState.Menu;
