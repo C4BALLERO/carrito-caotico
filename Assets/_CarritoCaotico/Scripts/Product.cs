@@ -90,6 +90,14 @@ namespace CarritoCaotico
         public float Weight => weight;
         public Rigidbody Body => body;
         public bool IsHeld { get; private set; }
+        /// <summary>Un comprador rival se lo llevó: ya no está disponible para nadie.</summary>
+        public bool IsTakenByRival { get; private set; }
+        /// <summary>Posición inicial en la balda, para saber si sigue en su sitio.</summary>
+        public Vector3 HomePosition { get; private set; }
+
+        /// <summary>true mientras el producto sigue quieto en su balda.</summary>
+        public bool IsOnShelf => !IsHeld && !IsTakenByRival && isActiveAndEnabled
+                                 && (transform.position - HomePosition).sqrMagnitude < 0.3f * 0.3f;
 
         /// <summary>Se dispara al agarrar o soltar el producto.</summary>
         public event Action<Product> HeldStateChanged;
@@ -99,6 +107,7 @@ namespace CarritoCaotico
             if (body == null) body = GetComponent<Rigidbody>();
             colliders = GetComponentsInChildren<Collider>(true);
             body.mass = weight;
+            HomePosition = transform.position;
         }
 
         void OnValidate()
@@ -140,6 +149,18 @@ namespace CarritoCaotico
             transform.localPosition = Vector3.zero;
 
             HeldStateChanged?.Invoke(this);
+            return true;
+        }
+
+        /// <summary>
+        /// Un rival se lleva el producto: queda dentro de su carrito, sin física, para siempre.
+        /// </summary>
+        public bool TryTakeByRival(Transform basket, Vector3 localOffset)
+        {
+            if (IsHeld || IsTakenByRival || basket == null) return false;
+            if (!TryAttach(basket)) return false;
+            IsTakenByRival = true;
+            transform.localPosition = localOffset;
             return true;
         }
 
