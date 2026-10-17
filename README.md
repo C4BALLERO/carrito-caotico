@@ -94,15 +94,22 @@ Con un solo mando, ese mando controla al Empujador y el Agarrador juega con el t
 3. **Caja:** al entrar en la zona verde junto a la caja, la compra se evalúa una sola vez y aparece el recibo.
 4. **Tiempo agotado:** si el tiempo llega a 0, aparece **«¡La tienda cerró!»**.
 
-### Pasillos
+### El supermercado
+
+Mide unos 42 × 50 m y tiene seis pasillos, de izquierda a derecha. Cada estante está partido en dos tramos por un pasillo transversal en el centro, así que se puede cambiar de pasillo a mitad de camino. La salida está frente al pasillo 3 y la caja, con su zona de entrega verde, queda al fondo.
 
 | Pasillo | Cara izquierda | Cara derecha |
 |---|---|---|
-| 1 · Lácteos | Leche (cilindro blanco) | Huevos (cubo beige) |
-| 2 · Desayuno | Cereal (cubo amarillo) | Lata (cilindro rojo) |
-| 3 · Fruta y hogar | Sandía (esfera verde) | Papel higiénico (cilindro rosado) |
+| 1 · Lácteos | Leche: cartón blanco con franja azul y tapón | Queso: rueda amarilla con cera roja |
+| 2 · Desayuno | Cereal: caja amarilla con panel rojo y tazón | Huevos: huevera con seis huevos |
+| 3 · Frutas | Sandía: elipsoide verde con rayas | Manzana: roja, con rabito y hoja |
+| 4 · Plátanos y pan | Plátano: racimo de tres | Pan: barra con corteza y cortes |
+| 5 · Bebidas y latas | Agua: botella azul con tapón y etiqueta | Lata: roja, con etiqueta y bordes metálicos |
+| 6 · Hogar | Papel higiénico: paquete rosado de cuatro rollos | Detergente: garrafa morada con asa |
 
-Hay 4 unidades de cada tipo. La lista pide entre 3 y 5 unidades, con un máximo de 2 por tipo.
+Hay 12 tipos y 6 unidades de cada uno, 72 productos en total. Los productos se construyen con varias primitivas y tienen un único collider simple, para que la física sea estable. La balda inferior de cada estante lleva paquetes decorativos del color de sus productos, para reconocer el pasillo de lejos.
+
+La lista pide entre 3 y 5 unidades, con un máximo de 2 por tipo.
 
 ### Puntuación
 
@@ -120,7 +127,7 @@ Una unidad entregada cuenta como correcta o como sobrante, nunca como ambas.
 Assets/_CarritoCaotico/
 ├── Scripts/                 (CarritoCaotico.Runtime.asmdef)
 │   ├── GameInput.cs         Lectura de teclado/mandos con el New Input System
-│   ├── Product.cs           Tipos de producto (enum estable), catálogo y producto físico
+│   ├── Product.cs           12 tipos de producto (enum estable), catálogo y producto físico
 │   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
 │   ├── CameraController.cs  Cámara en tercera persona con órbita, suavizado y anticolisión
 │   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
@@ -132,12 +139,13 @@ Assets/_CarritoCaotico/
 │   ├── GameManager.cs       Estados: Preparación, En juego, Compra entregada, Tiempo agotado
 │   └── GameUI.cs            HUD, lista, mensajes y recibo
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
-│   └── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
+│   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
+│   └── ProductModels.cs     Modelos de producto hechos con varias primitivas
 ├── Tests/
 │   ├── EditMode/            Pruebas de reglas de la lista y de la evaluación
 │   └── PlayMode/            Pruebas de integración sobre la escena generada
 ├── Materials/               (generado) materiales M_* y materiales físicos PM_*
-├── Prefabs/                 (generado) Producto_*.prefab
+├── Prefabs/                 (generado) Producto_*.prefab, uno por tipo
 └── Scenes/                  (generado) CarritoCaotico_Prueba.unity y Backups/
 ```
 
