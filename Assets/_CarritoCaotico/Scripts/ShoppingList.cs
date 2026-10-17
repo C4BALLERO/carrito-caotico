@@ -17,6 +17,8 @@ namespace CarritoCaotico
         [SerializeField, Min(1)] int maxPerType = 2;
         [Tooltip("0 = lista distinta en cada partida. Otro valor = lista reproducible.")]
         [SerializeField] int randomSeed;
+        [Tooltip("Tipos que vende este supermercado. Vacío = todos.")]
+        [SerializeField] ProductType[] availableTypes = Array.Empty<ProductType>();
 
         readonly Dictionary<ProductType, int> required = new Dictionary<ProductType, int>();
         readonly Dictionary<ProductType, int> inCart = new Dictionary<ProductType, int>();
@@ -74,8 +76,25 @@ namespace CarritoCaotico
         public void Generate()
         {
             int seed = randomSeed != 0 ? randomSeed : Guid.NewGuid().GetHashCode();
-            ShoppingRules.GenerateList(new System.Random(seed), minUnits, maxUnits, maxPerType, required);
+            IReadOnlyList<ProductType> types = availableTypes != null && availableTypes.Length > 0 ? availableTypes : ProductCatalog.AllTypes;
+            ShoppingRules.GenerateList(new System.Random(seed), minUnits, maxUnits, maxPerType, required, types);
+            RebuildEntries();
+        }
 
+        /// <summary>Lista fija (tutorial).</summary>
+        public void SetFixed(params (ProductType type, int count)[] items)
+        {
+            required.Clear();
+            foreach (var (type, count) in items)
+                if (count > 0) required[type] = count;
+            RebuildEntries();
+        }
+
+        public IReadOnlyList<ProductType> AvailableTypes =>
+            availableTypes != null && availableTypes.Length > 0 ? availableTypes : ProductCatalog.AllTypes;
+
+        void RebuildEntries()
+        {
             entries.Clear();
             foreach (ProductType type in ProductCatalog.AllTypes)
             {
