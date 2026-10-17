@@ -96,6 +96,8 @@ namespace CarritoCaotico
 
         void OnEnable()
         {
+            GameInput.EnsureDeviceHook();
+            GameInput.DevicesChanged += OnDevicesChanged;
             if (timer != null) timer.SecondsChanged += OnSecondsChanged;
             if (shoppingList != null) shoppingList.Changed += RefreshList;
             if (checkout != null) checkout.EmptyCartRejected += OnEmptyCart;
@@ -117,6 +119,7 @@ namespace CarritoCaotico
 
         void OnDisable()
         {
+            GameInput.DevicesChanged -= OnDevicesChanged;
             if (timer != null) timer.SecondsChanged -= OnSecondsChanged;
             if (shoppingList != null) shoppingList.Changed -= RefreshList;
             if (checkout != null) checkout.EmptyCartRejected -= OnEmptyCart;
@@ -387,8 +390,16 @@ namespace CarritoCaotico
             string[] p = GameInput.PusherKeyLabels(scheme);
             string[] g = GameInput.GrabberKeyLabels(scheme);
             string note = scheme == ControlScheme.Invertido ? "  <i>(direcciones al revés)</i>" : "";
-            return $"<b>Empujador:</b> {p[0]} acelerar · {p[1]} frenar · {p[2]} girar · {p[3]} derrapar · Mouse cámara{note}\n" +
-                   $"<b>Agarrador:</b> {g[0]} mover brazo · {g[1]} agarrar / soltar · {g[2]} lanzar{note}";
+            string pusherDevice = GameInput.PusherUsesGamepad ? " (mando)" : " (teclado)";
+            string grabberDevice = GameInput.GrabberUsesGamepad ? " (mando)" : " (teclado)";
+            return $"<b>Empujador{pusherDevice}:</b> {p[0]} acelerar · {p[1]} frenar · {p[2]} girar · {p[3]} derrapar · {GameInput.CameraLabel} cámara{note}\n" +
+                   $"<b>Agarrador{grabberDevice}:</b> {g[0]} mover brazo · {g[1]} agarrar / soltar · {g[2]} lanzar{note}";
+        }
+
+        void OnDevicesChanged()
+        {
+            ApplyScheme(GameInput.Scheme);
+            ShowMessage(GameInput.DevicesSummary(), 2.5f, MessageKind.Info);
         }
 
         // ---------- Recibo ----------
@@ -414,6 +425,10 @@ namespace CarritoCaotico
 
             if (nextLevelButton != null)
                 nextLevelButton.gameObject.SetActive(gameManager != null && gameManager.CanAdvance);
+            // Selección inicial para navegar el recibo con el mando.
+            Button first = nextLevelButton != null && nextLevelButton.gameObject.activeSelf ? nextLevelButton : restartButton;
+            if (first != null && UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(first.gameObject);
             if (receiptResultText != null) receiptResultText.text = receipt.ResultLabel;
             if (receiptResultBadge != null)
             {

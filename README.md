@@ -83,7 +83,28 @@ Generación desde línea de comandos (útil para CI):
 | Reintentar al terminar | `R`, botón **Reintentar** o `Start` |
 | Volver al menú al terminar | `M` o botón **Menú** |
 
-Con un solo mando, ese mando controla al Empujador y el Agarrador juega con el teclado.
+### Un jugador con teclado y otro con mando
+
+En el menú, el selector **Mando** decide quién usa el mando cuando solo hay uno conectado. La elección se guarda entre partidas.
+
+| Opción | Con 1 mando | Con 2 mandos |
+|---|---|---|
+| Automático | El mando es del Empujador y el Agarrador usa el teclado | Un mando para cada jugador |
+| Empujador | El mando es del Empujador y el Agarrador usa el teclado | Un mando para cada jugador |
+| Agarrador | El mando es del Agarrador y el Empujador usa el teclado | Un mando para cada jugador |
+
+Botones del mando:
+
+| Empujador | Agarrador |
+|---|---|
+| `RT` acelerar · `LT` frenar / atrás · stick izquierdo girar · `RB` derrapar · stick derecho cámara | Stick izquierdo mover brazo · `A` agarrar / soltar · `RT` lanzar |
+
+- `Start` pausa y continúa, y al terminar reinicia.
+- `Select` / `View` salta un paso del tutorial.
+- Los menús, el recibo y la pausa se navegan con el stick o la cruceta y se confirman con `A`.
+- El tutorial, la tarjeta de preparación y la pausa muestran los botones del mando para el jugador que lo usa y las teclas para el otro.
+- Con el esquema **Intercambiado**, el mando también pasa al otro jugador.
+- Si se conecta o desconecta un mando durante la partida, aparece un aviso y las indicaciones se actualizan.
 
 ### Controles que cambian
 

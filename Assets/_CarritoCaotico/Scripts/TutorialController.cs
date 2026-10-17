@@ -128,6 +128,10 @@ namespace CarritoCaotico
             steps.Clear();
             string[] p = GameInput.PusherKeyLabels(ControlScheme.Normal);
             string[] g = GameInput.GrabberKeyLabels(ControlScheme.Normal);
+            // Con mando, el giro es un único stick; con teclado, dos teclas.
+            string[] steerKeys = GameInput.PusherUsesGamepad
+                ? new[] { p[2] }
+                : p[2].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
             steps.Add(new Step
             {
@@ -142,7 +146,7 @@ namespace CarritoCaotico
                 Who = "EMPUJADOR · Jugador 1", WhoColor = PusherBlue,
                 Title = "Gira",
                 Body = "Gira a izquierda y derecha. Funciona mejor si el carrito está en movimiento.",
-                Keys = p[2].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries),
+                Keys = steerKeys,
                 Done = () => cart != null && Mathf.Abs(Mathf.DeltaAngle(startYaw, cart.transform.eulerAngles.y)) > 70f
             });
             steps.Add(new Step
@@ -157,8 +161,10 @@ namespace CarritoCaotico
             {
                 Who = "EMPUJADOR · Jugador 1", WhoColor = PusherBlue,
                 Title = "Mira alrededor",
-                Body = "Mueve el mouse para girar la cámara. Frena con la otra tecla si hace falta.",
-                Keys = new[] { "Mouse", p[1] },
+                Body = GameInput.PusherUsesGamepad
+                    ? "Mueve el stick derecho para girar la cámara. Frena si hace falta."
+                    : "Mueve el mouse para girar la cámara. Frena con la otra tecla si hace falta.",
+                Keys = new[] { GameInput.CameraLabel, p[1] },
                 Done = () => cameraController != null && Mathf.Abs(cameraController.YawOffset) > 25f
             });
             steps.Add(new Step
@@ -234,7 +240,7 @@ namespace CarritoCaotico
             if (whoText != null) whoText.text = step.Who;
             if (titleText != null) titleText.text = step.Title;
             if (bodyText != null) bodyText.text = step.Body;
-            if (progressText != null) progressText.text = $"Paso {index + 1} de {steps.Count}  ·  Tab: saltar paso";
+            if (progressText != null) progressText.text = $"Paso {index + 1} de {steps.Count}  ·  Tab / Select: saltar paso";
             ShowKeys(step.Keys);
         }
 
