@@ -28,22 +28,14 @@ namespace CarritoCaotico.EditorTools
         public const string PrefabsFolder = RootFolder + "/Prefabs";
         public const string ScenePath = ScenesFolder + "/CarritoCaotico_Prueba.unity";
 
-        // ---------- Distribución del nivel (metros) ----------
-        const float FloorHalfWidth = 21f;
-        const float FloorHalfLength = 25f;
-        const float WallHeight = 3.5f;
+        public const string LoadingFolder = RootFolder + "/Resources/Carga";
+
+        // ---------- Medidas comunes (metros) ----------
         const float ShelfDepth = 1.2f;
         const float ShelfBoardTop = 0.9f;
         const float AisleSpacing = 5.7f;          // distancia entre centros de pasillo
         const float AisleHalfClearWidth = 2.25f;  // medio ancho libre del pasillo
         const float ProductInset = 0.29f;         // distancia del producto al borde del estante
-        // Cada estante tiene dos tramos separados por un pasillo transversal en z = 0.
-        const float ShelfOuterZ = 13f;
-        const float ShelfInnerZ = 1.5f;
-        const float StartX = -AisleSpacing * 0.5f;
-        const float StartZ = -20f;
-        const float CheckoutZ = 20f;
-        static readonly float[] ProductZ = { -11f, -7.25f, -3.5f, 3.5f, 7.25f, 11f };
 
         static readonly Color32 Teal = new Color32(15, 118, 110, 255);
         static readonly Color32 Yellow = new Color32(255, 201, 60, 255);
@@ -51,16 +43,100 @@ namespace CarritoCaotico.EditorTools
         static readonly Color32 Ink = new Color32(31, 41, 51, 255);
         static readonly Color32 Paper = new Color32(255, 253, 247, 255);
 
-        /// <summary>Pasillos: centro X, tipo en la cara izquierda, tipo en la cara derecha y rótulo.</summary>
-        static readonly (float x, ProductType left, ProductType right, string label)[] Aisles =
+        /// <summary>Distribución, aspecto y contenido de un supermercado.</summary>
+        sealed class StoreDefinition
         {
-            (-AisleSpacing * 2.5f, ProductType.Leche, ProductType.Queso, "1 · Lácteos"),
-            (-AisleSpacing * 1.5f, ProductType.Cereal, ProductType.Huevos, "2 · Desayuno"),
-            (-AisleSpacing * 0.5f, ProductType.Sandia, ProductType.Manzana, "3 · Frutas"),
-            (AisleSpacing * 0.5f, ProductType.Platano, ProductType.Pan, "4 · Plátanos y pan"),
-            (AisleSpacing * 1.5f, ProductType.Agua, ProductType.Lata, "5 · Bebidas y latas"),
-            (AisleSpacing * 2.5f, ProductType.PapelHigienico, ProductType.Detergente, "6 · Hogar"),
+            public StoreId Id;
+            public string MaterialPrefix;
+            public float FloorHalfWidth;
+            public float FloorHalfLength;
+            public float WallHeight;
+            public float ShelfOuterZ;
+            public float ShelfInnerZ;
+            public float StartX;
+            public float StartZ;
+            public float CheckoutZ;
+            public float[] ProductZ;
+            public float[] CorridorsZ;
+            public (float x, ProductType left, ProductType right, string label)[] Aisles;
+
+            public Color Floor, Wall, Shelf, ShelfBack, Sign, StartZone, Delivery, Counter, CameraBack, Ambient, SunColor;
+            public float SunIntensity;
+            public bool Fog;
+            public float FogDensity;
+        }
+
+        static readonly StoreDefinition ClassicStore = new StoreDefinition
+        {
+            Id = StoreId.Clasico,
+            MaterialPrefix = "",
+            FloorHalfWidth = 21f, FloorHalfLength = 25f, WallHeight = 3.5f,
+            ShelfOuterZ = 13f, ShelfInnerZ = 1.5f,
+            StartX = -AisleSpacing * 0.5f, StartZ = -20f, CheckoutZ = 20f,
+            ProductZ = new[] { -11f, -7.25f, -3.5f, 3.5f, 7.25f, 11f },
+            CorridorsZ = new[] { -16.5f, 0f, 16f },
+            Aisles = new[]
+            {
+                (-AisleSpacing * 2.5f, ProductType.Leche, ProductType.Queso, "1 · Lácteos"),
+                (-AisleSpacing * 1.5f, ProductType.Cereal, ProductType.Huevos, "2 · Desayuno"),
+                (-AisleSpacing * 0.5f, ProductType.Sandia, ProductType.Manzana, "3 · Frutas"),
+                (AisleSpacing * 0.5f, ProductType.Platano, ProductType.Pan, "4 · Plátanos y pan"),
+                (AisleSpacing * 1.5f, ProductType.Agua, ProductType.Lata, "5 · Bebidas y latas"),
+                (AisleSpacing * 2.5f, ProductType.PapelHigienico, ProductType.Detergente, "6 · Hogar"),
+            },
+            Floor = new Color32(176, 170, 160, 255), Wall = new Color32(205, 232, 225, 255),
+            Shelf = new Color32(96, 112, 130, 255), ShelfBack = new Color32(150, 170, 186, 255),
+            Sign = Paper, StartZone = Yellow, Delivery = new Color32(52, 211, 153, 255), Counter = Teal,
+            CameraBack = new Color32(191, 227, 236, 255), Ambient = new Color(0.42f, 0.44f, 0.48f),
+            SunColor = new Color(1f, 0.97f, 0.92f), SunIntensity = 0.9f, Fog = false
         };
+
+        static readonly StoreDefinition HalloweenStore = new StoreDefinition
+        {
+            Id = StoreId.Halloween,
+            MaterialPrefix = "H_",
+            FloorHalfWidth = 15.5f, FloorHalfLength = 23f, WallHeight = 3.5f,
+            ShelfOuterZ = 12f, ShelfInnerZ = 1.5f,
+            StartX = -AisleSpacing * 0.5f, StartZ = -19f, CheckoutZ = 18.5f,
+            ProductZ = new[] { -10f, -6.75f, -3.5f, 3.5f, 6.75f, 10f },
+            CorridorsZ = new[] { -15.5f, 0f, 15f },
+            Aisles = new[]
+            {
+                (-AisleSpacing * 1.5f, ProductType.Calabaza, ProductType.Caramelos, "1 · Calabazas y dulces"),
+                (-AisleSpacing * 0.5f, ProductType.Vela, ProductType.Calavera, "2 · Velas y calaveras"),
+                (AisleSpacing * 0.5f, ProductType.Pocion, ProductType.SombreroBruja, "3 · Brujería"),
+                (AisleSpacing * 1.5f, ProductType.Murcielago, ProductType.ManzanaAcaramelada, "4 · Murciélagos y manzanas"),
+            },
+            Floor = new Color32(62, 52, 76, 255), Wall = new Color32(46, 30, 66, 255),
+            Shelf = new Color32(40, 34, 48, 255), ShelfBack = new Color32(154, 52, 18, 255),
+            Sign = new Color32(251, 146, 60, 255), StartZone = new Color32(234, 88, 12, 255),
+            Delivery = new Color32(132, 204, 22, 255), Counter = new Color32(88, 28, 135, 255),
+            CameraBack = new Color32(26, 14, 38, 255), Ambient = new Color(0.3f, 0.24f, 0.38f),
+            SunColor = new Color(0.65f, 0.6f, 1f), SunIntensity = 0.45f, Fog = true, FogDensity = 0.022f
+        };
+
+        static readonly StoreDefinition[] Stores = { ClassicStore, HalloweenStore };
+
+        /// <summary>Materiales que cambian de color según el supermercado (se guardan con prefijo).</summary>
+        static readonly HashSet<string> ThemedMaterials = new HashSet<string>
+        {
+            "Suelo", "Pared", "Estante", "EstanteFondo", "Cartel", "ZonaInicio", "ZonaEntrega", "Caja", "Charco"
+        };
+
+        static StoreDefinition current = ClassicStore;
+        static float FloorHalfWidth => current.FloorHalfWidth;
+        static float FloorHalfLength => current.FloorHalfLength;
+        static float WallHeight => current.WallHeight;
+        static float ShelfOuterZ => current.ShelfOuterZ;
+        static float ShelfInnerZ => current.ShelfInnerZ;
+        static float StartX => current.StartX;
+        static float StartZ => current.StartZ;
+        static float CheckoutZ => current.CheckoutZ;
+        static float[] ProductZ => current.ProductZ;
+        static (float x, ProductType left, ProductType right, string label)[] Aisles => current.Aisles;
+        static string CurrentScenePath => ScenePathFor(current.Id);
+
+        public static string ScenePathFor(StoreId store) => $"{ScenesFolder}/{StoreCatalog.SceneName(store)}.unity";
 
         // ---------- Estado de la construcción ----------
         static readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
@@ -81,11 +157,11 @@ namespace CarritoCaotico.EditorTools
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
-            if (File.Exists(ScenePath))
+            if (File.Exists(ScenePath) || File.Exists(ScenePathFor(StoreId.Halloween)))
             {
                 int choice = EditorUtility.DisplayDialogComplex(
                     "Carrito Caótico",
-                    $"Ya existe la escena:\n{ScenePath}\n\nSi la regeneras, se guardará antes una copia en {BackupFolder}.",
+                    $"Se generan las escenas de los dos supermercados (clásico y Halloween).\n\nSi ya existen, se guardará antes una copia en {BackupFolder}.",
                     "Regenerar (con copia)", "Cancelar", "Abrir la existente");
                 if (choice == 1) return;
                 if (choice == 2)
@@ -96,8 +172,9 @@ namespace CarritoCaotico.EditorTools
             }
 
             bool ok = Build();
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Carrito Caótico",
-                ok ? "Escena generada y validada.\nPulsa Play para jugar." : "Escena generada con avisos. Revisa la consola.",
+                ok ? "Escenas generadas y validadas.\nPulsa Play para jugar." : "Escenas generadas con avisos. Revisa la consola.",
                 "Aceptar");
         }
 
@@ -111,6 +188,19 @@ namespace CarritoCaotico.EditorTools
             }
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                 EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        }
+
+        [MenuItem("Carrito/Abrir supermercado de Halloween", priority = 1)]
+        public static void OpenHalloweenScene()
+        {
+            string path = ScenePathFor(StoreId.Halloween);
+            if (!File.Exists(path))
+            {
+                EditorUtility.DisplayDialog("Carrito Caótico", "La escena todavía no existe. Usa Carrito > Construir escena de prueba.", "Aceptar");
+                return;
+            }
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
         }
 
         [MenuItem("Carrito/Validar escena abierta", priority = 2)]
@@ -144,9 +234,21 @@ namespace CarritoCaotico.EditorTools
         // Construcción
         // ======================================================================
 
-        /// <summary>Construye y guarda la escena. Devuelve true si la validación final es correcta.</summary>
+        /// <summary>Construye las escenas de todos los supermercados. true si todas validan.</summary>
         public static bool Build()
         {
+            bool ok = true;
+            foreach (StoreDefinition store in Stores)
+                ok &= BuildStore(store);
+            AddSceneToBuildSettings();
+            AssetDatabase.SaveAssets();
+            return ok;
+        }
+
+        /// <summary>Construye y guarda la escena de un supermercado. Devuelve true si la validación es correcta.</summary>
+        static bool BuildStore(StoreDefinition store)
+        {
+            current = store;
             Stats.Clear();
             Materials.Clear();
             ProductPrefabs.Clear();
@@ -166,6 +268,7 @@ namespace CarritoCaotico.EditorTools
             BuildFloorAndWalls(level);
             BuildShelves(level);
             BuildObstacles(level);
+            if (current.Id == StoreId.Halloween) BuildHalloweenDecor(level);
             Checkout checkout = BuildCheckout(level);
             PlaceProducts();
 
@@ -180,7 +283,7 @@ namespace CarritoCaotico.EditorTools
             Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager)");
             RivalShopper rivalPrefab = CreateRivalPrefab();
 
-            var (ui, menu) = HudBuilder.Build(uiFont);
+            var (ui, menu, tutorial) = HudBuilder.Build(uiFont, current.Id);
             Stats.TryGetValue("Elementos de UI", out int signElements);
             Stats["Elementos de UI"] = signElements + HudBuilder.ElementCount;
             Count("Interfaz (Canvas, EventSystem)");
@@ -196,21 +299,23 @@ namespace CarritoCaotico.EditorTools
                 ("rivals", rivalManager));
             SetRefs(ui,
                 ("gameManager", manager), ("timer", timer), ("shoppingList", shoppingList),
-                ("cartContents", cart.Contents), ("grabber", cart.Arm), ("checkout", checkout),
-                ("rivals", rivalManager));
+                ("checkout", checkout), ("rivals", rivalManager));
             SetRefs(menu, ("gameManager", manager));
+            SetRefs(tutorial,
+                ("gameManager", manager), ("cart", cart.Controller), ("grabber", cart.Arm),
+                ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
+            ConfigureStore(manager, shoppingList);
             ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
 
             EditorSceneManager.MarkSceneDirty(scene);
-            if (!EditorSceneManager.SaveScene(scene, ScenePath))
+            if (!EditorSceneManager.SaveScene(scene, CurrentScenePath))
             {
-                Debug.LogError($"[Carrito] No se pudo guardar la escena en {ScenePath}");
+                Debug.LogError($"[Carrito] No se pudo guardar la escena en {CurrentScenePath}");
                 return false;
             }
-            AddSceneToBuildSettings();
-            AssetDatabase.SaveAssets();
 
             bool valid = Validate(scene, out string report);
+            CaptureLoadingImages();
             Debug.Log(BuildSummary() + "\n" + report);
             if (!valid) Debug.LogError("[Carrito] La validación encontró problemas. Revisa el informe anterior.");
             return valid;
@@ -234,13 +339,13 @@ namespace CarritoCaotico.EditorTools
 
         static void BackupExistingScene()
         {
-            if (!File.Exists(ScenePath)) return;
+            if (!File.Exists(CurrentScenePath)) return;
             EnsureFolder(BackupFolder);
-            string backupPath = $"{BackupFolder}/CarritoCaotico_Prueba_{DateTime.Now:yyyyMMdd_HHmmss}.unity";
-            if (AssetDatabase.CopyAsset(ScenePath, backupPath))
+            string backupPath = $"{BackupFolder}/{StoreCatalog.SceneName(current.Id)}_{DateTime.Now:yyyyMMdd_HHmmss}.unity";
+            if (AssetDatabase.CopyAsset(CurrentScenePath, backupPath))
                 Debug.Log($"[Carrito] Copia de seguridad de la escena anterior: {backupPath}");
             else
-                throw new IOException($"No se pudo copiar {ScenePath} a {backupPath}. Se cancela para no perder cambios.");
+                throw new IOException($"No se pudo copiar {CurrentScenePath} a {backupPath}. Se cancela para no perder cambios.");
         }
 
         static void PrepareSharedResources()
@@ -284,10 +389,10 @@ namespace CarritoCaotico.EditorTools
 
         static void CreateMaterials()
         {
-            GetMaterial("Suelo", new Color32(176, 170, 160, 255));
-            GetMaterial("Pared", new Color32(205, 232, 225, 255));
-            GetMaterial("Estante", new Color32(96, 112, 130, 255));
-            GetMaterial("EstanteFondo", new Color32(150, 170, 186, 255));
+            GetMaterial("Suelo", current.Floor);
+            GetMaterial("Pared", current.Wall);
+            GetMaterial("Estante", current.Shelf);
+            GetMaterial("EstanteFondo", current.ShelfBack);
             GetMaterial("Metal", new Color32(150, 160, 170, 255));
             GetMaterial("Rueda", new Color32(40, 44, 52, 255));
             GetMaterial("Asa", Coral);
@@ -297,15 +402,30 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
             GetMaterial("Mano", new Color32(255, 61, 127, 255));
             GetMaterial("SombraMano", new Color32(30, 30, 40, 255));
-            GetMaterial("ZonaInicio", Yellow);
-            GetMaterial("ZonaEntrega", new Color32(52, 211, 153, 255));
-            GetMaterial("Caja", Teal);
+            GetMaterial("ZonaInicio", current.StartZone);
+            GetMaterial("ZonaEntrega", current.Delivery);
+            GetMaterial("Caja", current.Counter);
             GetMaterial("CajaCinta", new Color32(30, 30, 35, 255));
             GetMaterial("Registradora", new Color32(55, 65, 81, 255));
             GetMaterial("Carton", new Color32(196, 145, 92, 255));
             GetMaterial("PisoMojado", Yellow);
-            GetMaterial("Cartel", Paper);
+            GetMaterial("Cartel", current.Sign);
             GetMaterial("Rival", new Color32(235, 235, 235, 255));
+            // Obstáculos.
+            GetMaterial("Charco", current.Id == StoreId.Halloween ? new Color32(132, 204, 22, 255) : new Color32(96, 165, 250, 255));
+            GetMaterial("Palet", new Color32(161, 120, 78, 255));
+            GetMaterial("Reponedor", new Color32(22, 163, 74, 255));
+            GetMaterial("CarritoViejo", new Color32(120, 113, 108, 255));
+            // Decoración de Halloween.
+            GetMaterial("Calabaza", new Color32(234, 88, 12, 255));
+            GetMaterial("CalabazaCara", new Color32(254, 240, 138, 255));
+            GetMaterial("Lapida", new Color32(120, 113, 128, 255));
+            GetMaterial("Murcielago", new Color32(24, 20, 30, 255));
+            GetMaterial("Telarana", new Color32(226, 232, 240, 255));
+            GetMaterial("Caldero", new Color32(30, 27, 36, 255));
+            GetMaterial("Baba", new Color32(132, 204, 22, 255));
+            GetMaterial("Fantasma", new Color32(241, 245, 249, 255));
+            GetMaterial("FantasmaOjos", new Color32(15, 23, 42, 255));
             foreach (ProductType type in ProductCatalog.AllTypes)
                 GetMaterial("Stock_" + type, Color.Lerp(ProductModels.MainColor(type), new Color(0.45f, 0.45f, 0.45f), 0.35f));
         }
@@ -314,7 +434,8 @@ namespace CarritoCaotico.EditorTools
         {
             if (Materials.TryGetValue(name, out Material cached)) return cached;
 
-            string path = $"{MaterialsFolder}/M_{name}.mat";
+            string prefix = ThemedMaterials.Contains(name) ? current.MaterialPrefix : "";
+            string path = $"{MaterialsFolder}/M_{prefix}{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
@@ -394,15 +515,18 @@ namespace CarritoCaotico.EditorTools
             var sun = new GameObject("Luz direccional");
             var light = sun.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 0.9f;
-            light.color = new Color(1f, 0.97f, 0.92f);
+            light.intensity = current.SunIntensity;
+            light.color = current.SunColor;
             light.shadows = LightShadows.Soft;
             sun.transform.rotation = Quaternion.Euler(55f, -35f, 0f);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.48f);
+            RenderSettings.ambientLight = current.Ambient;
             RenderSettings.skybox = null;
-            RenderSettings.fog = false;
+            RenderSettings.fog = current.Fog;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogDensity = current.FogDensity;
+            RenderSettings.fogColor = current.CameraBack;
             Count("Luces");
         }
 
@@ -483,12 +607,74 @@ namespace CarritoCaotico.EditorTools
             Count("Tramos de estante");
         }
 
+        /// <summary>
+        /// Obstáculos: charcos resbaladizos, pilas que se derriban, carritos abandonados, palés y
+        /// un obstáculo que se mueve (reponedor o fantasma). Ninguno bloquea del todo un pasillo.
+        /// </summary>
         static void BuildObstacles(Transform level)
         {
             Transform obstacles = Empty("Obstaculos", level, Vector3.zero).transform;
+            bool halloween = current.Id == StoreId.Halloween;
+            float[] corridors = current.CorridorsZ;
 
-            // Pirámide de cajas de promoción: se puede derribar.
-            Transform pyramid = Empty("Promocion_Cajas", obstacles, new Vector3(AisleSpacing * 1.5f, 0f, -17f)).transform;
+            // Charcos (baba verde en Halloween).
+            var spills = halloween
+                ? new[] { new Vector3(Aisles[0].x, 0f, -6f), new Vector3(Aisles[2].x, 0f, 7f), new Vector3(AisleSpacing, 0f, corridors[2]) }
+                : new[] { new Vector3(Aisles[1].x, 0f, -6.5f), new Vector3(Aisles[4].x, 0f, 6.5f), new Vector3(0f, 0f, corridors[2]) };
+            foreach (Vector3 p in spills) Spill(obstacles, p);
+
+            // Pila que se puede derribar: cajas en el clásico, calabazas decorativas en Halloween.
+            Vector3 pilePosition = new Vector3(Aisles[Aisles.Length - 2].x, 0f, StartZ + 2.5f);
+            if (halloween) PumpkinPile(obstacles, pilePosition);
+            else BoxPyramid(obstacles, pilePosition);
+            if (!halloween) BoxPyramid(obstacles, new Vector3(Aisles[0].x, 0f, corridors[2] + 1.6f));
+
+            // Carritos abandonados en el pasillo transversal central (se pueden empujar).
+            AbandonedCart(obstacles, new Vector3(-AisleSpacing, 0f, 0.4f), 25f);
+            AbandonedCart(obstacles, new Vector3(halloween ? AisleSpacing : AisleSpacing * 2f, 0f, -0.4f), -40f);
+
+            // Palés junto a las paredes laterales.
+            Palet(obstacles, new Vector3(-FloorHalfWidth + 1.4f, 0f, 7f));
+            Palet(obstacles, new Vector3(FloorHalfWidth - 1.4f, 0f, -6f));
+
+            if (halloween)
+            {
+                // Fantasmas que flotan por los pasillos transversales.
+                Ghost(obstacles, new Vector3(-FloorHalfWidth + 3f, 0.9f, 0.9f), new Vector3(FloorHalfWidth - 3f, 0.9f, 0.9f), 1.2f);
+                Ghost(obstacles, new Vector3(FloorHalfWidth - 3f, 0.9f, corridors[2] - 1.4f), new Vector3(-FloorHalfWidth + 3f, 0.9f, corridors[2] - 1.4f), 1.5f);
+                // Lápidas fijas en los pasillos exteriores.
+                foreach (Vector3 p in new[] { new Vector3(-13.6f, 0f, -9f), new Vector3(13.6f, 0f, 4f), new Vector3(-13.6f, 0f, 8f), new Vector3(13.6f, 0f, -11f) })
+                    Tombstone(obstacles, p);
+            }
+            else
+            {
+                // Reponedor que cruza la zona de entrada.
+                Stocker(obstacles, new Vector3(-FloorHalfWidth + 3f, 0f, corridors[0] + 2f), new Vector3(FloorHalfWidth - 3f, 0f, corridors[0] + 2f));
+                // Cartel de piso mojado junto al primer charco.
+                GameObject wetSign = Prim(PrimitiveType.Cube, "Piso_Mojado", obstacles, spills[0] + new Vector3(1.3f, 0.35f, -1.2f),
+                    new Vector3(0.5f, 0.7f, 0.3f), "PisoMojado");
+                var wetBody = wetSign.AddComponent<Rigidbody>();
+                wetBody.mass = 2f;
+                Count("Obstáculos dinámicos");
+            }
+        }
+
+        static void Spill(Transform parent, Vector3 position)
+        {
+            Transform spill = Empty("Charco", parent, position).transform;
+            Prim(PrimitiveType.Cylinder, "Mancha", spill, new Vector3(0f, 0.006f, 0f), new Vector3(2.6f, 0.004f, 1.8f), "Charco", false);
+            Prim(PrimitiveType.Cylinder, "Mancha_2", spill, new Vector3(0.9f, 0.007f, 0.5f), new Vector3(1.2f, 0.004f, 0.9f), "Charco", false);
+            var trigger = spill.gameObject.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.center = new Vector3(0.2f, 0.5f, 0.1f);
+            trigger.size = new Vector3(3f, 1f, 2.2f);
+            spill.gameObject.AddComponent<SlipperyZone>();
+            Count("Obstáculos: charcos");
+        }
+
+        static void BoxPyramid(Transform parent, Vector3 position)
+        {
+            Transform pyramid = Empty("Promocion_Cajas", parent, position).transform;
             int[] rows = { 3, 2, 1 };
             float size = 0.5f;
             for (int row = 0; row < rows.Length; row++)
@@ -503,13 +689,173 @@ namespace CarritoCaotico.EditorTools
                     Count("Obstáculos dinámicos");
                 }
             }
+        }
 
-            // Cartel de piso mojado.
-            GameObject wetSign = Prim(PrimitiveType.Cube, "Piso_Mojado", obstacles, new Vector3(-AisleSpacing, 0.35f, 0f),
-                new Vector3(0.5f, 0.7f, 0.3f), "PisoMojado");
-            var wetBody = wetSign.AddComponent<Rigidbody>();
-            wetBody.mass = 2f;
+        static void PumpkinPile(Transform parent, Vector3 position)
+        {
+            Transform pile = Empty("Pila_Calabazas", parent, position).transform;
+            Vector3[] spots = { new Vector3(-0.5f, 0.3f, 0f), new Vector3(0.1f, 0.3f, 0.2f), new Vector3(0.6f, 0.3f, -0.1f), new Vector3(-0.15f, 0.8f, 0.05f), new Vector3(0.4f, 0.8f, 0.05f) };
+            foreach (Vector3 spot in spots)
+            {
+                GameObject pumpkin = Prim(PrimitiveType.Sphere, "Calabaza_Decorativa", pile, spot, new Vector3(0.6f, 0.48f, 0.6f), "Calabaza");
+                Prim(PrimitiveType.Cylinder, "Tallo", pumpkin.transform, new Vector3(0f, 0.55f, 0f), new Vector3(0.12f, 0.15f, 0.12f), "Reponedor", false);
+                var rb = pumpkin.AddComponent<Rigidbody>();
+                rb.mass = 3f;
+                rb.angularDamping = 2f;
+                Count("Obstáculos dinámicos");
+            }
+        }
+
+        static void AbandonedCart(Transform parent, Vector3 position, float yaw)
+        {
+            GameObject cart = Empty("Carrito_Abandonado", parent, position);
+            cart.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            Transform t = cart.transform;
+            var box = cart.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, 0.5f, 0f);
+            box.size = new Vector3(0.9f, 1f, 1.4f);
+            box.sharedMaterial = cartPhysicsMaterial;
+            Prim(PrimitiveType.Cube, "Fondo", t, new Vector3(0f, 0.4f, 0f), new Vector3(0.9f, 0.05f, 1.4f), "CarritoViejo", false);
+            Prim(PrimitiveType.Cube, "Pared_Frontal", t, new Vector3(0f, 0.7f, 0.68f), new Vector3(0.9f, 0.55f, 0.04f), "CarritoViejo", false);
+            Prim(PrimitiveType.Cube, "Pared_Trasera", t, new Vector3(0f, 0.7f, -0.68f), new Vector3(0.9f, 0.55f, 0.04f), "CarritoViejo", false);
+            Prim(PrimitiveType.Cube, "Pared_Izq", t, new Vector3(-0.43f, 0.7f, 0f), new Vector3(0.04f, 0.55f, 1.4f), "CarritoViejo", false);
+            Prim(PrimitiveType.Cube, "Pared_Der", t, new Vector3(0.43f, 0.7f, 0f), new Vector3(0.04f, 0.55f, 1.4f), "CarritoViejo", false);
+            foreach (Vector3 w in new[] { new Vector3(-0.35f, 0.08f, 0.55f), new Vector3(0.35f, 0.08f, 0.55f), new Vector3(-0.35f, 0.08f, -0.55f), new Vector3(0.35f, 0.08f, -0.55f) })
+            {
+                GameObject wheel = Prim(PrimitiveType.Cylinder, "Rueda", t, w, new Vector3(0.16f, 0.03f, 0.16f), "Rueda", false);
+                wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            }
+            var rb = cart.AddComponent<Rigidbody>();
+            rb.mass = 20f;
+            rb.linearDamping = 1.5f;
+            rb.angularDamping = 3f;
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             Count("Obstáculos dinámicos");
+        }
+
+        static void Palet(Transform parent, Vector3 position)
+        {
+            Transform palet = Empty("Palet", parent, position).transform;
+            Prim(PrimitiveType.Cube, "Base", palet, new Vector3(0f, 0.08f, 0f), new Vector3(1.2f, 0.16f, 1.2f), "Palet");
+            Prim(PrimitiveType.Cube, "Carga", palet, new Vector3(0f, 0.6f, 0f), new Vector3(1.1f, 0.9f, 1.1f), "Carton");
+            Count("Obstáculos fijos");
+        }
+
+        static void Stocker(Transform parent, Vector3 a, Vector3 b)
+        {
+            GameObject stocker = Empty("Reponedor", parent, a);
+            var body = stocker.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            var capsule = stocker.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            capsule.height = 1.8f;
+            capsule.radius = 0.35f;
+            Prim(PrimitiveType.Capsule, "Cuerpo", stocker.transform, new Vector3(0f, 0.75f, 0f), new Vector3(0.55f, 0.75f, 0.55f), "Reponedor", false);
+            Prim(PrimitiveType.Sphere, "Cabeza", stocker.transform, new Vector3(0f, 1.65f, 0f), Vector3.one * 0.32f, "Piel", false);
+            Prim(PrimitiveType.Cube, "Caja", stocker.transform, new Vector3(0f, 1.05f, 0.4f), new Vector3(0.6f, 0.45f, 0.4f), "Carton", false);
+            stocker.AddComponent<MovingObstacle>().Configure(a, b, 1.4f, 0f);
+            Count("Obstáculos móviles");
+        }
+
+        static void Ghost(Transform parent, Vector3 a, Vector3 b, float speed)
+        {
+            GameObject ghost = Empty("Fantasma", parent, a);
+            var body = ghost.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            var capsule = ghost.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.3f, 0f);
+            capsule.height = 1.6f;
+            capsule.radius = 0.45f;
+            Transform t = ghost.transform;
+            Prim(PrimitiveType.Capsule, "Sabana", t, new Vector3(0f, 0.3f, 0f), new Vector3(0.9f, 0.8f, 0.9f), "Fantasma", false);
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = i * 90f * Mathf.Deg2Rad;
+                Prim(PrimitiveType.Sphere, "Borde", t, new Vector3(Mathf.Cos(angle) * 0.32f, -0.42f, Mathf.Sin(angle) * 0.32f), Vector3.one * 0.32f, "Fantasma", false);
+            }
+            Prim(PrimitiveType.Sphere, "Ojo_Izq", t, new Vector3(-0.15f, 0.65f, 0.4f), new Vector3(0.12f, 0.18f, 0.08f), "FantasmaOjos", false);
+            Prim(PrimitiveType.Sphere, "Ojo_Der", t, new Vector3(0.15f, 0.65f, 0.4f), new Vector3(0.12f, 0.18f, 0.08f), "FantasmaOjos", false);
+            Prim(PrimitiveType.Sphere, "Boca", t, new Vector3(0f, 0.38f, 0.42f), new Vector3(0.14f, 0.16f, 0.06f), "FantasmaOjos", false);
+            ghost.AddComponent<MovingObstacle>().Configure(a, b, speed, 0.18f);
+            Count("Obstáculos móviles");
+        }
+
+        static void Tombstone(Transform parent, Vector3 position)
+        {
+            Transform stone = Empty("Lapida", parent, position).transform;
+            Prim(PrimitiveType.Cube, "Piedra", stone, new Vector3(0f, 0.5f, 0f), new Vector3(0.8f, 1f, 0.25f), "Lapida");
+            Prim(PrimitiveType.Cylinder, "Remate", stone, new Vector3(0f, 1f, 0f), new Vector3(0.8f, 0.125f, 0.8f), "Lapida", false).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Prim(PrimitiveType.Cube, "Cruz_V", stone, new Vector3(0f, 0.6f, -0.13f), new Vector3(0.08f, 0.4f, 0.02f), "FantasmaOjos", false);
+            Prim(PrimitiveType.Cube, "Cruz_H", stone, new Vector3(0f, 0.68f, -0.13f), new Vector3(0.26f, 0.08f, 0.02f), "FantasmaOjos", false);
+            Count("Obstáculos fijos");
+        }
+
+        // ---------- Decoración de Halloween ----------
+
+        static void BuildHalloweenDecor(Transform level)
+        {
+            Transform decor = Empty("Decoracion_Halloween", level, Vector3.zero).transform;
+
+            // Calabazas iluminadas sobre los extremos de los estantes que dan a la entrada.
+            for (int i = 0; i <= Aisles.Length; i++)
+            {
+                float x = (i - Aisles.Length * 0.5f) * AisleSpacing;
+                JackOLantern(decor, new Vector3(x, 1.95f, -ShelfOuterZ + 0.3f), i % 2 == 0);
+            }
+
+            // Murciélagos colgando sobre los pasillos.
+            for (int i = 0; i < Aisles.Length; i++)
+            {
+                for (int k = 0; k < 3; k++)
+                    Bat(decor, new Vector3(Aisles[i].x + (k - 1) * 0.9f, 3.1f - k % 2 * 0.25f, -8f + k * 7f + i));
+            }
+
+            // Telarañas en las esquinas.
+            foreach (Vector2 corner in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(-1f, 1f), new Vector2(1f, 1f) })
+                Cobweb(decor, new Vector3(corner.x * (FloorHalfWidth - 0.4f), WallHeight - 0.5f, corner.y * (FloorHalfLength - 0.4f)), corner);
+        }
+
+        static void JackOLantern(Transform parent, Vector3 position, bool withLight)
+        {
+            Transform pumpkin = Empty("Calabaza_Farol", parent, position).transform;
+            Prim(PrimitiveType.Sphere, "Calabaza", pumpkin, Vector3.zero, new Vector3(0.6f, 0.48f, 0.6f), "Calabaza", false);
+            Prim(PrimitiveType.Cube, "Ojo_Izq", pumpkin, new Vector3(-0.12f, 0.06f, -0.29f), new Vector3(0.1f, 0.1f, 0.04f), "CalabazaCara", false).transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Prim(PrimitiveType.Cube, "Ojo_Der", pumpkin, new Vector3(0.12f, 0.06f, -0.29f), new Vector3(0.1f, 0.1f, 0.04f), "CalabazaCara", false).transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Prim(PrimitiveType.Cube, "Boca", pumpkin, new Vector3(0f, -0.09f, -0.29f), new Vector3(0.28f, 0.06f, 0.04f), "CalabazaCara", false);
+            Prim(PrimitiveType.Cylinder, "Tallo", pumpkin, new Vector3(0f, 0.27f, 0f), new Vector3(0.07f, 0.06f, 0.07f), "Reponedor", false);
+            if (withLight)
+            {
+                var light = new GameObject("Luz").AddComponent<Light>();
+                light.transform.SetParent(pumpkin, false);
+                light.transform.localPosition = new Vector3(0f, 0.2f, -0.8f);
+                light.type = LightType.Point;
+                light.color = new Color(1f, 0.55f, 0.15f);
+                light.range = 9f;
+                light.intensity = 1.6f;
+                Count("Luces");
+            }
+            Count("Decoración");
+        }
+
+        static void Bat(Transform parent, Vector3 position)
+        {
+            Transform bat = Empty("Murcielago", parent, position).transform;
+            Prim(PrimitiveType.Sphere, "Cuerpo", bat, Vector3.zero, new Vector3(0.2f, 0.24f, 0.18f), "Murcielago", false);
+            Prim(PrimitiveType.Cube, "Ala_Izq", bat, new Vector3(-0.24f, 0.04f, 0f), new Vector3(0.32f, 0.14f, 0.02f), "Murcielago", false).transform.localRotation = Quaternion.Euler(0f, 0f, 25f);
+            Prim(PrimitiveType.Cube, "Ala_Der", bat, new Vector3(0.24f, 0.04f, 0f), new Vector3(0.32f, 0.14f, 0.02f), "Murcielago", false).transform.localRotation = Quaternion.Euler(0f, 0f, -25f);
+            Prim(PrimitiveType.Cylinder, "Hilo", bat, new Vector3(0f, 0.4f, 0f), new Vector3(0.01f, 0.3f, 0.01f), "Telarana", false);
+            Count("Decoración");
+        }
+
+        static void Cobweb(Transform parent, Vector3 position, Vector2 corner)
+        {
+            Transform web = Empty("Telarana", parent, position).transform;
+            web.localRotation = Quaternion.Euler(0f, Mathf.Atan2(corner.x, corner.y) * Mathf.Rad2Deg, 0f);
+            for (int i = 0; i < 4; i++)
+                Prim(PrimitiveType.Cube, "Hebra", web, Vector3.zero, new Vector3(1.6f, 0.02f, 0.02f), "Telarana", false).transform.localRotation = Quaternion.Euler(0f, 0f, i * 45f);
+            for (int r = 1; r <= 2; r++)
+                Prim(PrimitiveType.Cylinder, "Anillo", web, Vector3.zero, new Vector3(r * 0.6f, 0.005f, r * 0.6f), "Telarana", false).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Count("Decoración");
         }
 
         static Checkout BuildCheckout(Transform level)
@@ -525,7 +871,21 @@ namespace CarritoCaotico.EditorTools
                 Prim(PrimitiveType.Cube, "Registradora", counter, new Vector3(0f, 1.25f, -1.1f), new Vector3(0.5f, 0.45f, 0.45f), "Registradora");
                 Prim(PrimitiveType.Cube, "Pantalla", counter, new Vector3(-0.25f, 1.6f, -1.1f), new Vector3(0.05f, 0.3f, 0.4f), "ZonaEntrega", false);
             }
-            AddSign(area, "CAJA  ·  Entrega aquí", new Vector3(0f, 2.8f, 2.2f), 0f, 4.4f);
+            AddSign(area, current.Id == StoreId.Halloween ? "CAJA  ·  Paguen al caldero" : "CAJA  ·  Entrega aquí", new Vector3(0f, 2.8f, 2.2f), 0f, 4.4f);
+            if (current.Id == StoreId.Halloween)
+            {
+                Transform cauldron = Empty("Caldero", area, new Vector3(-4.8f, 0f, 1.9f)).transform;
+                Prim(PrimitiveType.Cylinder, "Olla", cauldron, new Vector3(0f, 0.45f, 0f), new Vector3(1.1f, 0.45f, 1.1f), "Caldero");
+                Prim(PrimitiveType.Cylinder, "Pocion", cauldron, new Vector3(0f, 0.91f, 0f), new Vector3(0.95f, 0.02f, 0.95f), "Baba", false);
+                var glow = new GameObject("Luz_Caldero").AddComponent<Light>();
+                glow.transform.SetParent(cauldron, false);
+                glow.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+                glow.type = LightType.Point;
+                glow.color = new Color(0.55f, 1f, 0.2f);
+                glow.range = 8f;
+                glow.intensity = 2f;
+                Count("Luces");
+            }
 
             Prim(PrimitiveType.Cube, "Marca_Entrega", area, new Vector3(0f, 0.005f, 0f), new Vector3(4.6f, 0.01f, 3f), "ZonaEntrega", false);
 
@@ -720,6 +1080,27 @@ namespace CarritoCaotico.EditorTools
             return prefab.GetComponent<RivalShopper>();
         }
 
+        /// <summary>Supermercado de la escena y tipos de producto que vende.</summary>
+        static void ConfigureStore(GameManager manager, ShoppingList list)
+        {
+            var managerObject = new SerializedObject(manager);
+            managerObject.FindProperty("store").intValue = (int)current.Id;
+            managerObject.ApplyModifiedPropertiesWithoutUndo();
+
+            var types = new List<ProductType>();
+            foreach (var aisle in Aisles)
+            {
+                types.Add(aisle.left);
+                types.Add(aisle.right);
+            }
+            var listObject = new SerializedObject(list);
+            SerializedProperty available = listObject.FindProperty("availableTypes");
+            available.arraySize = types.Count;
+            for (int i = 0; i < types.Count; i++)
+                available.GetArrayElementAtIndex(i).intValue = (int)types[i];
+            listObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         /// <summary>Red de pasillos de los rivales: centros de pasillo y tres pasillos transversales.</summary>
         static void ConfigureRivals(RivalManager manager, RivalShopper prefab, ShoppingList list, CartContents contents)
         {
@@ -731,15 +1112,15 @@ namespace CarritoCaotico.EditorTools
             for (int i = 0; i < Aisles.Length; i++)
                 aisles.GetArrayElementAtIndex(i).floatValue = Aisles[i].x;
 
-            float[] corridors = { -16.5f, 0f, 16f };
+            float[] corridors = current.CorridorsZ;
             SerializedProperty corridorProperty = serialized.FindProperty("corridorsZ");
             corridorProperty.arraySize = corridors.Length;
             for (int i = 0; i < corridors.Length; i++)
                 corridorProperty.GetArrayElementAtIndex(i).floatValue = corridors[i];
 
             serialized.FindProperty("shelfZoneAbsZ").vector2Value = new Vector2(ShelfInnerZ, ShelfOuterZ);
-            serialized.FindProperty("entryPoint").vector3Value = new Vector3(-FloorHalfWidth + 1f, 0f, -16.5f);
-            serialized.FindProperty("exitPoint").vector3Value = new Vector3(FloorHalfWidth - 1f, 0f, -16.5f);
+            serialized.FindProperty("entryPoint").vector3Value = new Vector3(-FloorHalfWidth + 1f, 0f, corridors[0]);
+            serialized.FindProperty("exitPoint").vector3Value = new Vector3(FloorHalfWidth - 1f, 0f, corridors[0]);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -755,7 +1136,7 @@ namespace CarritoCaotico.EditorTools
             go.tag = "MainCamera";
             var camera = go.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color32(191, 227, 236, 255);
+            camera.backgroundColor = current.CameraBack;
             camera.fieldOfView = 60f;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 200f;
@@ -826,12 +1207,92 @@ namespace CarritoCaotico.EditorTools
         static void AddSceneToBuildSettings()
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-            int index = scenes.FindIndex(s => s.path == ScenePath);
-            if (index == 0 && scenes[0].enabled) return;
-            if (index >= 0) scenes.RemoveAt(index);
-            // La escena del juego va primero; las demás escenas del usuario se conservan.
-            scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
+            // Las escenas del juego van primero (clásica = 0); las demás del usuario se conservan.
+            for (int i = Stores.Length - 1; i >= 0; i--)
+            {
+                string path = ScenePathFor(Stores[i].Id);
+                if (!File.Exists(path)) continue;
+                scenes.RemoveAll(s => s.path == path);
+                scenes.Insert(0, new EditorBuildSettingsScene(path, true));
+            }
             EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
+        // ---------- Imágenes de las pantallas de carga ----------
+
+        /// <summary>
+        /// Renderiza vistas de la escena como imágenes de carga provisionales
+        /// (Resources/Carga/&lt;tienda&gt;_captura_N.png). Las ilustraciones generadas con IA se
+        /// guardan como &lt;tienda&gt;_ia_N.png, tienen prioridad y nunca se sobrescriben.
+        /// </summary>
+        static void CaptureLoadingImages()
+        {
+            EnsureFolder(RootFolder + "/Resources");
+            EnsureFolder(LoadingFolder);
+            string prefix = StoreCatalog.LoadingPrefix(current.Id);
+            float aisle = Aisles[Mathf.Min(1, Aisles.Length - 1)].x;
+            var views = new[]
+            {
+                (new Vector3(StartX, 4.2f, StartZ - 2.5f), new Vector3(StartX, 1.2f, StartZ + 10f)),
+                (new Vector3(FloorHalfWidth * 0.55f, 15f, -FloorHalfLength * 0.6f), new Vector3(0f, 0f, 2f)),
+                (new Vector3(aisle + 1.2f, 1.9f, -ShelfOuterZ + 1f), new Vector3(aisle - 0.3f, 1.1f, 0f)),
+            };
+
+            var go = new GameObject("Camara_Captura");
+            var camera = go.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = current.CameraBack;
+            camera.fieldOfView = 55f;
+            camera.farClipPlane = 200f;
+            var target = new RenderTexture(1920, 1080, 24);
+            var pixels = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
+            try
+            {
+                for (int i = 0; i < views.Length; i++)
+                {
+                    go.transform.position = views[i].Item1;
+                    go.transform.LookAt(views[i].Item2);
+                    camera.targetTexture = target;
+                    camera.Render();
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0);
+                    pixels.Apply();
+                    RenderTexture.active = null;
+
+                    string path = $"{LoadingFolder}/{prefix}_captura_{i + 1}.png";
+                    File.WriteAllBytes(path, pixels.EncodeToPNG());
+                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                    ConfigureLoadingTexture(path);
+                    Count("Imágenes de carga (capturas)");
+                }
+            }
+            finally
+            {
+                camera.targetTexture = null;
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(target);
+                Object.DestroyImmediate(pixels);
+            }
+        }
+
+        [MenuItem("Carrito/Configurar imágenes de carga", priority = 3)]
+        public static void ConfigureAllLoadingTextures()
+        {
+            if (!AssetDatabase.IsValidFolder(LoadingFolder)) return;
+            foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { LoadingFolder }))
+                ConfigureLoadingTexture(AssetDatabase.GUIDToAssetPath(guid));
+        }
+
+        static void ConfigureLoadingTexture(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+            if (importer.textureType == TextureImporterType.Sprite && !importer.mipmapEnabled && importer.maxTextureSize == 2048) return;
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.mipmapEnabled = false;
+            importer.maxTextureSize = 2048;
+            importer.SaveAndReimport();
         }
 
         /// <summary>Busca referencias vacías y comprueba la configuración básica de la escena.</summary>
@@ -879,6 +1340,7 @@ namespace CarritoCaotico.EditorTools
             ExpectSingle<Checkout>(scene, problems);
             ExpectSingle<GameUI>(scene, problems);
             ExpectSingle<MenuUI>(scene, problems);
+            ExpectSingle<TutorialController>(scene, problems);
             ExpectSingle<RivalManager>(scene, problems);
             ExpectSingle<EventSystem>(scene, problems);
 
@@ -888,8 +1350,10 @@ namespace CarritoCaotico.EditorTools
                 if (!checkout.GetComponent<Collider>().isTrigger) problems.Add("El collider de la zona de entrega no es trigger.");
 
             ShoppingList list = FindInScene<ShoppingList>(scene).Count > 0 ? FindInScene<ShoppingList>(scene)[0] : null;
-            int maxPerType = list != null ? list.MaxPerType : 2;
-            foreach (ProductType type in ProductCatalog.AllTypes)
+            // La progresión puede pedir hasta 3 unidades de un mismo tipo.
+            const int maxPerType = 3;
+            IReadOnlyList<ProductType> sold = list != null ? list.AvailableTypes : ProductCatalog.AllTypes;
+            foreach (ProductType type in sold)
             {
                 productCounts.TryGetValue(type, out int count);
                 if (count < maxPerType)
@@ -929,7 +1393,7 @@ namespace CarritoCaotico.EditorTools
         static string BuildSummary()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"[Carrito] Escena generada: {ScenePath}");
+            sb.AppendLine($"[Carrito] Escena generada: {CurrentScenePath}");
             sb.AppendLine($"[Carrito] Shader de materiales: {litShader.name}");
             var keys = new List<string>(Stats.Keys);
             keys.Sort(StringComparer.Ordinal);
