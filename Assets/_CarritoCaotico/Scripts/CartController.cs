@@ -47,6 +47,7 @@ namespace CarritoCaotico
         [SerializeField, Min(0f)] float cargoWeightMultiplier = 1.5f;
 
         Rigidbody body;
+        float surfaceGrip = 1f;
         float throttle;
         float throttleInput;
         float steerInput;
@@ -59,6 +60,8 @@ namespace CarritoCaotico
         public float BaseMass => baseMass;
         public float MaxSpeed => maxSpeed;
         public bool IsDrifting { get; private set; }
+        /// <summary>true durante el paso de física en que el carrito pisa una superficie resbaladiza.</summary>
+        public bool IsSlipping { get; private set; }
         public bool ControlsEnabled => controlsEnabled;
         public float ForwardSpeed => body != null ? Vector3.Dot(body.linearVelocity, transform.forward) : 0f;
 
@@ -109,7 +112,10 @@ namespace CarritoCaotico
 
             // Fricción lateral (reducida al derrapar).
             IsDrifting = driftInput && flatVelocity.magnitude > 1f;
-            float grip = lateralFriction * (IsDrifting ? 1f - driftIntensity : 1f);
+            IsSlipping = surfaceGrip < 0.999f;
+            float grip = lateralFriction * (IsDrifting ? 1f - driftIntensity : 1f) * surfaceGrip;
+            // La superficie se vuelve a aplicar cada paso desde el trigger que la produce.
+            surfaceGrip = 1f;
             body.AddForce(-right * (lateralSpeed * grip), ForceMode.Acceleration);
 
             ApplySteering(forwardSpeed);
@@ -167,6 +173,15 @@ namespace CarritoCaotico
                 Vector3 limited = flatVelocity.normalized * hardLimit;
                 body.linearVelocity = new Vector3(limited.x, velocity.y, limited.z);
             }
+        }
+
+        /// <summary>
+        /// Una superficie resbaladiza reduce el agarre lateral durante el próximo paso de física.
+        /// 1 = normal, 0 = hielo.
+        /// </summary>
+        public void ApplySurfaceGrip(float grip)
+        {
+            surfaceGrip = Mathf.Min(surfaceGrip, Mathf.Clamp01(grip));
         }
 
         /// <summary>Actualiza la masa efectiva según el peso de los productos en la canasta.</summary>
