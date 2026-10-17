@@ -19,7 +19,7 @@ namespace CarritoCaotico.EditorTools
     /// </summary>
     internal static class HudBuilder
     {
-        const string UiFolder = CarritoSceneBuilder.RootFolder + "/UI";
+        const string UiFolder = CarritoSceneBuilder.RootFolder + "/07_Sprites";
 
         // ---------- Tokens de diseño ----------
         static readonly Color32 Ink = new Color32(15, 23, 42, 255);          // texto principal y bordes
@@ -738,7 +738,7 @@ namespace CarritoCaotico.EditorTools
         static void EnsureSprites()
         {
             if (!AssetDatabase.IsValidFolder(UiFolder))
-                AssetDatabase.CreateFolder(CarritoSceneBuilder.RootFolder, "UI");
+                AssetDatabase.CreateFolder(CarritoSceneBuilder.RootFolder, "07_Sprites");
 
             rounded = EnsureSprite("UI_Redondeado", 96, RoundedAlpha, 32);
             circle = EnsureSprite("UI_Circulo", 64, CircleAlpha, 0);

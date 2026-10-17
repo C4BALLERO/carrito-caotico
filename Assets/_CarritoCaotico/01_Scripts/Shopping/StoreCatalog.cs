@@ -16,7 +16,7 @@ namespace CarritoCaotico
             store == StoreId.Halloween ? "CarritoCaotico_Halloween" : "CarritoCaotico_Prueba";
 
         /// <summary>Ruta de la escena (válida en el Editor y en compilaciones si está en Build Settings).</summary>
-        public static string ScenePath(StoreId store) => $"Assets/_CarritoCaotico/Scenes/{SceneName(store)}.unity";
+        public static string ScenePath(StoreId store) => $"Assets/_CarritoCaotico/00_Scenes/{SceneName(store)}.unity";
 
         public static string DisplayName(StoreId store) =>
             store == StoreId.Halloween ? "Súper Embrujado" : "Súper Caótico";
