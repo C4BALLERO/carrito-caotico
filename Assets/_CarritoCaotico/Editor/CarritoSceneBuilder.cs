@@ -69,7 +69,6 @@ namespace CarritoCaotico.EditorTools
         static readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
         static Shader litShader;
         static Font uiFont;
-        static Sprite roundedSprite;
         static PhysicsMaterial cartPhysicsMaterial;
         static PhysicsMaterial productPhysicsMaterial;
 
@@ -179,7 +178,10 @@ namespace CarritoCaotico.EditorTools
             var shoppingList = systems.AddComponent<ShoppingList>();
             Count("Sistemas (GameManager, GameTimer, ShoppingList)");
 
-            GameUI ui = BuildUI(out UiRefs uiRefs);
+            GameUI ui = HudBuilder.Build(uiFont);
+            Stats.TryGetValue("Elementos de UI", out int signElements);
+            Stats["Elementos de UI"] = signElements + HudBuilder.ElementCount;
+            Count("Interfaz (Canvas, EventSystem)");
 
             // ---------- Conexión de referencias ----------
             SetRefs(cart.Contents, ("cart", cart.Controller));
@@ -191,14 +193,7 @@ namespace CarritoCaotico.EditorTools
                 ("cart", cart.Controller), ("grabber", cart.Arm), ("cameraController", cameraController));
             SetRefs(ui,
                 ("gameManager", manager), ("timer", timer), ("shoppingList", shoppingList),
-                ("cartContents", cart.Contents), ("grabber", cart.Arm), ("checkout", checkout),
-                ("timerText", uiRefs.TimerText), ("timerBackground", uiRefs.TimerBackground),
-                ("cargoText", uiRefs.CargoText), ("listText", uiRefs.ListText),
-                ("listProgressText", uiRefs.ListProgressText), ("handText", uiRefs.HandText),
-                ("messagePanel", uiRefs.MessagePanel), ("messageText", uiRefs.MessageText),
-                ("receiptPanel", uiRefs.ReceiptPanel), ("receiptTitleText", uiRefs.ReceiptTitle),
-                ("receiptBodyText", uiRefs.ReceiptBody), ("receiptResultText", uiRefs.ReceiptResult),
-                ("restartButton", uiRefs.RestartButton));
+                ("cartContents", cart.Contents), ("grabber", cart.Arm), ("checkout", checkout));
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
@@ -254,7 +249,6 @@ namespace CarritoCaotico.EditorTools
             if (litShader == null) throw new InvalidOperationException("No se encontró un shader Lit/Standard.");
 
             uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            roundedSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
 
             cartPhysicsMaterial = GetOrCreatePhysicsMaterial("PM_Carrito", 0f, 0f, PhysicsMaterialCombine.Minimum, 0.1f);
             productPhysicsMaterial = GetOrCreatePhysicsMaterial("PM_Producto", 0.7f, 0.6f, PhysicsMaterialCombine.Average, 0.15f);
@@ -692,144 +686,8 @@ namespace CarritoCaotico.EditorTools
         }
 
         // ======================================================================
-        // Interfaz
+        // Texto de los carteles (la interfaz de juego la construye HudBuilder)
         // ======================================================================
-
-        struct UiRefs
-        {
-            public Text TimerText;
-            public Image TimerBackground;
-            public Text CargoText;
-            public Text ListText;
-            public Text ListProgressText;
-            public Text HandText;
-            public GameObject MessagePanel;
-            public Text MessageText;
-            public GameObject ReceiptPanel;
-            public Text ReceiptTitle;
-            public Text ReceiptBody;
-            public Text ReceiptResult;
-            public Button RestartButton;
-        }
-
-        static GameUI BuildUI(out UiRefs refs)
-        {
-            refs = new UiRefs();
-
-            var canvasGo = new GameObject("HUD", typeof(RectTransform));
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGo.AddComponent<GraphicRaycaster>();
-            Transform c = canvasGo.transform;
-
-            // Temporizador (arriba, centro).
-            Image timerPanel = Panel(c, "Temporizador", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(260f, 100f), Teal);
-            refs.TimerBackground = timerPanel;
-            refs.TimerText = Label(timerPanel.transform, "Tiempo", "2:00", 64, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(refs.TimerText.rectTransform, 0f);
-
-            // Panel del Empujador (arriba, izquierda).
-            Image pusher = Panel(c, "Panel_Empujador", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(560f, 230f), new Color(1f, 1f, 1f, 0.94f));
-            Image pusherHeader = Panel(pusher.transform, "Cabecera", new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(560f, 54f), Teal);
-            Text pusherTitle = Label(pusherHeader.transform, "Titulo", "EMPUJADOR  ·  Jugador 1", 28, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(pusherTitle.rectTransform, 18f);
-            Text pusherControls = Label(pusher.transform, "Controles",
-                "<b>W</b> acelerar   <b>S</b> frenar / atrás\n<b>A / D</b> girar   <b>Shift izq.</b> derrapar\n<b>Mouse</b> rotar cámara   <b>Esc</b> liberar cursor",
-                22, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
-            Place(pusherControls.rectTransform, new Vector2(18f, -66f), new Vector2(524f, 96f));
-            refs.CargoText = Label(pusher.transform, "Carga", "Carga: 0.0 kg", 24, Coral, TextAnchor.UpperLeft, FontStyle.Bold);
-            Place(refs.CargoText.rectTransform, new Vector2(18f, -168f), new Vector2(524f, 48f));
-
-            // Lista del Agarrador (derecha). Solo el Agarrador debe mirarla.
-            Image grabberPanel = Panel(c, "Panel_Agarrador", new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(520f, 640f), new Color(1f, 0.99f, 0.96f, 0.96f));
-            Image listHeader = Panel(grabberPanel.transform, "Cabecera", new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(520f, 70f), Yellow);
-            Text listTitle = Label(listHeader.transform, "Titulo", "Lista del Agarrador", 34, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Stretch(listTitle.rectTransform, 20f);
-            Text secret = Label(grabberPanel.transform, "Aviso", "Solo el Agarrador (Jugador 2) mira esta lista.", 19, new Color32(71, 85, 105, 255), TextAnchor.UpperLeft, FontStyle.Italic);
-            Place(secret.rectTransform, new Vector2(20f, -80f), new Vector2(480f, 28f));
-            refs.ListText = Label(grabberPanel.transform, "Lista", "", 26, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
-            Place(refs.ListText.rectTransform, new Vector2(20f, -116f), new Vector2(480f, 270f));
-            refs.ListProgressText = Label(grabberPanel.transform, "Progreso", "", 24, Teal, TextAnchor.UpperLeft, FontStyle.Bold);
-            Place(refs.ListProgressText.rectTransform, new Vector2(20f, -392f), new Vector2(480f, 40f));
-            refs.HandText = Label(grabberPanel.transform, "Mano", "Mano: vacía", 22, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
-            Place(refs.HandText.rectTransform, new Vector2(20f, -438f), new Vector2(480f, 60f));
-            Image grabberFooter = Panel(grabberPanel.transform, "Controles", new Vector2(0f, 0f), new Vector2(0f, 0f), Vector2.zero, new Vector2(520f, 130f), new Color32(243, 232, 255, 255));
-            grabberFooter.rectTransform.pivot = new Vector2(0f, 0f);
-            Text grabberControls = Label(grabberFooter.transform, "Texto",
-                "<b>AGARRADOR · Jugador 2</b>\n<b>Flechas</b> mover brazo\n<b>Enter</b> agarrar / soltar   <b>Ctrl der.</b> lanzar",
-                22, Ink, TextAnchor.MiddleLeft, FontStyle.Normal);
-            Stretch(grabberControls.rectTransform, 20f);
-
-            // Mensaje central.
-            Image message = Panel(c, "Mensaje", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 220f), new Vector2(1000f, 90f), new Color(0.12f, 0.16f, 0.2f, 0.88f));
-            message.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            refs.MessagePanel = message.gameObject;
-            refs.MessageText = Label(message.transform, "Texto", "", 34, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(refs.MessageText.rectTransform, 16f);
-            message.gameObject.SetActive(false);
-
-            // Recibo final.
-            Image overlay = Panel(c, "Recibo", new Vector2(0f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero, new Color(0f, 0f, 0f, 0.55f));
-            overlay.sprite = null;
-            overlay.rectTransform.offsetMin = Vector2.zero;
-            overlay.rectTransform.offsetMax = Vector2.zero;
-            refs.ReceiptPanel = overlay.gameObject;
-            Image paper = Panel(overlay.transform, "Papel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 900f), Paper);
-            paper.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            Image paperHeader = Panel(paper.transform, "Cabecera", new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(760f, 90f), Teal);
-            refs.ReceiptTitle = Label(paperHeader.transform, "Titulo", "Recibo", 42, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(refs.ReceiptTitle.rectTransform, 16f);
-            refs.ReceiptBody = Label(paper.transform, "Detalle", "", 26, Ink, TextAnchor.UpperLeft, FontStyle.Normal);
-            Place(refs.ReceiptBody.rectTransform, new Vector2(40f, -110f), new Vector2(680f, 560f));
-            refs.ReceiptResult = Label(paper.transform, "Resultado", "", 36, Coral, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(refs.ReceiptResult.rectTransform, new Vector2(40f, -680f), new Vector2(680f, 60f));
-
-            Image buttonImage = Panel(paper.transform, "Boton_Reiniciar", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(360f, 80f), Coral);
-            buttonImage.rectTransform.pivot = new Vector2(0.5f, 0f);
-            var button = buttonImage.gameObject.AddComponent<Button>();
-            button.targetGraphic = buttonImage;
-            ColorBlock colors = button.colors;
-            colors.highlightedColor = new Color(1f, 0.9f, 0.85f);
-            colors.pressedColor = new Color(0.8f, 0.7f, 0.65f);
-            button.colors = colors;
-            Text buttonText = Label(buttonImage.transform, "Texto", "Reiniciar  (R)", 32, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Stretch(buttonText.rectTransform, 0f);
-            refs.RestartButton = button;
-            overlay.gameObject.SetActive(false);
-
-            // EventSystem con el módulo del New Input System.
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<InputSystemUIInputModule>();
-
-            Count("Interfaz (Canvas, EventSystem)");
-            return canvasGo.AddComponent<GameUI>();
-        }
-
-        static Image Panel(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 anchoredPosition, Vector2 size, Color color)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var rect = (RectTransform)go.transform;
-            rect.anchorMin = anchorMin;
-            rect.anchorMax = anchorMax;
-            rect.pivot = new Vector2(anchorMin.x, anchorMax.y);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = size;
-            var image = go.AddComponent<Image>();
-            image.color = color;
-            if (roundedSprite != null)
-            {
-                image.sprite = roundedSprite;
-                image.type = Image.Type.Sliced;
-            }
-            Count("Elementos de UI");
-            return image;
-        }
 
         static Text Label(Transform parent, string name, string text, int size, Color color, TextAnchor alignment, FontStyle style)
         {
@@ -853,12 +711,6 @@ namespace CarritoCaotico.EditorTools
             label.raycastTarget = false;
             Count("Elementos de UI");
             return label;
-        }
-
-        static void Place(RectTransform rect, Vector2 topLeft, Vector2 size)
-        {
-            rect.anchoredPosition = topLeft;
-            rect.sizeDelta = size;
         }
 
         static void Stretch(RectTransform rect, float padding)
