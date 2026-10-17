@@ -32,6 +32,9 @@ namespace CarritoCaotico
         MaterialPropertyBlock block;
 
         public int Carried => carried;
+        /// <summary>Número de rival para la red.</summary>
+        public int NetId { get; set; }
+        public Color TintColor { get; private set; } = Color.gray;
         public Transform BasketPoint => basketPoint != null ? basketPoint : transform;
         public bool IsLeaving => phase == Phase.Leaving;
         public Product Target => target;
@@ -55,8 +58,17 @@ namespace CarritoCaotico
             Tint(color);
         }
 
+        /// <summary>Cliente LAN: copia visual del rival del anfitrión (no piensa ni se mueve sola).</summary>
+        public void InitReplica(Color color)
+        {
+            manager = null;
+            phase = Phase.Gone;
+            Tint(color);
+        }
+
         void Tint(Color color)
         {
+            TintColor = color;
             if (tintRenderers == null) return;
             if (block == null) block = new MaterialPropertyBlock();
             foreach (Renderer r in tintRenderers)
