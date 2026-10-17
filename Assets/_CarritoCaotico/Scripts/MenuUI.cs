@@ -24,6 +24,10 @@ namespace CarritoCaotico
         [SerializeField] Button nextLevelButton;
         [SerializeField] Text levelText;
         [SerializeField] Text levelDetailText;
+        [SerializeField] Button previousPadButton;
+        [SerializeField] Button nextPadButton;
+        [SerializeField] Text padText;
+        [SerializeField] Text padDetailText;
         [SerializeField] Button quitButton;
 
         [Header("Pausa")]
@@ -51,6 +55,10 @@ namespace CarritoCaotico
             Listen(nextStoreButton, () => ChangeStore(1));
             Listen(previousLevelButton, () => ChangeLevel(-1));
             Listen(nextLevelButton, () => ChangeLevel(1));
+            Listen(previousPadButton, () => ChangePad(-1));
+            Listen(nextPadButton, () => ChangePad(1));
+            GameInput.EnsureDeviceHook();
+            GameInput.DevicesChanged += RefreshPad;
             Listen(quitButton, () => { if (gameManager != null) gameManager.QuitGame(); });
             Listen(resumeButton, () => { if (gameManager != null) gameManager.SetPaused(false); });
             Listen(pauseRestartButton, () => { if (gameManager != null) gameManager.Restart(); });
@@ -64,7 +72,8 @@ namespace CarritoCaotico
                 gameManager.StateChanged -= OnStateChanged;
                 gameManager.PauseChanged -= OnPauseChanged;
             }
-            foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton })
+            GameInput.DevicesChanged -= RefreshPad;
+            foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton, previousPadButton, nextPadButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton })
                 if (b != null) b.onClick.RemoveAllListeners();
         }
 
@@ -76,6 +85,7 @@ namespace CarritoCaotico
             if (storeIndex < 0) storeIndex = 0;
             RefreshStore();
             RefreshLevel();
+            RefreshPad();
             if (pausePanel != null) pausePanel.SetActive(false);
             if (gameManager != null) OnStateChanged(gameManager.State);
         }
@@ -115,6 +125,30 @@ namespace CarritoCaotico
         {
             selectedLevel = Mathf.Clamp(selectedLevel + delta, 1, GameSession.MaxUnlockedLevel);
             RefreshLevel();
+        }
+
+        void ChangePad(int delta)
+        {
+            const int count = 3;
+            GameInput.PadMode = (PadAssignment)(((int)GameInput.PadMode + delta + count) % count);
+            RefreshPad();
+        }
+
+        void RefreshPad()
+        {
+            if (padText != null)
+            {
+                padText.text = GameInput.PadMode == PadAssignment.Agarrador ? "Mando: Agarrador"
+                    : GameInput.PadMode == PadAssignment.Empujador ? "Mando: Empujador"
+                    : "Mando: automático";
+            }
+            if (padDetailText != null)
+            {
+                string connected = GameInput.GamepadCount == 0
+                    ? "Sin mando conectado"
+                    : GameInput.GamepadCount == 1 ? $"Conectado: {GameInput.GamepadName}" : $"{GameInput.GamepadCount} mandos conectados";
+                padDetailText.text = $"{connected}  ·  {GameInput.DevicesSummary()}";
+            }
         }
 
         void RefreshStore()
