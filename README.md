@@ -65,7 +65,6 @@ Generación desde línea de comandos (útil para CI):
 | Girar | `A` / `D` | Stick izquierdo |
 | Derrapar | `Shift izquierdo` | `RB` / botón sur |
 | Rotar cámara | Mouse | Stick derecho |
-| Liberar o capturar el cursor | `Esc` | — |
 
 ### Agarrador (Jugador 2)
 
@@ -79,12 +78,28 @@ Generación desde línea de comandos (útil para CI):
 
 | Acción | Tecla |
 |---|---|
-| Reiniciar al terminar | `R`, botón **Reiniciar** o `Start` |
+| Pausa / continuar | `Esc`, `P`, botón **Pausa** o `Start` |
+| Siguiente nivel (tras completar la compra) | `N` o botón **Siguiente nivel** |
+| Reintentar al terminar | `R`, botón **Reintentar** o `Start` |
+| Volver al menú al terminar | `M` o botón **Menú** |
 
 Con un solo mando, ese mando controla al Empujador y el Agarrador juega con el teclado.
 
+### Controles que cambian
+
+A partir del **nivel 4**, cada nivel puede cambiar los controles al azar. El esquema se anuncia en la tarjeta de preparación, los paneles muestran «¡Cambiados!» o «¡Al revés!» y las teclas del HUD se actualizan.
+
+| Esquema | Empujador | Agarrador |
+|---|---|---|
+| Normal | `W` `S` `A` `D` + `Shift izq.` | Flechas + `Enter` + `Ctrl der.` |
+| Intercambiado | Flechas + `Shift der.` | `W` `A` `S` `D` + `Espacio` + `F` |
+| Al revés | Teclas normales con las direcciones invertidas | Teclas normales con las direcciones invertidas |
+
+El esquema de cada nivel se mantiene al reintentarlo. Con el esquema intercambiado, también se intercambian los mandos.
+
 ## Cómo se juega
 
+0. **Menú de inicio:** elige el nivel con `<` / `>` (solo los desbloqueados) y pulsa **Jugar**. El progreso se guarda en `PlayerPrefs`.
 1. **Preparación (4 s):** el Agarrador lee la *Lista del Agarrador*, en el lado derecho de la pantalla.
 2. **En juego (120 s):** el Empujador conduce hasta los pasillos y el Agarrador recoge los productos.
    - La mano se vuelve **amarilla** cuando hay un producto a su alcance y **verde** cuando sostiene uno.
@@ -93,6 +108,31 @@ Con un solo mando, ese mando controla al Empujador y el Agarrador juega con el t
    - La carga hace el carrito más pesado: acelera y frena con más inercia.
 3. **Caja:** al entrar en la zona verde junto a la caja, la compra se evalúa una sola vez y aparece el recibo.
 4. **Tiempo agotado:** si el tiempo llega a 0, aparece **«¡La tienda cerró!»**.
+5. **Siguiente nivel:** una compra completa (sin faltantes) desbloquea el nivel siguiente.
+
+### Niveles
+
+Los niveles se generan con `LevelProgression`. Cada nivel es más difícil que el anterior hasta el nivel 12, y a partir de ahí la dificultad ya no sube.
+
+| Nivel | Lista (unidades) | Máx. por tipo | Tiempo | Rivales |
+|---|---|---|---|---|
+| 1 | 3–5 | 2 | 2:00 | 0 |
+| 2 | 3–5 | 2 | 2:00 | 1 |
+| 3 | 4–6 | 2 | 1:55 | 1 |
+| 4 | 4–6 | 2 | 1:50 | 2 |
+| 6 | 5–7 | 3 | 1:40 | 3 |
+| 8 | 6–8 | 3 | 1:30 | 4 |
+| 12 | 7–8 | 3 | 1:25 | 6 |
+
+Además, con cada nivel los rivales caminan más rápido, tardan menos en agarrar, llevan más productos y prefieren los de tu lista.
+
+### Compradores rivales
+
+- Entran por un lateral de la tienda y recorren una red de pasillos (centros de pasillo y tres pasillos transversales). Se detienen frente a un producto y lo meten en su carrito, donde se ve.
+- Cuando llenan el carrito se van y, al rato, entra otro.
+- Si se llevan un producto de tu lista aparece el aviso **«¡Un rival se llevó…!»**. El chip superior derecho cuenta los rivales y los productos robados.
+- **Regla justa:** un rival nunca se lleva una unidad que necesites si con eso quedarían menos unidades en las baldas de las que te faltan. Te ganan los productos cercanos, pero la lista nunca se vuelve imposible.
+- Son cinemáticos: empujan el carrito si se cruzan con él.
 
 ### El supermercado
 
@@ -136,7 +176,12 @@ Assets/_CarritoCaotico/
 │   ├── ShoppingList.cs      Lista del Agarrador: requeridas, conseguidas y faltantes
 │   ├── GameTimer.cs         Cuenta regresiva de 120 s
 │   ├── Checkout.cs          Zona de entrega junto a la caja
-│   ├── GameManager.cs       Estados: Preparación, En juego, Compra entregada, Tiempo agotado
+│   ├── GameManager.cs       Estados (Menú, Preparación, En juego, Compra entregada, Tiempo agotado), pausa y niveles
+│   ├── GameSession.cs       Nivel actual y progreso guardado entre recargas de escena
+│   ├── LevelProgression.cs  Dificultad por nivel y esquemas de control
+│   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
+│   ├── RivalShopper.cs      IA de un comprador rival
+│   ├── MenuUI.cs            Menú principal, selector de nivel y menú de pausa
 │   └── GameUI.cs            HUD, lista, mensajes y recibo
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
@@ -189,6 +234,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 
 ## Problemas conocidos
 
+- Los rivales siguen una red fija de pasillos sin NavMesh: no esquivan el carrito de los jugadores, lo empujan.
 - La separación de la lista entre jugadores es solo visual: la lista está en el lado derecho de la pantalla y el Empujador no debe mirarla.
 - Los productos dentro de la canasta pueden salir volando en curvas muy cerradas o al derrapar. Es intencionado, pero todavía no está equilibrado.
 - Los personajes y el brazo son solo visuales, sin colisión, y pueden atravesar los estantes.

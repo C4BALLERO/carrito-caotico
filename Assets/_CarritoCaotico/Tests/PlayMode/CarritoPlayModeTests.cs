@@ -25,9 +25,13 @@ namespace CarritoCaotico.Tests
         GrabberArm grabber;
         Checkout checkout;
 
-        IEnumerator LoadGameScene()
+        IEnumerator LoadGameScene(int level = 1, bool direct = true)
         {
             if (!File.Exists(ScenePath)) Assert.Ignore("La escena de prueba no está generada.");
+            // Semilla fija: los controles del nivel son reproducibles.
+            GameSession.SetSeed(1);
+            if (direct) GameSession.Begin(level);
+            else GameSession.ReturnToMenu();
 #if UNITY_EDITOR
             yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(
                 ScenePath, new LoadSceneParameters(LoadSceneMode.Single));

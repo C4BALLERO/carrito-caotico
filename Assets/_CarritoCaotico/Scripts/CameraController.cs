@@ -128,8 +128,9 @@ namespace CarritoCaotico
                 RaycastHit hit = hits[i];
                 if (hit.distance <= 0f) continue;
                 Rigidbody rb = hit.collider.attachedRigidbody;
-                // Ignora el carrito y los objetos dinámicos (productos, cajas).
-                if (rb != null && (rb == targetBody || !rb.isKinematic)) continue;
+                // Solo los objetos estáticos (estantes, paredes) acercan la cámara: se ignoran
+                // el carrito, los productos, las cajas y los compradores rivales.
+                if (rb != null) continue;
                 if (hit.distance < best) best = hit.distance;
             }
             return Mathf.Clamp(best, minDistance, maxDistance);

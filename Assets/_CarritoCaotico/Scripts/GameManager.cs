@@ -7,6 +7,7 @@ namespace CarritoCaotico
 {
     public enum GameState
     {
+        Menu,
         Preparacion,
         EnJuego,
         CompraEntregada,
@@ -21,8 +22,8 @@ namespace CarritoCaotico
     }
 
     /// <summary>
-    /// Controlador central de estados de la partida. Coordina el inicio, la evaluación en caja,
-    /// el fin por tiempo y el reinicio. La lógica de gameplay vive en cada sistema.
+    /// Controlador central de estados de la partida: menú, niveles, pausa, evaluación en caja,
+    /// fin por tiempo y reinicio. La lógica de gameplay vive en cada sistema.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -33,22 +34,36 @@ namespace CarritoCaotico
         [SerializeField] CartController cart;
         [SerializeField] GrabberArm grabber;
         [SerializeField] CameraController cameraController;
+        [SerializeField] RivalManager rivals;
 
         [Header("Flujo")]
         [Tooltip("Segundos de preparación para que el Agarrador lea la lista.")]
         [SerializeField, Min(0f)] float preparationTime = 4f;
         [SerializeField] bool lockCursorWhilePlaying = true;
+        [Tooltip("Mostrar el menú principal al abrir la escena (si no se viene de un nivel).")]
+        [SerializeField] bool showMenuOnStart = true;
 
         readonly Dictionary<ProductType, int> deliveredSnapshot = new Dictionary<ProductType, int>();
         float preparationRemaining;
 
-        public GameState State { get; private set; } = GameState.Preparacion;
+        public GameState State { get; private set; } = GameState.Menu;
         public float PreparationRemaining => preparationRemaining;
         public ShoppingReceipt LastReceipt { get; private set; }
+        public LevelConfig CurrentConfig { get; private set; }
+        public int CurrentLevel => CurrentConfig != null ? CurrentConfig.Level : GameSession.CurrentLevel;
+        public bool IsPaused { get; private set; }
         public bool IsGameOver => State == GameState.CompraEntregada || State == GameState.TiempoAgotado;
+        public bool CanAdvance => State == GameState.CompraEntregada && LastReceipt != null && LastReceipt.IsComplete;
 
         public event Action<GameState> StateChanged;
         public event Action<ShoppingReceipt> GameEnded;
+        public event Action<bool> PauseChanged;
+        public event Action<LevelConfig> LevelConfigured;
+
+        void Awake()
+        {
+            Time.timeScale = 1f;
+        }
 
         void OnEnable()
         {
@@ -61,34 +76,73 @@ namespace CarritoCaotico
             SetCursorLocked(false);
         }
 
+        void OnDestroy()
+        {
+            Time.timeScale = 1f;
+        }
+
         void Start()
         {
-            if (shoppingList != null) shoppingList.Generate();
-            if (timer != null) timer.ResetTimer();
-
-            preparationRemaining = preparationTime;
             SetPlayersEnabled(false);
             if (cameraController != null) cameraController.SetLookEnabled(true);
-            ChangeState(GameState.Preparacion);
 
-            if (preparationTime <= 0f) BeginPlay();
+            if (showMenuOnStart && !GameSession.StartDirectly)
+            {
+                GameInput.Scheme = ControlScheme.Normal;
+                ChangeState(GameState.Menu);
+                return;
+            }
+            BeginLevel(GameSession.CurrentLevel);
         }
 
         void Update()
         {
+            if ((State == GameState.Preparacion || State == GameState.EnJuego) && GameInput.PausePressed())
+            {
+                SetPaused(!IsPaused);
+                return;
+            }
+            if (IsPaused) return;
+
             if (State == GameState.Preparacion)
             {
                 preparationRemaining = Mathf.Max(0f, preparationRemaining - Time.deltaTime);
                 if (preparationRemaining <= 0f) BeginPlay();
             }
-            else if (IsGameOver && GameInput.RestartPressed())
+            else if (IsGameOver)
             {
-                Restart();
-                return;
+                if (CanAdvance && GameInput.NextLevelPressed()) NextLevel();
+                else if (GameInput.RestartPressed()) Restart();
+                else if (GameInput.MenuPressed()) GoToMenu();
+            }
+        }
+
+        // ---------- Niveles ----------
+
+        /// <summary>Empieza un nivel desde el menú, sin recargar la escena.</summary>
+        public void StartGame(int level)
+        {
+            if (State != GameState.Menu) return;
+            GameSession.Begin(level);
+            BeginLevel(GameSession.CurrentLevel);
+        }
+
+        void BeginLevel(int level)
+        {
+            CurrentConfig = LevelProgression.Get(level, GameSession.SessionSeed);
+            GameInput.Scheme = CurrentConfig.Scheme;
+
+            if (timer != null) timer.SetDuration(CurrentConfig.Duration);
+            if (shoppingList != null)
+            {
+                shoppingList.Configure(CurrentConfig.MinUnits, CurrentConfig.MaxUnits, CurrentConfig.MaxPerType);
+                shoppingList.Generate();
             }
 
-            if (State == GameState.EnJuego && GameInput.ToggleCursorPressed())
-                SetCursorLocked(Cursor.lockState != CursorLockMode.Locked);
+            preparationRemaining = preparationTime;
+            LevelConfigured?.Invoke(CurrentConfig);
+            ChangeState(GameState.Preparacion);
+            if (preparationTime <= 0f) BeginPlay();
         }
 
         void BeginPlay()
@@ -97,15 +151,64 @@ namespace CarritoCaotico
             SetPlayersEnabled(true);
             SetCursorLocked(lockCursorWhilePlaying);
             if (timer != null) timer.StartTimer();
+            if (rivals != null && CurrentConfig != null) rivals.Begin(CurrentConfig);
             ChangeState(GameState.EnJuego);
         }
+
+        /// <summary>Recarga la escena y repite el nivel actual.</summary>
+        public void Restart()
+        {
+            GameSession.Begin(CurrentLevel);
+            ReloadScene();
+        }
+
+        /// <summary>Pasa al siguiente nivel (solo tras una compra completa).</summary>
+        public void NextLevel()
+        {
+            if (!CanAdvance) return;
+            GameSession.Begin(CurrentLevel + 1);
+            ReloadScene();
+        }
+
+        public void GoToMenu()
+        {
+            GameSession.ReturnToMenu();
+            ReloadScene();
+        }
+
+        public void QuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        // ---------- Pausa ----------
+
+        public void SetPaused(bool paused)
+        {
+            if (paused && State != GameState.Preparacion && State != GameState.EnJuego) return;
+            if (IsPaused == paused) return;
+
+            IsPaused = paused;
+            Time.timeScale = paused ? 0f : 1f;
+            bool playing = State == GameState.EnJuego;
+            SetPlayersEnabled(!paused && playing);
+            if (cameraController != null) cameraController.SetLookEnabled(!paused);
+            SetCursorLocked(!paused && playing && lockCursorWhilePlaying);
+            PauseChanged?.Invoke(paused);
+        }
+
+        // ---------- Caja y fin de partida ----------
 
         /// <summary>
         /// Llamado por la caja. Congela el contenido de la canasta y evalúa una sola vez.
         /// </summary>
         public CheckoutAttempt TryCheckout()
         {
-            if (State != GameState.EnJuego) return CheckoutAttempt.NotPlaying;
+            if (State != GameState.EnJuego || IsPaused) return CheckoutAttempt.NotPlaying;
             if (cartContents == null || cartContents.Count == 0) return CheckoutAttempt.EmptyCart;
 
             if (timer != null) timer.StopTimer();
@@ -115,6 +218,7 @@ namespace CarritoCaotico
             float elapsed = timer != null ? timer.Elapsed : 0f;
             float remaining = timer != null ? timer.Remaining : 0f;
             LastReceipt = ShoppingRules.Evaluate(shoppingList.Required, deliveredSnapshot, elapsed, remaining, true);
+            if (LastReceipt.IsComplete) GameSession.Unlock(CurrentLevel + 1);
 
             EndGame(GameState.CompraEntregada);
             return CheckoutAttempt.Accepted;
@@ -132,14 +236,15 @@ namespace CarritoCaotico
 
         void EndGame(GameState finalState)
         {
+            if (rivals != null) rivals.Stop();
             SetCursorLocked(false);
             ChangeState(finalState);
             GameEnded?.Invoke(LastReceipt);
         }
 
-        /// <summary>Recarga la escena actual para empezar una partida nueva.</summary>
-        public void Restart()
+        void ReloadScene()
         {
+            Time.timeScale = 1f;
             SetCursorLocked(false);
             Scene scene = SceneManager.GetActiveScene();
             if (scene.buildIndex >= 0)
