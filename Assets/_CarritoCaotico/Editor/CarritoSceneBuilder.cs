@@ -19,7 +19,7 @@ namespace CarritoCaotico.EditorTools
     /// caja, cámara, interfaz y referencias conectadas. Menú: Carrito > Construir escena de prueba.
     /// Si la escena ya existe, se guarda una copia de seguridad antes de regenerarla.
     /// </summary>
-    public static class CarritoSceneBuilder
+    public static partial class CarritoSceneBuilder
     {
         public const string RootFolder = "Assets/_CarritoCaotico";
         public const string ScenesFolder = RootFolder + "/00_Scenes";
@@ -269,6 +269,7 @@ namespace CarritoCaotico.EditorTools
             BuildShelves(level);
             BuildObstacles(level);
             if (current.Id == StoreId.Halloween) BuildHalloweenDecor(level);
+            BuildAmbience(level);
             Checkout checkout = BuildCheckout(level);
             PlaceProducts();
 
