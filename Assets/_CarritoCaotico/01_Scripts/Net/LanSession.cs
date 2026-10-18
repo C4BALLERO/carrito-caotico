@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using Unity.Collections;
 using Unity.Networking.Transport;
 using Unity.Networking.Transport.Utilities;
@@ -51,6 +49,7 @@ namespace CarritoCaotico
         readonly NetReader reader = new NetReader();
         byte[] receiveBuffer = new byte[2048];
         bool closing;
+        LanDiscovery announcer;
 
         public SessionStatus Status { get; private set; } = SessionStatus.Inactiva;
         public bool IsHost { get; private set; }
@@ -123,6 +122,8 @@ namespace CarritoCaotico
             IsHost = true;
             BaseRole = role == NetRole.Ninguno ? NetRole.Empujador : role;
             Port = port;
+            // Se anuncia en la red para que el otro PC la encuentre sin escribir la IP.
+            if (!loopbackOnly && !IsDetached) announcer = LanDiscovery.StartAnnouncing(BaseRole, port);
             SetStatus(SessionStatus.Esperando);
             return true;
         }
@@ -167,6 +168,7 @@ namespace CarritoCaotico
         {
             if (closing) return;
             closing = true;
+            StopAnnouncing();
             if (driver.IsCreated)
             {
                 if (connection.IsCreated)
@@ -209,10 +211,17 @@ namespace CarritoCaotico
             Close(message);
         }
 
+        void StopAnnouncing()
+        {
+            announcer?.Dispose();
+            announcer = null;
+        }
+
         void SetStatus(SessionStatus status)
         {
             if (Status == status) return;
             Status = status;
+            if (status == SessionStatus.Conectada) StopAnnouncing();
             if (Instance == this)
             {
                 GameInput.LanBaseRole = status == SessionStatus.Conectada ? BaseRole : NetRole.Ninguno;
@@ -225,6 +234,7 @@ namespace CarritoCaotico
 
         void Update()
         {
+            announcer?.Update(Time.unscaledTime);
             Pump();
         }
 
@@ -266,7 +276,7 @@ namespace CarritoCaotico
                     case NetworkEvent.Type.Disconnect:
                         connection = default;
                         Lost(Status == SessionStatus.Conectando
-                            ? $"No se encontró ninguna partida en {PeerAddress}:{Port}."
+                            ? $"No se encontró ninguna partida en {PeerAddress}:{Port}.\n{ConnectionHelp}"
                             : "Se perdió la conexión con el otro PC.");
                         break;
                 }
@@ -435,32 +445,26 @@ namespace CarritoCaotico
 
         // ---------- Utilidades ----------
 
-        /// <summary>IP de este PC en la red local (para decírsela al otro jugador).</summary>
+        /// <summary>IP de este PC en la red local, la más probable primero (para decírsela al otro jugador).</summary>
         public static List<string> LocalAddresses()
         {
             var result = new List<string>();
-            try
-            {
-                foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                    foreach (UnicastIPAddressInformation info in nic.GetIPProperties().UnicastAddresses)
-                    {
-                        if (info.Address.AddressFamily != AddressFamily.InterNetwork) continue;
-                        string ip = info.Address.ToString();
-                        if (ip.StartsWith("169.254.") || result.Contains(ip)) continue;
-                        // Primero las direcciones privadas típicas de una LAN doméstica.
-                        if (ip.StartsWith("192.168.") || ip.StartsWith("10.")) result.Insert(0, ip);
-                        else result.Add(ip);
-                    }
-                }
-            }
-            catch (Exception exception)
-            {
-                Debug.LogWarning("[LAN] No se pudieron leer las IP locales: " + exception.Message);
-            }
+            foreach (LocalAddress address in LanDiscovery.LocalAddresses())
+                if (!result.Contains(address.Address)) result.Add(address.Address);
             return result;
         }
+
+        /// <summary>IP principal de este PC (la de la wifi o el cable de casa) o vacío si no hay red.</summary>
+        public static string PrimaryAddress()
+        {
+            List<string> addresses = LocalAddresses();
+            return addresses.Count > 0 ? addresses[0] : "";
+        }
+
+        /// <summary>Consejos cuando el otro PC no conecta.</summary>
+        public const string ConnectionHelp =
+            "Si no conecta: los dos PC en la misma wifi · en Windows, la wifi como «Red privada» · " +
+            "permite Carrito Caótico (o Unity) en el Firewall de Windows para redes privadas.";
 
         // ---------- Línea de comandos ----------
 

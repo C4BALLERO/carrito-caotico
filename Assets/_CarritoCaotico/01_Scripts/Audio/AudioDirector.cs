@@ -138,8 +138,21 @@ namespace CarritoCaotico
 
         void Update()
         {
+            ApplySoundMode();
             UpdateWheels();
             UpdateMenuNavigation();
+        }
+
+        /// <summary>Botón «Sonido» del menú: todo, solo efectos o nada.</summary>
+        void ApplySoundMode()
+        {
+            bool musicOn = GameAudio.MusicOn;
+            bool effectsOn = GameAudio.EffectsOn;
+            if (music != null) music.mute = !musicOn;
+            if (ambience != null) ambience.mute = !musicOn;
+            if (effects != null) effects.mute = !effectsOn;
+            if (interfaceEffects != null) interfaceEffects.mute = !effectsOn;
+            if (wheels != null) wheels.mute = !effectsOn;
         }
 
         void FixedUpdate()
@@ -183,6 +196,7 @@ namespace CarritoCaotico
                     break;
                 case GameState.TiempoAgotado:
                 case GameState.CompraEntregada:
+                case GameState.CarritoDestruido:
                     SetLoop(music, null);
                     break;
             }
@@ -202,6 +216,8 @@ namespace CarritoCaotico
         void OnGameEnded(ShoppingReceipt receipt)
         {
             if (library == null || receipt == null) return;
+            // La explosión del carrito ya tiene su sonido (GameAudio).
+            if (gameManager != null && gameManager.State == GameState.CarritoDestruido) return;
             if (receipt.TimedOut)
             {
                 Play(IsNight ? library.sfxTiempoNoche : library.sfxTiempoDia);

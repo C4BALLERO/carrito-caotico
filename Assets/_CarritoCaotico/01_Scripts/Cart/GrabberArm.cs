@@ -289,7 +289,13 @@ namespace CarritoCaotico
         public void SetLocalActionsEnabled(bool enabled) => localActions = enabled;
 
         /// <summary>Cliente LAN: producto que el anfitrión dice que sostiene la mano (solo para el color).</summary>
-        public void SetDisplayHeld(Product product) => displayHeld = product;
+        public void SetDisplayHeld(Product product)
+        {
+            if (displayHeld == product) return;
+            displayHeld = product;
+            // Así el cliente también oye agarrar y soltar.
+            HeldProductChanged?.Invoke(product);
+        }
 
         /// <summary>Mueve el objetivo de la mano (espacio local del carrito). Útil para pruebas.</summary>
         public void SetHandLocalTarget(Vector3 localPosition, bool snap)

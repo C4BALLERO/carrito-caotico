@@ -41,6 +41,9 @@ namespace CarritoCaotico
         [SerializeField] Button quitButton;
         [Tooltip("Texto de roles bajo los botones: en LAN explica quién es quién.")]
         [SerializeField] Text rolesText;
+        [Tooltip("Cambia entre música y efectos, solo efectos o silencio.")]
+        [SerializeField] Button soundButton;
+        [SerializeField] Text soundButtonText;
 
         [Header("LAN")]
         [SerializeField] Button lanButton;
@@ -56,6 +59,9 @@ namespace CarritoCaotico
         [SerializeField] InputField lanAddressField;
         [SerializeField] Button lanJoinButton;
         [SerializeField] Text lanStatusText;
+        [Tooltip("IP de este PC en grande mientras se espera al otro jugador.")]
+        [SerializeField] GameObject lanBigAddressGroup;
+        [SerializeField] Text lanBigAddressText;
         [SerializeField] Button lanCancelButton;
         [SerializeField] Text lanCancelText;
         [SerializeField] Button lanBackButton;
@@ -70,6 +76,13 @@ namespace CarritoCaotico
         int storeIndex;
         string defaultRolesText;
         LanSession.SessionStatus shownLanStatus;
+        LanDiscovery listener;
+        string autoAddress = "";
+        int shownFound = -1;
+
+        /// <summary>Partidas encontradas en la red (las anuncia el anfitrión).</summary>
+        public System.Collections.Generic.IReadOnlyList<LanBeacon> FoundGames =>
+            listener != null ? listener.Found : System.Array.Empty<LanBeacon>();
 
         public int SelectedLevel => selectedLevel;
         public StoreId SelectedStore => StoreCatalog.All[storeIndex];
@@ -119,6 +132,11 @@ namespace CarritoCaotico
             Listen(pauseRestartButton, () => { if (gameManager != null) gameManager.Restart(); });
             Listen(pauseMenuButton, () => { if (gameManager != null) gameManager.GoToMenu(); });
 
+            Listen(soundButton, () =>
+            {
+                GameAudio.CycleMode();
+                RefreshSound();
+            });
             Listen(lanButton, OpenLan);
             Listen(lanPreviousRoleButton, ToggleLanRole);
             Listen(lanNextRoleButton, ToggleLanRole);
@@ -139,10 +157,11 @@ namespace CarritoCaotico
             GameInput.DevicesChanged -= RefreshPad;
             CharacterChoice.Changed -= RefreshCharacters;
             LanSession.AnyStatusChanged -= RefreshLan;
+            StopListening();
             foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton,
                          previousPusherButton, nextPusherButton, previousGrabberButton, nextGrabberButton, previousPadButton, nextPadButton,
                          quitButton, resumeButton, pauseRestartButton, pauseMenuButton,
-                         lanButton, lanPreviousRoleButton, lanNextRoleButton, lanHostButton, lanJoinButton, lanCancelButton, lanBackButton })
+                         soundButton, lanButton, lanPreviousRoleButton, lanNextRoleButton, lanHostButton, lanJoinButton, lanCancelButton, lanBackButton })
                 if (b != null) b.onClick.RemoveAllListeners();
         }
 
@@ -159,6 +178,7 @@ namespace CarritoCaotico
             RefreshLevel();
             RefreshCharacters();
             RefreshPad();
+            RefreshSound();
             if (pausePanel != null) pausePanel.SetActive(false);
             if (gameManager != null) OnStateChanged(gameManager.State);
             RefreshLan();
@@ -167,6 +187,42 @@ namespace CarritoCaotico
         void Update()
         {
             if (IsLanPanelOpen && lanBackButton != null && lanBackButton.gameObject.activeSelf && GameInput.BackPressed()) CloseLan();
+            UpdateDiscovery();
+        }
+
+        /// <summary>Con el panel abierto y sin partida, busca partidas anunciadas en la misma red.</summary>
+        void UpdateDiscovery()
+        {
+            bool searching = IsLanPanelOpen && LanSession.Instance == null;
+            if (!searching)
+            {
+                StopListening();
+                return;
+            }
+            if (listener == null) listener = LanDiscovery.StartListening();
+            listener.Update(Time.unscaledTime);
+
+            int count = listener.Found.Count;
+            if (count == shownFound) return;
+            shownFound = count;
+            if (count > 0 && lanAddressField != null)
+            {
+                // Rellena la IP si el campo está vacío o lo había rellenado el propio juego.
+                string current = lanAddressField.text.Trim();
+                if (current.Length == 0 || current == autoAddress || current == PlayerPrefs.GetString(LanAddressKey, ""))
+                {
+                    autoAddress = listener.Found[0].Address;
+                    lanAddressField.text = autoAddress;
+                }
+            }
+            RefreshLan();
+        }
+
+        void StopListening()
+        {
+            listener?.Dispose();
+            listener = null;
+            shownFound = -1;
         }
 
         static void Listen(Button button, UnityEngine.Events.UnityAction action)
@@ -259,6 +315,11 @@ namespace CarritoCaotico
             levelDetailText.text = $"Lista de {config.MinUnits} a {config.MaxUnits} unidades  ·  {GameTimer.Format(config.Duration)}  ·  {rivals}  ·  {controls}";
         }
 
+        void RefreshSound()
+        {
+            if (soundButtonText != null) soundButtonText.text = GameAudio.ModeName(GameAudio.Mode);
+        }
+
         // ---------- LAN ----------
 
         void OpenLan()
@@ -342,14 +403,23 @@ namespace CarritoCaotico
                     cancel.anchoredPosition = new Vector2(-total * 0.5f + cancel.sizeDelta.x * 0.5f, cancel.anchoredPosition.y);
                 }
             }
-            if (lanStatusText != null) lanStatusText.text = LanStatus(session, status);
+            if (lanStatusText != null) lanStatusText.text = LanStatus(session, status, FoundGames);
+
+            // Mientras se espera, la IP que hay que escribir en el otro PC se ve en grande.
+            bool waiting = status == LanSession.SessionStatus.Esperando;
+            if (lanBigAddressGroup != null) lanBigAddressGroup.SetActive(waiting);
+            if (lanBigAddressText != null && waiting)
+            {
+                string ip = LanSession.PrimaryAddress();
+                lanBigAddressText.text = string.IsNullOrEmpty(ip) ? "Sin red" : ip;
+            }
 
             if (lanButtonText != null) lanButtonText.text = connected ? "LAN: conectado" : "Jugar en LAN";
             if (tutorialButton != null) tutorialButton.interactable = !connected;
             if (rolesText != null)
             {
                 rolesText.text = connected
-                    ? $"<b>Partida LAN con {session.PeerAddress}.</b>  Tú: <b>{NetRoles.Name(session.BaseRole)}</b>  ·  el otro PC: <b>{NetRoles.Name(NetRoles.Other(session.BaseRole))}</b>\n" +
+                    ? $"<b>Partida LAN con {session.PeerAddress}</b> (tu IP: {LanSession.PrimaryAddress()}).  Tú: <b>{NetRoles.Name(session.BaseRole)}</b>  ·  el otro PC: <b>{NetRoles.Name(NetRoles.Other(session.BaseRole))}</b>\n" +
                       (session.IsHost ? "Elige supermercado y nivel y pulsa <b>Jugar</b>: el otro PC empieza contigo." : "El anfitrión elige supermercado y nivel.")
                     : defaultRolesText ?? rolesText.text;
             }
@@ -367,12 +437,13 @@ namespace CarritoCaotico
             }
         }
 
-        static string LanStatus(LanSession session, LanSession.SessionStatus status)
+        static string LanStatus(LanSession session, LanSession.SessionStatus status, System.Collections.Generic.IReadOnlyList<LanBeacon> found)
         {
             switch (status)
             {
                 case LanSession.SessionStatus.Esperando:
-                    return "<b>Esperando al otro PC…</b>\nEn el otro PC: Jugar en LAN → escribe tu IP → Unirse.";
+                    return "<b>Esperando al otro PC…</b>  En el otro PC: Jugar en LAN → la partida aparece sola o escribe esta IP → Unirse.\n" +
+                           $"<size=18>{LanSession.ConnectionHelp}</size>";
                 case LanSession.SessionStatus.Conectando:
                     return $"<b>Conectando con {session.PeerAddress}…</b>";
                 case LanSession.SessionStatus.Conectada:
@@ -380,8 +451,15 @@ namespace CarritoCaotico
                         ? $"<b>Conectado con {session.PeerAddress}.</b>\nTú: {NetRoles.Name(session.BaseRole)}. Vuelve al menú, elige nivel y pulsa Jugar."
                         : $"<b>Conectado con el anfitrión ({session.PeerAddress}).</b>  Tú: {NetRoles.Name(session.BaseRole)}.\nEsperando a que elija supermercado y nivel…";
                 default:
+                    if (found.Count > 0)
+                    {
+                        LanBeacon game = found[0];
+                        return $"<b>Partida encontrada en la red:</b> {game.HostName} ({game.Address}), su jugador es el {NetRoles.Name(game.HostRole)}.\n" +
+                               "Pulsa <b>Unirse</b> para jugar de " + NetRoles.Name(NetRoles.Other(game.HostRole)) + ".";
+                    }
                     return string.IsNullOrEmpty(LanSession.LastNotice)
-                        ? "Los dos PC deben estar en la misma red (wifi o cable). Uno crea la partida y el otro se une con su IP."
+                        ? "Los dos PC deben estar en la misma red (wifi o cable). Uno crea la partida y el otro la ve aquí o escribe su IP.\n" +
+                          "<size=18>Buscando partidas en la red…</size>"
                         : LanSession.LastNotice;
             }
         }

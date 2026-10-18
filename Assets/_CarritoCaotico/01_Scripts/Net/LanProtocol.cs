@@ -80,7 +80,7 @@ namespace CarritoCaotico
     public static class LanProtocol
     {
         /// <summary>Se sube al cambiar el formato de cualquier mensaje.</summary>
-        public const int Version = 1;
+        public const int Version = 2;
         public const ushort DefaultPort = 7777;
 
         public static void WriteCounts(NetWriter writer, IReadOnlyList<(ProductType type, int count)> items)
@@ -233,6 +233,8 @@ namespace CarritoCaotico
         public readonly List<(ProductType type, int count)> Delivered = new List<(ProductType, int)>();
 
         public bool TimedOut => FinalState == GameState.TiempoAgotado;
+        /// <summary>Solo cuenta la compra si se llegó a la caja (no si se acabó el tiempo o explotó el carrito).</summary>
+        public bool WasDelivered => FinalState == GameState.CompraEntregada;
 
         public void Write(NetWriter writer)
         {
@@ -257,8 +259,8 @@ namespace CarritoCaotico
 
         /// <summary>Recibo calculado con las mismas reglas que el anfitrión.</summary>
         public ShoppingReceipt ToReceipt(IReadOnlyDictionary<ProductType, int> required) =>
-            TimedOut
-                ? ShoppingRules.Evaluate(required, null, Elapsed, 0f, false)
+            !WasDelivered
+                ? ShoppingRules.Evaluate(required, null, Elapsed, TimedOut ? 0f : Remaining, false)
                 : ShoppingRules.Evaluate(required, LanProtocol.ToDictionary(Delivered), Elapsed, Remaining, true);
     }
 
@@ -356,6 +358,8 @@ namespace CarritoCaotico
         public bool TimerRunning;
         public int RivalsActive;
         public int RivalsTaken;
+        /// <summary>Vida del carrito de 0 a 1.</summary>
+        public float CartHealth = 1f;
         public readonly List<(ProductType type, int count)> Contents = new List<(ProductType, int)>();
         public Vector3 CartPosition;
         public float CartYaw;
@@ -386,6 +390,7 @@ namespace CarritoCaotico
             writer.WriteBool(TimerRunning);
             writer.WriteByte((byte)Mathf.Clamp(RivalsActive, 0, 255));
             writer.WriteUShort((ushort)Mathf.Clamp(RivalsTaken, 0, ushort.MaxValue));
+            writer.WriteByte((byte)Mathf.RoundToInt(Mathf.Clamp01(CartHealth) * 255f));
             LanProtocol.WriteCounts(writer, Contents);
 
             writer.WriteVector3(CartPosition);
@@ -437,6 +442,7 @@ namespace CarritoCaotico
             TimerRunning = reader.ReadBool();
             RivalsActive = reader.ReadByte();
             RivalsTaken = reader.ReadUShort();
+            CartHealth = reader.ReadByte() / 255f;
             LanProtocol.ReadCounts(reader, Contents);
 
             CartPosition = reader.ReadVector3();

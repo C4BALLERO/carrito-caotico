@@ -444,6 +444,7 @@ namespace CarritoCaotico
             s.TimerRunning = timer != null && timer.IsRunning;
             s.RivalsActive = rivals != null ? rivals.ActiveCount : 0;
             s.RivalsTaken = rivals != null ? rivals.TakenCount : 0;
+            s.CartHealth = manager.Health != null ? manager.Health.Fraction : 1f;
             if (contents != null)
             {
                 contents.FillCounts(countBuffer);
@@ -617,6 +618,7 @@ namespace CarritoCaotico
             if (timer != null) timer.ApplyRemote(s.TimerRemaining, s.TimerRunning && !s.Paused);
             if (list != null) list.SetRemoteCounts(s.Contents);
             if (rivals != null) rivals.ApplyRemoteCounts(s.RivalsActive, s.RivalsTaken);
+            if (manager.Health != null) manager.Health.SetRemoteHealth(s.CartHealth * manager.Health.MaxHealth);
             SnapshotsReceived++;
         }
 

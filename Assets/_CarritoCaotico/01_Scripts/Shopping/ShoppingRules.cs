@@ -76,6 +76,7 @@ namespace CarritoCaotico
             {
                 ProductType type = types[rng.Next(types.Count)];
                 result.TryGetValue(type, out int current);
+                // Se vuelve a elegir si este tipo ya alcanzó el límite permitido.
                 if (current >= maxPerType) continue;
                 result[type] = current + 1;
                 placed++;
