@@ -261,13 +261,19 @@ La genera `CarritoSceneBuilder.Ambientacion.cs` con primitivas, sin colisionador
 
 ### Personajes
 
-En el menú, la fila **Jugador 1 · Empujador** / **Jugador 2 · Agarrador** permite que cada jugador elija su personaje: **pingüino**, **zorro** o **cerdo**. La elección se guarda entre partidas y el carrito cambia al momento. Pueden elegir el mismo.
+En el menú, las filas **J1 · Empujador** y **J2 · Agarrador** permiten que cada jugador elija su personaje. La elección se guarda entre partidas y el carrito cambia al momento. Los dos pueden elegir el mismo.
+
+Hay 12 personajes. Primero salen los **KayKit**, los mismos modelos que usan los rivales:
+- aventureros: caballero, bárbaro, maga, pícaro y pícaro con capucha;
+- esqueletos: esqueleto, guerrero, pícaro y mago, con ojos brillantes.
+
+Después vienen el **pingüino**, el **zorro** y el **cerdo**. Los KayKit tienen cabeza grande y brazos cortos, así que el generador los agranda y los coloca por la altura de los hombros. Así el Empujador llega al asa y el Agarrador asoma por encima del carrito.
 
 - **Empujador:** camina detrás del asa (`CartPusherRig`). Los pies se quedan plantados en el suelo y dan pasos al ritmo del carrito, así que no patinan. Las manos sujetan el asa con IK de dos huesos y la cabeza mira hacia la curva. Si los brazos no llegan al asa (el cerdo los tiene cortos), el tronco se inclina hacia delante hasta 30°.
 - **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve y la cabeza la sigue con la mirada (`HeadLook`, con giro limitado).
-- Por defecto: pingüino Empujador y zorro Agarrador.
+- Por defecto: el caballero empuja y la maga agarra.
 
-Los tres personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
+Los personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
 
 ### Obstáculos
 
@@ -457,16 +463,16 @@ Las carpetas siguen la numeración de la asignatura (`00_Scenes`, `01_Scripts`, 
 
 ## Interfaz
 
-Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism para juegos casuales y una paleta de supermercado.
+Toda la interfaz sigue la línea del menú principal: el HUD, la tarjeta de preparación, la pausa, el recibo, el panel LAN y el tutorial. Hay capturas en `Docs/ui_*.png`.
 
-- **Estilo:** tarjetas redondeadas con borde de 3 px y sombra suave.
-- **Colores:** verde fresco `#047857`, ámbar `#F59E0B` y rojo `#DC2626` sobre blanco. Cada jugador tiene su color: azul el Empujador y morado el Agarrador, como sus personajes.
+- **Estilo:** paneles oscuros translúcidos con borde fino claro sobre la escena. Las pantallas superpuestas usan la misma viñeta que el menú.
+- **Colores:** texto blanco y gris claro; verde `#10B981`, ámbar `#F59E0B` y rojo `#EF4444` para los estados. Cada jugador tiene su color: azul el Empujador y morado el Agarrador, como en el tutorial.
 - **Contraste:** al menos 4.5:1 en todo el texto.
 - **Estados con texto o icono, no solo con color:** casilla con check y «¡Listo!», punto de la mano acompañado de texto, avisos «(!)» y palabras de estado en el recibo.
 - **Temporizador:** una barra de tiempo restante que pasa de verde a ámbar (30 s) y a rojo (15 s), con un pulso suave en los últimos 10 s.
 - **Controles:** se dibujan como teclas, con un medidor de carga que cambia de color según el peso.
 - **Tipografía:** la fuente integrada de Unity en negrita. La skill propone Fredoka/Nunito, pero habría que importarlas.
-- **Botones:** sprites del *UI Pack* de Kenney con relieve: amarillo para la acción principal, gris para el resto y flechas en los selectores.
+- **Botones:** texto con sombra y una pincelada ámbar detrás del botón elegido (con el mouse, el teclado o el mando); el texto pasa a oscuro sobre ella. El botón principal muestra la pincelada tenue y el texto en ámbar. Los selectores usan flechas `‹` `›`. Los sprites de Kenney siguen importados, pero ya no se usan.
 - **Animación:** al pasar el mouse o seleccionar con teclado o mando, el botón crece un 6 %, sube 4 px y suena. Al pulsarlo se aplasta. El botón principal late suavemente. Funciona también en pausa.
 - **Menú principal:** en lugar de tarjetas, texto blanco con sombra sobre la escena, título con contorno del color de la tienda y una pincelada ámbar (`UI_Pincelada.png`, generada por código) detrás de la opción elegida.
 
