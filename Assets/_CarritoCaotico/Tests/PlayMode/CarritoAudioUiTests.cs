@@ -127,8 +127,10 @@ namespace CarritoCaotico.Tests
             CollectionAssert.Contains(audio.History, "Throw");
             CollectionAssert.DoesNotContain(audio.History, "Drop", "Lanzar suena como lanzamiento, no como soltar.");
 
+            audio.ClearHistory();
             manager.SetPaused(true);
-            Assert.AreEqual("Pause", audio.LastPlayed);
+            // Al pausar también se selecciona «Continuar» (y suena su hover).
+            CollectionAssert.Contains(audio.History, "Pause");
             manager.SetPaused(false);
 
             // Últimos segundos: tic tac, y al acabar el tiempo, jingle de derrota.

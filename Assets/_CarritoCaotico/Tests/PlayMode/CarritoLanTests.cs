@@ -230,6 +230,53 @@ namespace CarritoCaotico.Tests
         }
 
         [UnityTest]
+        public IEnumerator Client_ShowsHostHealthAndExplosion()
+        {
+            RequireScene();
+            const ushort port = 47814;
+            other = LanSession.CreateDetached();
+            Assert.IsTrue(other.StartHost(NetRole.Empujador, port, true));
+            LanSession client = LanSession.Join("127.0.0.1", port);
+            yield return WaitUntil(() => client.Status == LanSession.SessionStatus.Conectada, 5f, "El cliente debería conectarse.");
+
+            GameSession.Begin(1, StoreId.Clasico);
+            LanSync previous = LanSync.Current;
+            other.HostLoad(ScenePath, StoreId.Clasico, "Prueba LAN");
+            yield return WaitUntil(() => other.PeerReady && LanSync.Current != null && LanSync.Current != previous, 8f, "El cliente carga la escena.");
+            var manager = LanSync.Current.GetComponent<GameManager>();
+
+            var writer = new NetWriter();
+            var setup = new LevelSetupMessage { Level = 1, Scheme = ControlScheme.Normal, Duration = 90f, MinUnits = 3, MaxUnits = 5, MaxPerType = 2, Preparation = 3f };
+            setup.Items.Add((ProductType.Leche, 1));
+            setup.Write(writer);
+            other.Send(writer, true);
+            writer.Clear();
+            writer.WriteByte((byte)LanMessage.State);
+            writer.WriteByte((byte)GameState.EnJuego);
+            other.Send(writer, true);
+            yield return WaitUntil(() => manager.State == GameState.EnJuego, 3f, "El cliente empieza.");
+            Assert.IsFalse(manager.Health.DamageEnabled, "En el cliente los choques los calcula el anfitrión.");
+
+            for (int i = 0; i < 5; i++)
+            {
+                var snapshot = new SnapshotMessage { HostTime = Time.unscaledTime, State = GameState.EnJuego, CartHealth = 0.4f, CartPosition = manager.Cart.transform.position, CartYaw = manager.Cart.transform.eulerAngles.y };
+                writer.Clear();
+                snapshot.Write(writer);
+                other.Send(writer, false);
+                yield return new WaitForSeconds(0.03f);
+            }
+            yield return WaitUntil(() => Mathf.Abs(manager.Health.Fraction - 0.4f) < 0.01f, 2f, "La vida llega del anfitrión.");
+
+            var ended = new GameEndedMessage { FinalState = GameState.CarritoDestruido, Elapsed = 20f, Remaining = 70f };
+            writer.Clear();
+            ended.Write(writer);
+            other.Send(writer, true);
+            yield return WaitUntil(() => manager.State == GameState.CarritoDestruido, 2f, "El cliente ve el final por explosión.");
+            Assert.IsTrue(manager.Health.IsDestroyed, "Y su carrito también explota.");
+            Assert.IsFalse(manager.LastReceipt.Delivered);
+        }
+
+        [UnityTest]
         public IEnumerator Client_MirrorsHostAndSendsItsControls()
         {
             RequireScene();
