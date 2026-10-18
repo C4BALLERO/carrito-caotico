@@ -291,6 +291,12 @@ La lista pide entre 3 y 5 unidades, con un máximo de 2 por tipo.
 
 Una unidad entregada cuenta como correcta o como sobrante, nunca como ambas.
 
+## Sonido
+
+`AudioDirector` (en *Sistemas*) pone la ambientación y la música según el supermercado: **de día** en el Súper Caótico y **tétrica, de Halloween** en el Súper Embrujado. También reproduce los efectos del carrito, el brazo, la lista, la caja, el reloj, el menú y la pausa (que silencia el juego).
+
+Los sonidos están en `Assets/_CarritoCaotico/05_Audio/`, repartidos en `Ambiente/`, `Musica/`, `Efectos/` y `UI/`. Cada uno se llama como un campo de `SoundLibrary` en snake_case (`sfxCajaPago` → `sfx_caja_pago`). Para añadir o cambiar uno, deja el archivo con ese nombre y regenera la escena: el generador lo conecta solo y avisa en la consola de los que faltan. Si falta un sonido, simplemente no suena.
+
 ## Estructura del proyecto
 
 ```
@@ -323,6 +329,9 @@ Assets/_CarritoCaotico/
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
+│   ├── Audio/
+│   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
+│   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
 │   ├── Characters/
 │   │   ├── CharacterChoice.cs   Personaje elegido por cada jugador (guardado en PlayerPrefs)
 │   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
@@ -339,6 +348,7 @@ Assets/_CarritoCaotico/
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
+├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado)
 ├── 06_Models/
 │   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
 │   ├── Zorro/               personaje con pose propia (no en pose T)
@@ -348,6 +358,7 @@ Assets/_CarritoCaotico/
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
@@ -422,6 +433,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
 - Modelos 3D de los personajes (pingüino, zorro y cerdo) generados con [Tripo AI](https://studio.tripo3d.ai/).
+- Efectos de sonido y ambientes generados con ElevenLabs Sound Effects v2, y música generada con Stable Audio 2.5, ambos a través de [fal.ai](https://fal.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

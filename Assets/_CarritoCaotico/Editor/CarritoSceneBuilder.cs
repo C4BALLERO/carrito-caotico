@@ -281,7 +281,8 @@ namespace CarritoCaotico.EditorTools
             var timer = systems.AddComponent<GameTimer>();
             var shoppingList = systems.AddComponent<ShoppingList>();
             var rivalManager = systems.AddComponent<RivalManager>();
-            Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager)");
+            var audioDirector = systems.AddComponent<AudioDirector>();
+            Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager, AudioDirector)");
             RivalShopper rivalPrefab = CreateRivalPrefab();
 
             var (ui, menu, tutorial) = HudBuilder.Build(uiFont, current.Id);
@@ -305,6 +306,10 @@ namespace CarritoCaotico.EditorTools
             SetRefs(tutorial,
                 ("gameManager", manager), ("cart", cart.Controller), ("grabber", cart.Arm),
                 ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
+            SetRefs(audioDirector,
+                ("library", SoundAssets.BuildLibrary()), ("gameManager", manager), ("timer", timer),
+                ("shoppingList", shoppingList), ("cartContents", cart.Contents), ("cart", cart.Controller),
+                ("grabber", cart.Arm), ("checkout", checkout), ("rivals", rivalManager));
             ConfigureStore(manager, shoppingList);
             ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
 
