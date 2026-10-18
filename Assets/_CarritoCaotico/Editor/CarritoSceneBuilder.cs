@@ -411,6 +411,9 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Asa", Coral);
             foreach (CharacterModels.Definition character in CharacterModels.All)
                 CharacterModels.ApplyTexture(GetMaterial(character.Folder, Color.white), character);
+            // Ojos brillantes de los esqueletos KayKit (jugadores y rivales).
+            Color eyeGlow = new Color32(120, 255, 220, 255);
+            NpcModels.MakeGlow(GetMaterial("NPC_Ojos", eyeGlow), eyeGlow);
             GetMaterial("Piel", new Color32(244, 200, 160, 255));
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
             GetMaterial("Mano", new Color32(255, 61, 127, 255));
@@ -1036,6 +1039,8 @@ namespace CarritoCaotico.EditorTools
 
         const float PusherHeight = 1.25f;
         const float GrabberHeight = 1f;
+        /// <summary>Altura de los hombros del Agarrador KayKit sobre la base del carrito (asoman por el borde).</summary>
+        const float GrabberShoulderY = 1.2f;
         /// <summary>El frente del Empujador (pico, hocico) queda detrás de la pared trasera de la canasta.</summary>
         const float PusherFrontZ = -0.98f;
         /// <summary>La espalda y la cola del Agarrador quedan dentro de la pared trasera de la canasta.</summary>
@@ -1056,17 +1061,41 @@ namespace CarritoCaotico.EditorTools
             Transform handleLeft = Empty("Agarre_Asa_Izq", cart, new Vector3(-0.28f, 1.15f, -0.98f)).transform;
             Transform handleRight = Empty("Agarre_Asa_Der", cart, new Vector3(0.28f, 1.15f, -0.98f)).transform;
             var pushers = new Object[CharacterModels.All.Length];
-            var pusherRenderers = new Object[CharacterModels.All.Length];
+            // Todas las mallas de cada Empujador (los KayKit tienen varias): se ocultan en primera persona.
+            var pusherRenderers = new List<Object>();
             var grabbers = new Object[CharacterModels.All.Length];
             foreach (CharacterModels.Definition definition in CharacterModels.All)
             {
                 Material material = Materials[definition.Folder];
+                Material eyes = definition.GlowEyes ? Materials["NPC_Ojos"] : null;
                 int index = (int)definition.Id;
 
                 // Empujador: de pie detrás del asa. Se bambolea y, si no trae pose propia, agita los brazos.
-                CharacterModels.Character pusher = CharacterModels.Build(definition, "Empujador_" + definition.Folder, cart,
-                    new Vector3(0f, 0f, -1.6f), PusherHeight, PusherArms, material);
+                CharacterModels.Character pusher = CharacterModels.Build(definition, "Empujador_" + definition.ObjectName, cart,
+                    new Vector3(0f, 0f, -1.6f), PusherHeight, PusherArms, material, eyes);
+                // Los KayKit tienen cabeza grande y brazos cortos: a la altura común sus hombros quedan
+                // muy por debajo del asa. Se agrandan hasta que los hombros quedan justo bajo el asa.
+                if (definition.ModelOverride != null)
+                {
+                    float shoulder = CharacterModels.Bone(pusher.Model, definition.LeftUpperArm).position.y - cart.position.y;
+                    float wanted = handleLeft.position.y - cart.position.y - 0.12f;
+                    float factor = Mathf.Clamp(wanted / Mathf.Max(0.1f, shoulder), 1f, 1.5f);
+                    if (factor > 1.01f)
+                    {
+                        Object.DestroyImmediate(pusher.Root);
+                        pusher = CharacterModels.Build(definition, "Empujador_" + definition.ObjectName, cart,
+                            new Vector3(0f, 0f, -1.6f), PusherHeight * factor, PusherArms, material, eyes);
+                    }
+                }
                 pusher.Root.transform.localPosition += Vector3.forward * (PusherFrontZ - pusher.LocalBounds.max.z);
+                // En los KayKit el casco o el sombrero sobresalen: se coloca por los hombros, a una
+                // distancia del asa que sus brazos alcanzan.
+                if (definition.ModelOverride != null)
+                {
+                    float shoulderZ = cart.InverseTransformPoint(CharacterModels.Bone(pusher.Model, definition.LeftUpperArm).position).z;
+                    float handleZ = cart.InverseTransformPoint(handleLeft.position).z;
+                    pusher.Root.transform.localPosition += Vector3.forward * (handleZ - 0.24f - shoulderZ);
+                }
                 var waddle = pusher.Root.AddComponent<CharacterWaddle>();
                 SetRefs(waddle, ("cartBody", body), ("model", pusher.Model));
                 // Ahora camina con los pies plantados: menos balanceo del cuerpo entero.
@@ -1081,11 +1110,24 @@ namespace CarritoCaotico.EditorTools
                     handleLeft, handleRight, CharacterModels.Bone(m, definition.Head), CharacterModels.Bone(m, definition.Spine));
                 pusher.Root.SetActive(definition.Id == CharacterChoice.DefaultPusher);
                 pushers[index] = pusher.Root;
-                pusherRenderers[index] = pusher.Model.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                pusherRenderers.AddRange(pusher.Model.GetComponentsInChildren<SkinnedMeshRenderer>(true));
 
                 // Agarrador: de pie en el asiento (se ve de pecho para arriba); señala su mano extensible.
-                CharacterModels.Character grabber = CharacterModels.Build(definition, "Agarrador_" + definition.Folder, cart,
-                    new Vector3(-0.02f, 0.4f, -0.5f), GrabberHeight, GrabberArms, material);
+                CharacterModels.Character grabber = CharacterModels.Build(definition, "Agarrador_" + definition.ObjectName, cart,
+                    new Vector3(-0.02f, 0.4f, -0.5f), GrabberHeight, GrabberArms, material, eyes);
+                // Los KayKit, con su cabeza grande, quedarían hundidos en el carrito: se agrandan hasta
+                // que los hombros asoman por encima del borde, como los demás.
+                if (definition.ModelOverride != null)
+                {
+                    float shoulder = cart.InverseTransformPoint(CharacterModels.Bone(grabber.Model, definition.LeftUpperArm).position).y;
+                    float factor = Mathf.Clamp((GrabberShoulderY - 0.4f) / Mathf.Max(0.1f, shoulder - 0.4f), 1f, 1.5f);
+                    if (factor > 1.01f)
+                    {
+                        Object.DestroyImmediate(grabber.Root);
+                        grabber = CharacterModels.Build(definition, "Agarrador_" + definition.ObjectName, cart,
+                            new Vector3(-0.02f, 0.4f, -0.5f), GrabberHeight * factor, GrabberArms, material, eyes);
+                    }
+                }
                 grabber.Root.transform.localPosition += Vector3.forward * (GrabberBackZ - grabber.LocalBounds.min.z);
                 var motion = grabber.Root.AddComponent<CharacterWaddle>();
                 motion.ConfigureMotion(3f, 0.02f, 6f);
@@ -1102,7 +1144,7 @@ namespace CarritoCaotico.EditorTools
             SetArray(crew, "pushers", pushers);
             SetArray(crew, "grabbers", grabbers);
             Count("Personajes del carrito (CartCrew)");
-            return pusherRenderers;
+            return pusherRenderers.ToArray();
         }
 
         static void SetArray(Object target, string field, Object[] values)
