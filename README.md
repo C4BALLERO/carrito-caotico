@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-El escenario, los productos y los personajes se construyen con primitivas y materiales de color plano. Los botones, la música y los efectos de sonido son assets **CC0** descargados de [Kenney](https://kenney.nl) y [OpenGameArt](https://opengameart.org); la lista completa está en `Assets/_CarritoCaotico/05_Audio/CREDITOS.md`.
+El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -136,11 +136,21 @@ La vista elegida por el Empujador se guarda entre partidas. En primera persona l
 ### Cómo conectarse
 
 1. Compila el juego (**Carrito → Compilar para Windows (LAN)**) y copia la carpeta `Builds/Windows` a los dos PC. También vale abrir el proyecto en Unity en uno de ellos.
-2. **PC 1 (anfitrión):** *Jugar en LAN* → elige tu rol (Empujador o Agarrador) → **Crear partida**. El panel muestra tu IP (por ejemplo `192.168.1.20`).
-3. **PC 2:** *Jugar en LAN* → escribe esa IP → **Unirse**. Le toca el otro rol.
+2. **PC 1 (anfitrión):** *Jugar en LAN* → elige tu rol (Empujador o Agarrador) → **Crear partida**. El panel muestra **tu IP en grande** (por ejemplo `192.168.0.38`).
+3. **PC 2:** *Jugar en LAN*. Si los dos están en la misma wifi, **la partida aparece sola** y la IP se rellena; si no, escríbela. Pulsa **Unirse**. Le toca el otro rol.
 4. El anfitrión vuelve al menú, elige supermercado y nivel y pulsa **Jugar**. Los dos PC cargan el nivel a la vez.
 
-La primera vez, Windows puede preguntar si el juego puede usar la red: permite el acceso en **redes privadas**. El juego usa el puerto UDP **7777**.
+La IP que se muestra es la de la wifi o el cable de casa: los adaptadores virtuales (Hyper-V, WSL, VPN, Docker…) se dejan al final.
+
+### Si no conecta
+
+Casi siempre es Windows, que bloquea la conexión entrante en el PC anfitrión. En **los dos PC**:
+
+1. **Red privada:** *Configuración → Red e Internet → Wi-Fi → (tu red) → Tipo de perfil de red → Privada*. Con la red como **Pública**, el Firewall bloquea el juego.
+2. **Firewall:** la primera vez que creas una partida, Windows pregunta si el juego puede usar la red: marca **Redes privadas** y pulsa *Permitir*. Si lo cancelaste, ve a *Seguridad de Windows → Firewall y protección de red → Permitir una aplicación a través del firewall* y activa **Carrito Caotico** (o **Unity** si juegas desde el editor) en *Privada*.
+3. Comprueba que los dos están en **la misma wifi** (no una de invitados) y usa la IP que muestra el anfitrión.
+
+El juego usa el puerto UDP **7777** para jugar y el **47777** para anunciar la partida en la red.
 
 ### Cómo funciona
 
@@ -195,13 +205,17 @@ El tutorial guía a los dos jugadores paso a paso, en el supermercado clásico y
 
 Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción; `Tab` lo salta. Al terminar se puede pasar directamente al nivel 1.
 
-### Sonido y música
+### Vida del carrito
 
-- **Música en bucle** de cada supermercado: chiptune alegre en el Súper Caótico y ambiente tétrico en el Súper Embrujado. Sigue donde iba al reintentar o pasar de nivel, y baja de volumen en la pausa y en el recibo.
-- **Jingles** de victoria (compra completa) y de derrota.
-- **Efectos:** pasar por un botón y pulsarlo, agarrar, soltar, lanzar, producto en la canasta, rival que se lleva un producto, canasta vacía en la caja, cuenta atrás de la preparación, «¡A comprar!», tic tac de los últimos 10 segundos, pausa y conexión LAN.
-- El botón **Sonido** del menú cambia entre *todo*, *solo efectos* y *no*. La elección se guarda entre partidas.
-- En LAN los dos PC oyen los mismos eventos.
+- El carrito tiene **100 de vida**. Los choques fuertes contra estantes, paredes, rivales u obstáculos le quitan vida según la velocidad del golpe (como mucho 30 por golpe). Los roces, el suelo y los productos no hacen daño.
+- La **barra de vida** está abajo a la izquierda, con el porcentaje y un color (verde, ámbar, rojo). Tiembla con cada golpe y late cuando queda poca; con un 30 % aparece un aviso.
+- A cero, **el carrito explota**: bolas de fuego, humo, un destello y las piezas del carrito volando. La partida termina con el recibo «¡El carrito explotó!» y la compra no cuenta.
+- En el tutorial el carrito no se rompe. En LAN la vida la calcula el anfitrión y la explosión se ve en los dos PC.
+
+### Botones y sonido del menú
+
+- Los botones crecen, suben un poco y suenan al pasar el mouse; con teclado o mando crecen al seleccionarlos. Al pulsarlos se aplastan. El botón principal late suavemente.
+- El botón **Sonido** cambia entre *todo*, *solo efectos* y *no*, para la música, los ambientes y los efectos. La elección se guarda entre partidas.
 
 ### Interfaz durante la partida
 
@@ -327,11 +341,14 @@ Assets/_CarritoCaotico/
 │   │   └── GameInput.cs         Lectura de teclado/mandos con el New Input System y rol de cada PC en LAN
 │   ├── Net/
 │   │   ├── LanSession.cs        Conexión LAN con Unity Transport (anfitrión y cliente), cargas de escena
+│   │   ├── LanDiscovery.cs      Anuncio y búsqueda de partidas en la wifi, e IP local más probable
 │   │   ├── LanSync.cs           Instantáneas, interpolación, controles remotos y eventos de la partida
 │   │   ├── LanProtocol.cs       Mensajes LAN y su formato binario
 │   │   └── NetBuffer.cs         Escritura y lectura binaria compacta
 │   ├── Cart/
 │   │   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
+│   │   ├── CartHealth.cs        Vida del carrito: daño por choques y explosión
+│   │   ├── ExplosionEffect.cs   Fuego, humo y destello de la explosión
 │   │   ├── CartContents.cs      Trigger de la canasta: contenido sin duplicados y peso
 │   │   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
 │   │   └── CameraController.cs  Cámara en tercera persona (órbita, suavizado, anticolisión) y primera persona del Empujador
@@ -357,7 +374,8 @@ Assets/_CarritoCaotico/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
 │   ├── Audio/
-│   │   └── GameAudio.cs         Música por supermercado, jingles, efectos de los eventos y modo de sonido
+│   │   ├── GameAudio.cs         Hover del mouse, explosión, avisos LAN y modo de sonido (todo, efectos, no)
+│   │   └── ProceduralSounds.cs  Sonido de explosión sintetizado por código
 │   └── UI/
 │       ├── GameUI.cs            HUD, lista, mensajes y recibo
 │       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial, LAN, sonido) y menú de pausa
@@ -378,7 +396,7 @@ Assets/_CarritoCaotico/
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
-│   ├── AudioBuilder.cs      Objeto Audio de cada escena con su música y sus efectos
+│   ├── AudioBuilder.cs      Objeto Audio de cada escena con los sonidos de Kenney
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Tests/
