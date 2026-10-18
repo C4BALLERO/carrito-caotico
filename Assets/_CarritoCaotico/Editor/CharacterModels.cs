@@ -22,9 +22,19 @@ namespace CarritoCaotico.EditorTools
             /// <summary>true si el modelo ya viene posado (no en pose T): no se le bajan los brazos.</summary>
             public bool KeepPose;
             public string LeftUpperArm = "Left_UpperArm";
+            public string LeftLowerArm = "Left_LowerArm";
             public string LeftHand = "Left_Hand";
             public string RightUpperArm = "Right_UpperArm";
+            public string RightLowerArm = "Right_LowerArm";
             public string RightHand = "Right_Hand";
+            public string LeftUpperLeg = "Left_UpperLeg";
+            public string LeftLowerLeg = "Left_LowerLeg";
+            public string LeftFoot = "Left_Foot";
+            public string RightUpperLeg = "Right_UpperLeg";
+            public string RightLowerLeg = "Right_LowerLeg";
+            public string RightFoot = "Right_Foot";
+            public string Head = "Head";
+            public string Spine = "Spine";
 
             public string ModelPath => $"{ModelsFolder}/{Folder}/{Folder}.fbx";
             public string TexturePath => $"{ModelsFolder}/{Folder}/{Folder}_BaseColor.jpg";
@@ -39,8 +49,11 @@ namespace CarritoCaotico.EditorTools
             new Definition
             {
                 Id = CharacterId.Cerdo, Folder = "Cerdo",
-                LeftUpperArm = "mixamorig:LeftArm", LeftHand = "mixamorig:LeftHand",
-                RightUpperArm = "mixamorig:RightArm", RightHand = "mixamorig:RightHand",
+                LeftUpperArm = "mixamorig:LeftArm", LeftLowerArm = "mixamorig:LeftForeArm", LeftHand = "mixamorig:LeftHand",
+                RightUpperArm = "mixamorig:RightArm", RightLowerArm = "mixamorig:RightForeArm", RightHand = "mixamorig:RightHand",
+                LeftUpperLeg = "mixamorig:LeftUpLeg", LeftLowerLeg = "mixamorig:LeftLeg", LeftFoot = "mixamorig:LeftFoot",
+                RightUpperLeg = "mixamorig:RightUpLeg", RightLowerLeg = "mixamorig:RightLeg", RightFoot = "mixamorig:RightFoot",
+                Head = "mixamorig:Head", Spine = "mixamorig:Spine",
             },
         };
 
@@ -178,6 +191,9 @@ namespace CarritoCaotico.EditorTools
             Vector3 desired = character.TransformDirection(local.normalized);
             upperArm.rotation = Quaternion.FromToRotation(current, desired) * upperArm.rotation;
         }
+
+        /// <summary>Hueso del modelo por su nombre (error si no existe: el esqueleto no es el esperado).</summary>
+        public static Transform Bone(Transform model, string name) => FindBone(model, name);
 
         static Transform FindBone(Transform root, string name)
         {

@@ -84,7 +84,8 @@ namespace CarritoCaotico.Tests
             SkinnedMeshRenderer skin = CheckModel(penguin, "pingüino");
             var waddle = penguin.GetComponent<CharacterWaddle>();
             Assert.IsNotNull(waddle);
-            Assert.IsNotNull(penguin.GetComponent<FlipperFlap>(), "El pingüino agita las aletas.");
+            // Empujando, las aletas sujetan el asa (CartPusherRig) en lugar de agitarse.
+            Assert.IsNotNull(penguin.GetComponent<CartPusherRig>(), "El pingüino camina y sujeta el asa.");
 
             Transform model = skin.transform.parent;
             Quaternion rest = model.localRotation;
