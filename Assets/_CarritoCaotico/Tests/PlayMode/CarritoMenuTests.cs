@@ -112,6 +112,35 @@ namespace CarritoCaotico.Tests
             Assert.IsFalse(backdrop.IsActive);
         }
 
+        /// <summary>
+        /// Los botones de las demás pantallas siguen la línea del menú: pincelada ámbar detrás del
+        /// elegido y el texto pasa a oscuro sobre ella.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PauseButtons_ShowTheBrushWhenSelected()
+        {
+            yield return Load(Scenes[0]);
+            var manager = Object.FindAnyObjectByType<GameManager>();
+            manager.StartGame(1);
+            for (float t = 0f; manager.State != GameState.EnJuego && t < 8f; t += Time.deltaTime) yield return null;
+            manager.SetPaused(true);
+            yield return Wait(0.3f);
+            Button resume = GameObject.Find("Boton_Continuar").GetComponent<Button>();
+            Button menu = GameObject.Find("Boton_Menu").GetComponent<Button>();
+            Text menuText = menu.GetComponentInChildren<Text>();
+            EventSystem.current.SetSelectedGameObject(resume.gameObject);
+            yield return Wait(0.3f);
+            Color idle = menuText.color;
+            Assert.Less(menu.targetGraphic.canvasRenderer.GetAlpha() * menu.targetGraphic.color.a, 0.05f, "Sin elegir, la pincelada no se ve.");
+
+            EventSystem.current.SetSelectedGameObject(menu.gameObject);
+            yield return Wait(0.4f);
+            Assert.Greater(menu.targetGraphic.canvasRenderer.GetAlpha(), 0.9f, "Elegido, la pincelada aparece detrás.");
+            Assert.AreNotEqual(idle, menuText.color, "El texto cambia de color sobre la pincelada.");
+            Assert.Less(menuText.color.r + menuText.color.g + menuText.color.b, 1f, "Texto oscuro sobre el ámbar.");
+            manager.SetPaused(false);
+        }
+
         /// <summary>Captura del menú de cada supermercado (solo si se pide con CARRITO_CAPTURA_MENU).</summary>
         [UnityTest]
         public IEnumerator MainMenu_Capture()
