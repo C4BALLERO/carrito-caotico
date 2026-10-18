@@ -20,11 +20,14 @@ namespace CarritoCaotico.Tests
             return result;
         }
 
+        static List<GameObject> Cartoon() => Prefabs().FindAll(p => !p.name.Contains("KayKit"));
+        static List<GameObject> KayKit() => Prefabs().FindAll(p => p.name.Contains("KayKit"));
+
         [Test]
         public void EveryShopper_HasACompleteSkeletonAndItsSystems()
         {
-            List<GameObject> prefabs = Prefabs();
-            Assert.AreEqual(16, prefabs.Count, "Ocho compradores por supermercado.");
+            List<GameObject> prefabs = Cartoon();
+            Assert.AreEqual(16, prefabs.Count, "Ocho compradores caricaturescos por supermercado.");
             foreach (GameObject prefab in prefabs)
             {
                 var rig = prefab.GetComponentInChildren<ShopperRig>();
@@ -61,7 +64,7 @@ namespace CarritoCaotico.Tests
         {
             var heights = new List<float>();
             var looks = new HashSet<string>();
-            foreach (GameObject prefab in Prefabs())
+            foreach (GameObject prefab in Cartoon())
             {
                 if (prefab.name.Contains("Halloween")) continue;
                 var rig = prefab.GetComponentInChildren<ShopperRig>();
@@ -78,13 +81,34 @@ namespace CarritoCaotico.Tests
         public void HalloweenShoppers_WearCostumes()
         {
             int costumes = 0;
-            foreach (GameObject prefab in Prefabs())
+            foreach (GameObject prefab in Cartoon())
             {
                 if (!prefab.name.Contains("Halloween")) continue;
                 foreach (Transform t in prefab.GetComponentsInChildren<Transform>(true))
                     if (t.name == "Sombrero" || t.name == "Capa" || t.name.StartsWith("Cuerno")) { costumes++; break; }
             }
             Assert.AreEqual(8, costumes, "Todos los compradores de Halloween van disfrazados.");
+        }
+
+        [Test]
+        public void KayKitShoppers_UseTheSharedClipsAndHoldTheCart()
+        {
+            List<GameObject> prefabs = KayKit();
+            Assert.AreEqual(9, prefabs.Count, "Cinco aventureros y cuatro esqueletos.");
+            foreach (GameObject prefab in prefabs)
+            {
+                var clips = prefab.GetComponent<ClipShopperAnimator>();
+                Assert.IsNotNull(clips, $"{prefab.name}: sin animación de clips.");
+                Assert.IsNotNull(clips.Animator, $"{prefab.name}: sin Animator.");
+                Assert.IsNotNull(clips.Animator.runtimeAnimatorController, $"{prefab.name}: sin Animator Controller.");
+                Assert.IsFalse(clips.Animator.applyRootMotion, "La IA mueve al comprador, no el clip.");
+                Assert.IsNotNull(clips.LeftGrip, $"{prefab.name}: sin agarres en el asa.");
+                Assert.IsNotNull(clips.RightHand, $"{prefab.name}: sin manos.");
+                // Velocidad del clip medida en los pies: un valor razonable para un paso.
+                Assert.That(clips.WalkClipSpeed, Is.InRange(0.3f, 2.5f), $"{prefab.name}: velocidad del clip {clips.WalkClipSpeed:0.00} m/s.");
+                Assert.IsNotNull(prefab.GetComponent<RivalShopper>(), $"{prefab.name}: sin IA.");
+                Assert.AreEqual(1, prefab.GetComponentsInChildren<Collider>(true).Length, $"{prefab.name}: solo la cápsula choca.");
+            }
         }
     }
 }
