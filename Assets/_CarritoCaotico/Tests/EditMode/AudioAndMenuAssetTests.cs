@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 namespace CarritoCaotico.Tests
 {
-    /// <summary>Modo de sonido, assets descargados (con créditos) y escenas generadas con audio y botones animados.</summary>
+    /// <summary>Modo de sonido, assets de Kenney (con créditos) y escenas generadas con audio y botones animados.</summary>
     public class AudioAndMenuAssetTests
     {
         const string Root = "Assets/_CarritoCaotico";
@@ -63,9 +63,9 @@ namespace CarritoCaotico.Tests
         [Test]
         public void EveryAudioFile_IsCredited()
         {
-            string credits = File.ReadAllText(Root + "/05_Audio/CREDITOS.md");
+            string credits = File.ReadAllText(Root + "/05_Audio/Kenney/CREDITOS.md");
             StringAssert.Contains("CC0", credits);
-            foreach (string file in Directory.GetFiles(Root + "/05_Audio", "*.ogg", SearchOption.AllDirectories))
+            foreach (string file in Directory.GetFiles(Root + "/05_Audio/Kenney", "*.ogg", SearchOption.AllDirectories))
             {
                 string name = Path.GetFileName(file);
                 StringAssert.Contains(name, credits, $"{name} no aparece en 05_Audio/CREDITOS.md.");
@@ -118,10 +118,7 @@ namespace CarritoCaotico.Tests
                         Assert.IsNotNull(property.objectReferenceValue, $"GameAudio.{property.name} está vacío en {path}.");
                         if (property.objectReferenceValue is AudioClip) clips++;
                     }
-                    Assert.AreEqual(19, clips, "Música, 2 jingles y 16 efectos.");
-
-                    string expectedMusic = path.Contains("Halloween") ? "creepyloop-v2" : "headinthesand";
-                    Assert.AreEqual(expectedMusic, audio.Music.name);
+                    Assert.AreEqual(3, clips, "Hover y los dos avisos LAN (la música es del AudioDirector).");
                 }
                 finally
                 {

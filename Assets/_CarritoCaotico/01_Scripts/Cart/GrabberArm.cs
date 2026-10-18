@@ -6,6 +6,8 @@ namespace CarritoCaotico
     /// <summary>
     /// Brazo extensible del Agarrador. La mano se mueve en el espacio local del carrito,
     /// dentro de un área limitada, y puede agarrar, soltar o lanzar un único producto.
+    /// No atraviesa obstáculos fijos (estanterías, paredes, caja) ni agarra a través de ellos.
+    /// En un solo PC, mientras el Agarrador mira la lista el brazo se queda quieto.
     /// </summary>
     public class GrabberArm : MonoBehaviour
     {
@@ -35,6 +37,8 @@ namespace CarritoCaotico
         [SerializeField] float handHeight = 1.05f;
         [SerializeField] Vector3 startLocalPosition = new Vector3(0f, 1.05f, 0.2f);
         [SerializeField] float armThickness = 0.07f;
+        [Tooltip("Radio con el que la mano choca con obstáculos fijos. Pequeño para pasar por encima de los rebordes de las baldas.")]
+        [SerializeField, Min(0.01f)] float handRadius = 0.06f;
 
         [Header("Agarre")]
         [SerializeField] float grabRadius = 0.6f;
@@ -56,6 +60,7 @@ namespace CarritoCaotico
         [SerializeField] Color holdingColor = new Color(0.2f, 0.85f, 0.45f);
 
         readonly Collider[] overlap = new Collider[48];
+        readonly RaycastHit[] hits = new RaycastHit[16];
         Vector3 targetLocal;
         Vector3 currentLocal;
         Vector3 handVelocity;
@@ -77,6 +82,8 @@ namespace CarritoCaotico
         public Vector3 HandLocalTarget => targetLocal;
         public Transform GrabPoint => grabPoint;
         public bool InputEnabled => inputEnabled;
+        /// <summary>true mientras el Agarrador mantiene la tecla de ver la lista: el brazo no se mueve ni agarra.</summary>
+        public bool IsReadingList { get; private set; }
 
         /// <summary>Se dispara cuando la mano agarra o deja de sostener un producto.</summary>
         public event Action<Product> HeldProductChanged;
@@ -96,7 +103,8 @@ namespace CarritoCaotico
             if (hand == null) return;
             float dt = Time.deltaTime;
 
-            if (inputEnabled)
+            IsReadingList = inputEnabled && GameInput.GrabberListHeld();
+            if (inputEnabled && !IsReadingList)
             {
                 Vector2 move = GameInput.GrabberMove();
                 targetLocal.x += move.x * handSpeed * dt;
@@ -104,13 +112,16 @@ namespace CarritoCaotico
                 targetLocal = ClampLocal(targetLocal);
             }
 
+            // El objetivo no se queda "dentro" de un obstáculo: al retroceder, la mano responde al momento.
+            targetLocal = LimitByObstacles(targetLocal);
             currentLocal = Vector3.SmoothDamp(currentLocal, targetLocal, ref handVelocity, handSmoothTime);
+            currentLocal = LimitByObstacles(currentLocal);
             hand.localPosition = currentLocal;
 
             candidate = held == null && displayHeld == null ? FindNearestProduct() : null;
 
             // En el cliente LAN agarrar y lanzar los resuelve el anfitrión.
-            if (inputEnabled && localActions)
+            if (inputEnabled && localActions && !IsReadingList)
             {
                 if (GameInput.GrabberGrabPressed())
                 {
@@ -140,6 +151,53 @@ namespace CarritoCaotico
             return local;
         }
 
+        /// <summary>
+        /// Recorta la posición local de la mano para que no atraviese obstáculos fijos entre el
+        /// hombro y la mano. La comprobación es horizontal, a la altura de la mano: pasa por encima
+        /// de las baldas y choca con fondos, postes y paredes. Ignora el carrito, los disparadores y
+        /// todo lo que tenga Rigidbody (productos, rivales, obstáculos móviles).
+        /// </summary>
+        Vector3 LimitByObstacles(Vector3 local)
+        {
+            if (shoulder == null) return local;
+            Vector3 shoulderLocal = cartRoot.InverseTransformPoint(shoulder.position);
+            Vector3 from = cartRoot.TransformPoint(new Vector3(shoulderLocal.x, handHeight, shoulderLocal.z));
+            Vector3 delta = cartRoot.TransformPoint(local) - from;
+            float distance = delta.magnitude;
+            if (distance < 0.001f) return local;
+            Vector3 direction = delta / distance;
+
+            int count = Physics.SphereCastNonAlloc(from, handRadius, direction, hits, distance, grabMask, QueryTriggerInteraction.Ignore);
+            float allowed = distance;
+            for (int i = 0; i < count; i++)
+            {
+                // distance 0: la esfera ya empieza solapada (p. ej. con el propio carrito).
+                if (hits[i].distance <= 0f || !IsStaticObstacle(hits[i].collider)) continue;
+                allowed = Mathf.Min(allowed, hits[i].distance);
+            }
+            if (allowed >= distance) return local;
+
+            Vector3 limited = cartRoot.InverseTransformPoint(from + direction * allowed);
+            limited.y = handHeight;
+            return limited;
+        }
+
+        bool IsStaticObstacle(Collider col) => col.attachedRigidbody == null && !col.transform.IsChildOf(cartRoot);
+
+        /// <summary>true si no hay ningún obstáculo fijo entre la mano y el punto del producto.</summary>
+        bool CanReach(Vector3 handPosition, Vector3 target)
+        {
+            Vector3 delta = target - handPosition;
+            float distance = delta.magnitude;
+            if (distance < 0.001f) return true;
+            int count = Physics.RaycastNonAlloc(handPosition, delta / distance, hits, distance, grabMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                if (IsStaticObstacle(hits[i].collider)) return false;
+            }
+            return true;
+        }
+
         Product FindNearestProduct()
         {
             Vector3 center = hand.position;
@@ -155,7 +213,9 @@ namespace CarritoCaotico
                     : col.GetComponentInParent<Product>();
                 if (product == null || product.IsHeld) continue;
 
-                float distance = (col.ClosestPoint(center) - center).sqrMagnitude;
+                Vector3 closest = col.ClosestPoint(center);
+                if (!CanReach(center, closest)) continue;
+                float distance = (closest - center).sqrMagnitude;
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;
@@ -240,7 +300,7 @@ namespace CarritoCaotico
         /// <summary>Mueve el objetivo de la mano (espacio local del carrito). Útil para pruebas.</summary>
         public void SetHandLocalTarget(Vector3 localPosition, bool snap)
         {
-            targetLocal = ClampLocal(localPosition);
+            targetLocal = LimitByObstacles(ClampLocal(localPosition));
             if (!snap || hand == null) return;
             currentLocal = targetLocal;
             handVelocity = Vector3.zero;

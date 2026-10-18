@@ -73,7 +73,7 @@ namespace CarritoCaotico.Tests
 
             yield return WaitUntil(() => health.Health < health.MaxHealth, 2f, "Un choque fuerte quita vida.");
             Assert.Greater(health.Health, health.MaxHealth - 31f, "Pero nunca más del máximo por golpe.");
-            CollectionAssert.Contains(GameAudio.Instance.History, "Hit", "El choque suena.");
+
         }
 
         [UnityTest]

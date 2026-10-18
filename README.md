@@ -74,6 +74,7 @@ Generación desde línea de comandos (útil para CI):
 | Mover el brazo | Flechas | Stick izquierdo |
 | Agarrar / soltar | `Enter` (o `Enter` del teclado numérico) | Botón sur |
 | Lanzar | `Ctrl derecho` | Gatillo derecho / botón oeste |
+| Ver la lista (mantener, solo en un PC) | `Shift derecho` | `LB` |
 
 ### General
 
@@ -204,7 +205,13 @@ Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción
 
 ### Interfaz durante la partida
 
-Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó…!»). Los controles aparecen en tres sitios:
+Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó algo de vuestra lista!»).
+
+**La lista solo la mira el Agarrador:**
+- **En un PC**, durante la partida va **plegada** (solo reloj y progreso total) para que el Empujador no la vea. El Agarrador la despliega **manteniendo** `Shift derecho` (`Shift izquierdo` con controles intercambiados, `LB` con mando). Mientras la mira, **el brazo se queda quieto**: hay que elegir entre leer y agarrar. En la preparación se ve entera para memorizarla, y el tutorial tiene un paso que lo enseña.
+- **En LAN**, el PC del Empujador nunca la ve y el del Agarrador la ve siempre.
+
+Los controles aparecen en tres sitios:
 
 - el tutorial;
 - la tarjeta de preparación de cada nivel, con el esquema activo;
@@ -219,6 +226,16 @@ Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel
 | Productos | 12 tipos de supermercado | 8 tipos de Halloween: calabaza, caramelos, vela, calavera de azúcar, poción, sombrero de bruja, murciélago de peluche, manzana de caramelo |
 | Ambiente | Luminoso, colores frescos | Oscuro con niebla morada, calabazas iluminadas, murciélagos, telarañas y un caldero en la caja |
 | Obstáculos móviles | Reponedor en la entrada | Dos fantasmas flotando por los pasillos transversales |
+
+### Personajes
+
+En el menú, la fila **Jugador 1 · Empujador** / **Jugador 2 · Agarrador** permite que cada jugador elija su personaje: **pingüino**, **zorro** o **cerdo**. La elección se guarda entre partidas y el carrito cambia al momento. Pueden elegir el mismo.
+
+- **Empujador:** de pie detrás del asa. Se bambolea al ritmo del carrito, se inclina en las curvas y, si el modelo venía en pose T (pingüino y cerdo), mueve los brazos.
+- **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve.
+- Por defecto: pingüino Empujador y zorro Agarrador.
+
+Los tres personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
 
 ### Obstáculos
 
@@ -289,6 +306,12 @@ La lista pide entre 3 y 5 unidades, con un máximo de 2 por tipo.
 
 Una unidad entregada cuenta como correcta o como sobrante, nunca como ambas.
 
+## Sonido
+
+`AudioDirector` (en *Sistemas*) pone la ambientación y la música según el supermercado: **de día** en el Súper Caótico y **tétrica, de Halloween** en el Súper Embrujado. También reproduce los efectos del carrito, el brazo, la lista, la caja, el reloj, el menú y la pausa (que silencia el juego).
+
+Los sonidos están en `Assets/_CarritoCaotico/05_Audio/`, repartidos en `Ambiente/`, `Musica/`, `Efectos/` y `UI/`. Cada uno se llama como un campo de `SoundLibrary` en snake_case (`sfxCajaPago` → `sfx_caja_pago`). Para añadir o cambiar uno, deja el archivo con ese nombre y regenera la escena: el generador lo conecta solo y avisa en la consola de los que faltan. Si falta un sonido, simplemente no suena.
+
 ## Estructura del proyecto
 
 ```
@@ -321,6 +344,15 @@ Assets/_CarritoCaotico/
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
+│   ├── Audio/
+│   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
+│   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
+│   ├── Characters/
+│   │   ├── CharacterChoice.cs   Personaje elegido por cada jugador (guardado en PlayerPrefs)
+│   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
+│   │   ├── CharacterWaddle.cs   Bamboleo de los personajes del carrito según su velocidad
+│   │   ├── FlipperFlap.cs       Brazos que se agitan al empujar (modelos en pose T)
+│   │   └── ArmReach.cs          Brazo del Agarrador que señala la mano extensible
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -334,11 +366,17 @@ Assets/_CarritoCaotico/
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
-├── 05_Audio/                Música, jingles y efectos CC0, con CREDITOS.md
+├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
+├── 06_Models/
+│   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
+│   ├── Zorro/               personaje con pose propia (no en pose T)
+│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
 ├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
+│   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
 │   ├── AudioBuilder.cs      Objeto Audio de cada escena con su música y sus efectos
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
@@ -415,6 +453,8 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Créditos
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
+- Modelos 3D de los personajes (pingüino, zorro y cerdo) generados con [Tripo AI](https://studio.tripo3d.ai/).
+- Efectos de sonido y ambientes generados con ElevenLabs Sound Effects v2, y música generada con Stable Audio 2.5, ambos a través de [fal.ai](https://fal.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

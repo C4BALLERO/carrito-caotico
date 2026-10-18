@@ -5,9 +5,9 @@ using UnityEngine.UI;
 namespace CarritoCaotico
 {
     /// <summary>
-    /// Menú principal (tienda, nivel desbloqueado, jugar, tutorial, LAN, salir), menú de pausa y
-    /// botón de pausa. Se maneja con mouse o teclado (flechas + Enter) gracias al EventSystem.
-    /// El panel LAN crea una partida o se une a la de otro PC por su IP.
+    /// Menú principal (tienda, nivel desbloqueado, personajes, mando, jugar, tutorial, LAN, salir),
+    /// menú de pausa y botón de pausa. Se maneja con mouse o teclado (flechas + Enter) gracias al
+    /// EventSystem. El panel LAN crea una partida o se une a la de otro PC por su IP.
     /// </summary>
     public class MenuUI : MonoBehaviour
     {
@@ -28,6 +28,12 @@ namespace CarritoCaotico
         [SerializeField] Button nextLevelButton;
         [SerializeField] Text levelText;
         [SerializeField] Text levelDetailText;
+        [SerializeField] Button previousPusherButton;
+        [SerializeField] Button nextPusherButton;
+        [SerializeField] Text pusherText;
+        [SerializeField] Button previousGrabberButton;
+        [SerializeField] Button nextGrabberButton;
+        [SerializeField] Text grabberText;
         [SerializeField] Button previousPadButton;
         [SerializeField] Button nextPadButton;
         [SerializeField] Text padText;
@@ -112,6 +118,11 @@ namespace CarritoCaotico
             Listen(nextStoreButton, () => ChangeStore(1));
             Listen(previousLevelButton, () => ChangeLevel(-1));
             Listen(nextLevelButton, () => ChangeLevel(1));
+            Listen(previousPusherButton, () => CharacterChoice.Pusher = CharacterChoice.Cycle(CharacterChoice.Pusher, -1));
+            Listen(nextPusherButton, () => CharacterChoice.Pusher = CharacterChoice.Cycle(CharacterChoice.Pusher, 1));
+            Listen(previousGrabberButton, () => CharacterChoice.Grabber = CharacterChoice.Cycle(CharacterChoice.Grabber, -1));
+            Listen(nextGrabberButton, () => CharacterChoice.Grabber = CharacterChoice.Cycle(CharacterChoice.Grabber, 1));
+            CharacterChoice.Changed += RefreshCharacters;
             Listen(previousPadButton, () => ChangePad(-1));
             Listen(nextPadButton, () => ChangePad(1));
             GameInput.EnsureDeviceHook();
@@ -144,9 +155,12 @@ namespace CarritoCaotico
                 gameManager.PauseChanged -= OnPauseChanged;
             }
             GameInput.DevicesChanged -= RefreshPad;
+            CharacterChoice.Changed -= RefreshCharacters;
             LanSession.AnyStatusChanged -= RefreshLan;
             StopListening();
-            foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton, previousPadButton, nextPadButton, quitButton, resumeButton, pauseRestartButton, pauseMenuButton,
+            foreach (Button b in new[] { playButton, tutorialButton, previousStoreButton, nextStoreButton, previousLevelButton, nextLevelButton,
+                         previousPusherButton, nextPusherButton, previousGrabberButton, nextGrabberButton, previousPadButton, nextPadButton,
+                         quitButton, resumeButton, pauseRestartButton, pauseMenuButton,
                          soundButton, lanButton, lanPreviousRoleButton, lanNextRoleButton, lanHostButton, lanJoinButton, lanCancelButton, lanBackButton })
                 if (b != null) b.onClick.RemoveAllListeners();
         }
@@ -162,6 +176,7 @@ namespace CarritoCaotico
             shownLanStatus = LanSession.Instance != null ? LanSession.Instance.Status : LanSession.SessionStatus.Inactiva;
             RefreshStore();
             RefreshLevel();
+            RefreshCharacters();
             RefreshPad();
             RefreshSound();
             if (pausePanel != null) pausePanel.SetActive(false);
@@ -272,6 +287,12 @@ namespace CarritoCaotico
                     : GameInput.GamepadCount == 1 ? $"Conectado: {GameInput.GamepadName}" : $"{GameInput.GamepadCount} mandos conectados";
                 padDetailText.text = $"{connected}  ·  {GameInput.DevicesSummary()}";
             }
+        }
+
+        void RefreshCharacters()
+        {
+            if (pusherText != null) pusherText.text = CharacterChoice.DisplayName(CharacterChoice.Pusher);
+            if (grabberText != null) grabberText.text = CharacterChoice.DisplayName(CharacterChoice.Grabber);
         }
 
         void RefreshStore()

@@ -274,13 +274,15 @@ namespace CarritoCaotico.EditorTools
 
             CartParts cart = BuildCart();
             CameraController cameraController = BuildCamera(cart);
+            SetArray(cameraController, "hideInFirstPerson", cart.PusherRenderers);
 
             GameObject systems = new GameObject("Sistemas");
             var manager = systems.AddComponent<GameManager>();
             var timer = systems.AddComponent<GameTimer>();
             var shoppingList = systems.AddComponent<ShoppingList>();
             var rivalManager = systems.AddComponent<RivalManager>();
-            Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager)");
+            var audioDirector = systems.AddComponent<AudioDirector>();
+            Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager, AudioDirector)");
             RivalShopper rivalPrefab = CreateRivalPrefab();
 
             var (ui, menu, tutorial) = HudBuilder.Build(uiFont, current.Id);
@@ -305,9 +307,13 @@ namespace CarritoCaotico.EditorTools
             SetRefs(tutorial,
                 ("gameManager", manager), ("cart", cart.Controller), ("grabber", cart.Arm),
                 ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
+            SetRefs(audioDirector,
+                ("library", SoundAssets.BuildLibrary()), ("gameManager", manager), ("timer", timer),
+                ("shoppingList", shoppingList), ("cartContents", cart.Contents), ("cart", cart.Controller),
+                ("grabber", cart.Arm), ("checkout", checkout), ("rivals", rivalManager));
             ConfigureStore(manager, shoppingList);
             ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
-            AudioBuilder.Build(current.Id, manager, cart.Arm, shoppingList, timer, rivalManager, checkout, cartHealth);
+            AudioBuilder.Build(cartHealth);
             Count("Audio (GameAudio con música y efectos)");
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -399,8 +405,8 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Metal", new Color32(150, 160, 170, 255));
             GetMaterial("Rueda", new Color32(40, 44, 52, 255));
             GetMaterial("Asa", Coral);
-            GetMaterial("Empujador", new Color32(59, 130, 246, 255));
-            GetMaterial("Agarrador", new Color32(168, 85, 247, 255));
+            foreach (CharacterModels.Definition character in CharacterModels.All)
+                CharacterModels.ApplyTexture(GetMaterial(character.Folder, Color.white), character);
             GetMaterial("Piel", new Color32(244, 200, 160, 255));
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
             GetMaterial("Mano", new Color32(255, 61, 127, 255));
@@ -956,6 +962,8 @@ namespace CarritoCaotico.EditorTools
             public Rigidbody Body;
             public CartContents Contents;
             public GrabberArm Arm;
+            /// <summary>Mallas de los Empujadores: la primera persona (LAN) las deja solo con sombra.</summary>
+            public Object[] PusherRenderers;
         }
 
         static CartParts BuildCart()
@@ -997,12 +1005,6 @@ namespace CarritoCaotico.EditorTools
             handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Izq", t, new Vector3(-0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
             Prim(PrimitiveType.Cube, "Soporte_Asa_Der", t, new Vector3(0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
-            Prim(PrimitiveType.Capsule, "Empujador_Cuerpo", t, new Vector3(-0.3f, 0.7f, -1.4f), new Vector3(0.42f, 0.7f, 0.42f), "Empujador", false);
-            Prim(PrimitiveType.Sphere, "Empujador_Cabeza", t, new Vector3(-0.3f, 1.55f, -1.4f), Vector3.one * 0.3f, "Piel", false);
-
-            // Agarrador sentado en el asiento del carrito.
-            Prim(PrimitiveType.Capsule, "Agarrador_Cuerpo", t, new Vector3(0.18f, 0.9f, -0.6f), new Vector3(0.36f, 0.3f, 0.36f), "Agarrador", false);
-            Prim(PrimitiveType.Sphere, "Agarrador_Cabeza", t, new Vector3(0.18f, 1.32f, -0.6f), Vector3.one * 0.28f, "Piel", false);
 
             // Trigger de la canasta.
             GameObject basket = Empty("Canasta_Trigger", t, new Vector3(0f, 0.72f, 0.23f));
@@ -1022,6 +1024,8 @@ namespace CarritoCaotico.EditorTools
             shadow.transform.SetParent(root.transform.parent, true);
 
             root.AddComponent<CartHealth>();
+            Object[] pusherRenderers = BuildCrew(t, body, hand.transform);
+
             var grabber = root.AddComponent<GrabberArm>();
             SetRefs(grabber,
                 ("cartRoot", t), ("cartBody", body), ("shoulder", shoulder.transform), ("hand", hand.transform),
@@ -1030,7 +1034,80 @@ namespace CarritoCaotico.EditorTools
                 ("basketDropPoint", dropPoint.transform));
 
             Count("Carrito (CartController, GrabberArm, CartContents)");
-            return new CartParts { Controller = controller, Body = body, Contents = contents, Arm = grabber };
+            return new CartParts { Controller = controller, Body = body, Contents = contents, Arm = grabber, PusherRenderers = pusherRenderers };
+        }
+
+        // ---------- Personajes del carrito ----------
+
+        const float PusherHeight = 1.25f;
+        const float GrabberHeight = 1f;
+        /// <summary>El frente del Empujador (pico, hocico) queda detrás de la pared trasera de la canasta.</summary>
+        const float PusherFrontZ = -0.98f;
+        /// <summary>La espalda y la cola del Agarrador quedan dentro de la pared trasera de la canasta.</summary>
+        const float GrabberBackZ = -0.8f;
+        /// <summary>Brazos del Empujador: abajo, algo abiertos y hacia el asa.</summary>
+        static readonly Vector3 PusherArms = new Vector3(0.45f, -0.75f, 0.5f);
+        /// <summary>Brazos del Agarrador: relajados a los lados (el derecho lo mueve ArmReach).</summary>
+        static readonly Vector3 GrabberArms = new Vector3(0.35f, -0.9f, 0.15f);
+
+        /// <summary>
+        /// Coloca todos los personajes en los dos puestos del carrito. CartCrew activa en juego el
+        /// elegido por cada jugador; la escena se guarda con los personajes por defecto. Devuelve
+        /// las mallas de los Empujadores para ocultarlas en primera persona.
+        /// </summary>
+        static Object[] BuildCrew(Transform cart, Rigidbody body, Transform grabberHand)
+        {
+            var pushers = new Object[CharacterModels.All.Length];
+            var pusherRenderers = new Object[CharacterModels.All.Length];
+            var grabbers = new Object[CharacterModels.All.Length];
+            foreach (CharacterModels.Definition definition in CharacterModels.All)
+            {
+                Material material = Materials[definition.Folder];
+                int index = (int)definition.Id;
+
+                // Empujador: de pie detrás del asa. Se bambolea y, si no trae pose propia, agita los brazos.
+                CharacterModels.Character pusher = CharacterModels.Build(definition, "Empujador_" + definition.Folder, cart,
+                    new Vector3(0f, 0f, -1.6f), PusherHeight, PusherArms, material);
+                pusher.Root.transform.localPosition += Vector3.forward * (PusherFrontZ - pusher.LocalBounds.max.z);
+                var waddle = pusher.Root.AddComponent<CharacterWaddle>();
+                SetRefs(waddle, ("cartBody", body), ("model", pusher.Model));
+                if (!definition.KeepPose)
+                {
+                    SetRefs(pusher.Root.AddComponent<FlipperFlap>(),
+                        ("waddle", waddle), ("leftFlipper", pusher.LeftArm), ("rightFlipper", pusher.RightArm));
+                }
+                pusher.Root.SetActive(definition.Id == CharacterChoice.DefaultPusher);
+                pushers[index] = pusher.Root;
+                pusherRenderers[index] = pusher.Model.GetComponentInChildren<SkinnedMeshRenderer>(true);
+
+                // Agarrador: de pie en el asiento (se ve de pecho para arriba); señala su mano extensible.
+                CharacterModels.Character grabber = CharacterModels.Build(definition, "Agarrador_" + definition.Folder, cart,
+                    new Vector3(-0.02f, 0.4f, -0.5f), GrabberHeight, GrabberArms, material);
+                grabber.Root.transform.localPosition += Vector3.forward * (GrabberBackZ - grabber.LocalBounds.min.z);
+                var motion = grabber.Root.AddComponent<CharacterWaddle>();
+                motion.ConfigureMotion(3f, 0.02f, 6f);
+                SetRefs(motion, ("cartBody", body), ("model", grabber.Model));
+                SetRefs(grabber.Root.AddComponent<ArmReach>(),
+                    ("upperArm", grabber.RightArm), ("hand", grabber.RightHand), ("target", grabberHand));
+                grabber.Root.SetActive(definition.Id == CharacterChoice.DefaultGrabber);
+                grabbers[index] = grabber.Root;
+            }
+
+            var crew = cart.gameObject.AddComponent<CartCrew>();
+            SetArray(crew, "pushers", pushers);
+            SetArray(crew, "grabbers", grabbers);
+            Count("Personajes del carrito (CartCrew)");
+            return pusherRenderers;
+        }
+
+        static void SetArray(Object target, string field, Object[] values)
+        {
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(field);
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ---------- Compradores rivales ----------

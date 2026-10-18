@@ -118,8 +118,7 @@ namespace CarritoCaotico
 
         public void OnSelect(BaseEventData eventData)
         {
-            // Con teclado o mando la selección hace de hover (con el mouse ya sonó al entrar).
-            if (!selected && !hovered && Interactable && !(eventData is PointerEventData)) GameAudio.PlayUI(UISound.Hover);
+            // Con teclado o mando la selección hace de hover; su sonido lo pone el AudioDirector.
             selected = true;
         }
 

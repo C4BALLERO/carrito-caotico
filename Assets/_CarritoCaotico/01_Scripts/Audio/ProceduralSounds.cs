@@ -3,38 +3,13 @@ using UnityEngine;
 namespace CarritoCaotico
 {
     /// <summary>
-    /// Sonidos sintetizados por código para los que no hay archivo: el golpe del carrito y su
-    /// explosión. Se generan una vez y se reutilizan.
+    /// Sonidos sintetizados por código para los que no hay archivo: la explosión del carrito.
+    /// Se genera una vez y se reutiliza.
     /// </summary>
     public static class ProceduralSounds
     {
         const int Rate = 44100;
-        static AudioClip hit;
         static AudioClip explosion;
-
-        /// <summary>Golpe sordo y corto (choque del carrito).</summary>
-        public static AudioClip Hit()
-        {
-            if (hit != null) return hit;
-            int length = (int)(Rate * 0.22f);
-            var data = new float[length];
-            var random = new System.Random(7);
-            float phase = 0f;
-            float noise = 0f;
-            for (int i = 0; i < length; i++)
-            {
-                float t = i / (float)Rate;
-                float frequency = Mathf.Lerp(110f, 45f, t / 0.22f);
-                phase += 2f * Mathf.PI * frequency / Rate;
-                float body = Mathf.Sin(phase) * Mathf.Exp(-t * 22f);
-                noise = Mathf.Lerp(noise, (float)random.NextDouble() * 2f - 1f, 0.35f);
-                float click = noise * Mathf.Exp(-t * 90f) * 0.6f;
-                data[i] = Mathf.Clamp((body + click) * 0.9f, -1f, 1f);
-            }
-            hit = AudioClip.Create("Golpe_Carrito", length, 1, Rate, false);
-            hit.SetData(data, 0);
-            return hit;
-        }
 
         /// <summary>Explosión: estallido de ruido que se va apagando, con un retumbo grave debajo.</summary>
         public static AudioClip Explosion()
