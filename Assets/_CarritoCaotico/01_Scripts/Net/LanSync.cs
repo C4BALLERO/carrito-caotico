@@ -633,6 +633,7 @@ namespace CarritoCaotico
             if (prefab == null) return null;
             RivalShopper rival = Instantiate(prefab, state.Position, Quaternion.Euler(0f, state.Yaw, 0f));
             rival.name = $"Comprador_Rival_{state.Id}";
+            rival.NetId = state.Id;
             rival.InitReplica(state.Color);
             if (rival.TryGetComponent(out Rigidbody body)) body.interpolation = RigidbodyInterpolation.None;
             return new Replica { Rival = rival };

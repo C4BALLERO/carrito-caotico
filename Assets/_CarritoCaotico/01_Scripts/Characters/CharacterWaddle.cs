@@ -5,7 +5,8 @@ namespace CarritoCaotico
     /// <summary>
     /// Bamboleo de los personajes del carrito: se balancean de lado a lado y dan saltitos al
     /// ritmo de la velocidad del carrito y se inclinan en las curvas. Parados, respiran.
-    /// Solo mueve el modelo visual; no toca la física.
+    /// Solo mueve el modelo visual; no toca la física. Si el cuerpo es cinemático (rivales,
+    /// réplicas de la red), la velocidad se mide por cuánto se movió en cada frame.
     /// </summary>
     public class CharacterWaddle : MonoBehaviour
     {
@@ -29,6 +30,10 @@ namespace CarritoCaotico
         Vector3 restPosition;
         Quaternion restRotation;
         float lean;
+        Vector3 lastPosition;
+        float lastYaw;
+        Vector3 measuredVelocity;
+        float measuredTurnRate;
 
         /// <summary>Entre 0 (quieto) y 1 (bamboleo completo).</summary>
         public float Intensity { get; private set; }
@@ -49,19 +54,26 @@ namespace CarritoCaotico
             if (model == null) model = transform;
             restPosition = model.localPosition;
             restRotation = model.localRotation;
+            Transform mover = Mover;
+            lastPosition = mover.position;
+            lastYaw = mover.eulerAngles.y;
         }
+
+        Transform Mover => cartBody != null ? cartBody.transform : transform;
 
         void LateUpdate()
         {
             float dt = Time.deltaTime;
-            Vector3 velocity = cartBody != null ? cartBody.linearVelocity : Vector3.zero;
+            MeasureMotion(dt);
+            bool simulated = cartBody != null && !cartBody.isKinematic;
+            Vector3 velocity = simulated ? cartBody.linearVelocity : measuredVelocity;
             velocity.y = 0f;
             float speed = velocity.magnitude;
 
             Intensity = Mathf.MoveTowards(Intensity, Mathf.Clamp01(speed / fullWaddleSpeed), dt * 4f);
             Phase = Mathf.Repeat(Phase + dt * Mathf.PI * stepsPerMeter * speed, Mathf.PI * 2f);
 
-            float turnRate = cartBody != null ? cartBody.angularVelocity.y : 0f;
+            float turnRate = simulated ? cartBody.angularVelocity.y : measuredTurnRate;
             lean = Mathf.Lerp(lean, -Mathf.Clamp(turnRate * 0.5f, -1f, 1f) * turnLeanDegrees, 1f - Mathf.Exp(-8f * dt));
 
             float step = Mathf.Sin(Phase);
@@ -71,6 +83,23 @@ namespace CarritoCaotico
 
             model.localPosition = restPosition + Vector3.up * (hop + breath);
             model.localRotation = restRotation * Quaternion.Euler(0f, 0f, roll);
+        }
+
+        /// <summary>Velocidad y giro (rad/s) a partir del movimiento del frame, suavizados.</summary>
+        void MeasureMotion(float dt)
+        {
+            Transform mover = Mover;
+            Vector3 position = mover.position;
+            float yaw = mover.eulerAngles.y;
+            if (dt > 0f)
+            {
+                float smooth = 1f - Mathf.Exp(-10f * dt);
+                measuredVelocity = Vector3.Lerp(measuredVelocity, (position - lastPosition) / dt, smooth);
+                float turn = Mathf.DeltaAngle(lastYaw, yaw) * Mathf.Deg2Rad / dt;
+                measuredTurnRate = Mathf.Lerp(measuredTurnRate, turn, smooth);
+            }
+            lastPosition = position;
+            lastYaw = yaw;
         }
     }
 }
