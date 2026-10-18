@@ -274,6 +274,7 @@ namespace CarritoCaotico.EditorTools
 
             CartParts cart = BuildCart();
             CameraController cameraController = BuildCamera(cart);
+            SetArray(cameraController, "hideInFirstPerson", cart.PusherRenderers);
 
             GameObject systems = new GameObject("Sistemas");
             var manager = systems.AddComponent<GameManager>();
@@ -953,6 +954,8 @@ namespace CarritoCaotico.EditorTools
             public Rigidbody Body;
             public CartContents Contents;
             public GrabberArm Arm;
+            /// <summary>Mallas de los Empujadores: la primera persona (LAN) las deja solo con sombra.</summary>
+            public Object[] PusherRenderers;
         }
 
         static CartParts BuildCart()
@@ -1012,7 +1015,7 @@ namespace CarritoCaotico.EditorTools
             GameObject shadow = Prim(PrimitiveType.Cylinder, "Sombra_Mano", null, Vector3.zero, new Vector3(0.3f, 0.005f, 0.3f), "SombraMano", false);
             shadow.transform.SetParent(root.transform.parent, true);
 
-            BuildCrew(t, body, hand.transform);
+            Object[] pusherRenderers = BuildCrew(t, body, hand.transform);
 
             var grabber = root.AddComponent<GrabberArm>();
             SetRefs(grabber,
@@ -1022,7 +1025,7 @@ namespace CarritoCaotico.EditorTools
                 ("basketDropPoint", dropPoint.transform));
 
             Count("Carrito (CartController, GrabberArm, CartContents)");
-            return new CartParts { Controller = controller, Body = body, Contents = contents, Arm = grabber };
+            return new CartParts { Controller = controller, Body = body, Contents = contents, Arm = grabber, PusherRenderers = pusherRenderers };
         }
 
         // ---------- Personajes del carrito ----------
@@ -1040,11 +1043,13 @@ namespace CarritoCaotico.EditorTools
 
         /// <summary>
         /// Coloca todos los personajes en los dos puestos del carrito. CartCrew activa en juego el
-        /// elegido por cada jugador; la escena se guarda con los personajes por defecto.
+        /// elegido por cada jugador; la escena se guarda con los personajes por defecto. Devuelve
+        /// las mallas de los Empujadores para ocultarlas en primera persona.
         /// </summary>
-        static void BuildCrew(Transform cart, Rigidbody body, Transform grabberHand)
+        static Object[] BuildCrew(Transform cart, Rigidbody body, Transform grabberHand)
         {
             var pushers = new Object[CharacterModels.All.Length];
+            var pusherRenderers = new Object[CharacterModels.All.Length];
             var grabbers = new Object[CharacterModels.All.Length];
             foreach (CharacterModels.Definition definition in CharacterModels.All)
             {
@@ -1064,6 +1069,7 @@ namespace CarritoCaotico.EditorTools
                 }
                 pusher.Root.SetActive(definition.Id == CharacterChoice.DefaultPusher);
                 pushers[index] = pusher.Root;
+                pusherRenderers[index] = pusher.Model.GetComponentInChildren<SkinnedMeshRenderer>(true);
 
                 // Agarrador: de pie en el asiento (se ve de pecho para arriba); señala su mano extensible.
                 CharacterModels.Character grabber = CharacterModels.Build(definition, "Agarrador_" + definition.Folder, cart,
@@ -1082,6 +1088,7 @@ namespace CarritoCaotico.EditorTools
             SetArray(crew, "pushers", pushers);
             SetArray(crew, "grabbers", grabbers);
             Count("Personajes del carrito (CartCrew)");
+            return pusherRenderers;
         }
 
         static void SetArray(Object target, string field, Object[] values)

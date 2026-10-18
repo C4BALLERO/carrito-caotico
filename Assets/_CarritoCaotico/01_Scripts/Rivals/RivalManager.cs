@@ -45,10 +45,13 @@ namespace CarritoCaotico
         readonly List<float> pendingSpawns = new List<float>();
         LevelConfig config;
         int spawned;
+        int remoteActive = -1;
 
         public bool Running { get; private set; }
-        public int ActiveCount => rivals.Count;
+        public int ActiveCount => remoteActive >= 0 ? remoteActive : rivals.Count;
         public int TakenCount { get; private set; }
+        public RivalShopper Prefab => rivalPrefab;
+        public IReadOnlyList<RivalShopper> Rivals => rivals;
         public int ConfiguredCount => config != null ? config.RivalCount : 0;
 
         /// <summary>Un rival se llevó un producto.</summary>
@@ -67,6 +70,21 @@ namespace CarritoCaotico
             for (int i = 0; i < config.RivalCount; i++)
                 pendingSpawns.Add(Time.time + 1.5f + i * spawnInterval);
             Changed?.Invoke();
+        }
+
+        /// <summary>Cliente LAN: recuentos que manda el anfitrión (para la interfaz).</summary>
+        public void ApplyRemoteCounts(int active, int taken)
+        {
+            if (remoteActive == active && TakenCount == taken) return;
+            remoteActive = Mathf.Max(0, active);
+            TakenCount = Mathf.Max(0, taken);
+            Changed?.Invoke();
+        }
+
+        /// <summary>Cliente LAN: el anfitrión avisa de que un rival se llevó un producto.</summary>
+        public void RaiseRemoteTaken(Product product)
+        {
+            if (product != null) ProductTaken?.Invoke(product);
         }
 
         /// <summary>Detiene a los rivales (fin de la partida). Se quedan quietos donde están.</summary>
@@ -91,6 +109,7 @@ namespace CarritoCaotico
         {
             RivalShopper rival = Instantiate(rivalPrefab, entryPoint, Quaternion.LookRotation(Vector3.right));
             rival.name = $"Comprador_Rival_{++spawned}";
+            rival.NetId = spawned;
             Color color = palette.Length > 0 ? palette[(spawned - 1) % palette.Length] : Color.gray;
             rival.Init(this, config.RivalSpeed, config.RivalGrabSeconds, config.RivalCapacity, color);
             rivals.Add(rival);
