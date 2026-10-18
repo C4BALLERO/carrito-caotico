@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`.
+El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`. En `06_Models/NPC` hay además personajes animados **CC0** de [KayKit](https://www.kaylousberg.com) (Kay Lousberg) como alternativa para los compradores; ver su `CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -382,7 +382,8 @@ Assets/_CarritoCaotico/
 │   │   └── StoreCatalog.cs      Supermercados: escenas, nombres, consejos e imágenes de carga
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
-│   │   └── RivalShopper.cs      IA de un comprador rival
+│   │   ├── RivalShopper.cs      IA de un comprador rival
+│   │   └── KayKitShopperAnimator.cs  Animación de los personajes KayKit (alternativa, no conectada)
 │   ├── Audio/
 │   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
 │   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
@@ -423,7 +424,8 @@ Assets/_CarritoCaotico/
 ├── 06_Models/
 │   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
 │   ├── Zorro/               personaje con pose propia (no en pose T)
-│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   ├── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   └── NPC/                 personajes KayKit (CC0) como alternativa para los compradores: Aventureros/, Esqueletos/, NPC_Animaciones.fbx compartido y CREDITOS.md
 ├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
@@ -433,6 +435,7 @@ Assets/_CarritoCaotico/
 │   ├── ShopperModels.cs     Compradores caricaturescos con esqueleto (estilos, peinados, disfraces)
 │   ├── ShopperPreview.cs    Menú Carrito > Vista previa de compradores (Docs/compradores_*.png)
 │   ├── RigInspector.cs      Menú Carrito > Inspeccionar esqueletos (Docs/esqueletos.md)
+│   ├── NpcModels.cs         Importación de los personajes KayKit y su Animator Controller (alternativa, no conectada)
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (menú en lista, tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
 │   ├── AudioBuilder.cs      Objeto Audio de cada escena con los sonidos de Kenney
