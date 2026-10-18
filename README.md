@@ -212,10 +212,16 @@ Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción
 - A cero, **el carrito explota**: bolas de fuego, humo, un destello y las piezas del carrito volando. La partida termina con el recibo «¡El carrito explotó!» y la compra no cuenta.
 - En el tutorial el carrito no se rompe. En LAN la vida la calcula el anfitrión y la explosión se ve en los dos PC.
 
-### Botones y sonido del menú
+### Menú principal
 
-- Los botones crecen, suben un poco y suenan al pasar el mouse; con teclado o mando crecen al seleccionarlos. Al pulsarlos se aplastan. El botón principal late suavemente.
-- El botón **Sonido** cambia entre *todo*, *solo efectos* y *no*, para la música, los ambientes y los efectos. La elección se guarda entre partidas.
+El menú sigue la jerarquía de los menús de los juegos de acción: el supermercado de fondo, el título grande arriba y las opciones en una columna centrada.
+
+- **Fondo vivo:** mientras se elige, la cámara recorre despacio la tienda por encima de las estanterías (`MenuBackdrop`). Una viñeta oscurece los bordes y el centro para que el texto se lea.
+- **Opciones:** Jugar, Tutorial, Jugar en LAN, Supermercado, Nivel, J1 · Empujador, J2 · Agarrador, Mando, Sonido y Salir.
+- **Opción elegida:** una pincelada ámbar se desliza detrás de ella y el texto cambia a oscuro. Debajo de la lista aparece su descripción (por ejemplo, cuántas unidades y rivales tiene el nivel).
+- **Controles:** `↑` `↓` cambian de opción y saltan las desactivadas; la lista da la vuelta. `←` `→` (también `A` `D`, cruceta o stick) cambian el valor de la opción. `Enter` acepta; sobre una opción con valor pasa al siguiente. El mouse elige al pasar por encima y también puede pulsar las flechas `‹` `›`.
+- **Sonido:** cambia entre *todo*, *solo efectos* y *no*, para la música, los ambientes y los efectos. La elección se guarda entre partidas.
+- Los botones de las demás pantallas crecen, suben un poco y suenan al pasar el mouse; con teclado o mando crecen al seleccionarlos. Al pulsarlos se aplastan.
 
 ### Interfaz durante la partida
 
@@ -257,8 +263,8 @@ La genera `CarritoSceneBuilder.Ambientacion.cs` con primitivas, sin colisionador
 
 En el menú, la fila **Jugador 1 · Empujador** / **Jugador 2 · Agarrador** permite que cada jugador elija su personaje: **pingüino**, **zorro** o **cerdo**. La elección se guarda entre partidas y el carrito cambia al momento. Pueden elegir el mismo.
 
-- **Empujador:** de pie detrás del asa. Se bambolea al ritmo del carrito, se inclina en las curvas y, si el modelo venía en pose T (pingüino y cerdo), mueve los brazos.
-- **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve.
+- **Empujador:** camina detrás del asa (`CartPusherRig`). Los pies se quedan plantados en el suelo y dan pasos al ritmo del carrito, así que no patinan. Las manos sujetan el asa con IK de dos huesos y la cabeza mira hacia la curva. Si los brazos no llegan al asa (el cerdo los tiene cortos), el tronco se inclina hacia delante hasta 30°.
+- **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve y la cabeza la sigue con la mirada (`HeadLook`, con giro limitado).
 - Por defecto: pingüino Empujador y zorro Agarrador.
 
 Los tres personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
@@ -303,7 +309,11 @@ Además, con cada nivel los rivales caminan más rápido, tardan menos en agarra
 - Cuando llenan el carrito se van y, al rato, entra otro.
 - Si se llevan un producto de tu lista aparece el aviso **«¡Un rival se llevó…!»**. El chip superior derecho cuenta los rivales y los productos robados.
 - **Regla justa:** un rival nunca se lleva una unidad que necesites si con eso quedarían menos unidades en las baldas de las que te faltan. Te ganan los productos cercanos, pero la lista nunca se vuelve imposible.
-- Son cinemáticos: empujan el carrito si se cruzan con él.
+- **Ocho compradores caricaturescos** por supermercado (señora de rulos, abuelo con bigote, chica con coleta, tipo con tupé, niño con gorra, señor con panza, señora con moño y chico afro), con cabeza grande, ojos con pupila, cejas, guantes blancos y zapatones. En Halloween van disfrazados (sombrero de bruja, capa o cuernos). El reponedor también es uno de ellos, con uniforme y una caja.
+- **Esqueleto propio** de 19 huesos (caderas, columna, pecho, cuello, cabeza, hombros, brazos, antebrazos, manos, muslos, piernas y pies) más ojos, cejas y boca. Las piezas cuelgan de los huesos, sin malla deformable.
+- **Animación procedural** (`ShopperAnimator`): pies plantados que dan pasos al caminar y al girar, respiración en reposo, brazos que se balancean al andar, frenadas con anticipación, inclinación en las curvas, parpadeo, mirada hacia los productos o el carrito del jugador y gestos (asentir, rascarse la cabeza, encogerse de hombros, mirar alrededor). Cada comprador lleva su propio ritmo para que no se muevan a la vez.
+- **Al coger un producto** se paran, se giran hacia la balda, se agachan si está bajo, lo cogen con la mano, lo miran y lo dejan en su carrito.
+- **Sin atravesarse:** frenan si el carrito del jugador u otro comprador les corta el paso y, si siguen bloqueados más de 1,4 s, se apartan medio metro para rodearlo. Siguen la red de pasillos, así que no cruzan las estanterías.
 
 ### El supermercado
 
@@ -383,7 +393,13 @@ Assets/_CarritoCaotico/
 │   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
 │   │   ├── CharacterWaddle.cs   Bamboleo de los personajes del carrito según su velocidad
 │   │   ├── FlipperFlap.cs       Brazos que se agitan al empujar (modelos en pose T)
-│   │   └── ArmReach.cs          Brazo del Agarrador que señala la mano extensible
+│   │   ├── ArmReach.cs          Brazo del Agarrador que señala la mano extensible
+│   │   ├── HeadLook.cs          Cabeza del Agarrador que sigue a la mano (giro limitado)
+│   │   ├── CartPusherRig.cs     Empujador que camina tras el asa: pies plantados e IK de manos
+│   │   ├── TwoBoneIK.cs         IK analítico de dos huesos y orientación de un hueso hacia un punto
+│   │   ├── FootPlanter.cs       Pasos: pies plantados, cuándo levantar cada pie y hacia dónde
+│   │   ├── ShopperRig.cs        Huesos y piezas de la cara de un comprador
+│   │   └── ShopperAnimator.cs   Animación procedural de los compradores (pasos, brazos, gestos, mirada)
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -393,10 +409,14 @@ Assets/_CarritoCaotico/
 │   └── UI/
 │       ├── GameUI.cs            HUD, lista, mensajes y recibo
 │       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial, LAN, sonido) y menú de pausa
+│       ├── MenuList.cs          Menú en lista: opción elegida resaltada, descripción, izquierda/derecha
+│       ├── MenuBackdrop.cs      Cámara que recorre el supermercado detrás del menú
 │       ├── UIButtonFeedback.cs  Animación de hover y pulsación de los botones, con sonido
 │       ├── TutorialController.cs  Tutorial guiado
-│       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
-├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
+│       ├── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
+│       ├── LoadingCart.cs       Carrito que rueda sobre la barra de carga
+│       └── SplashScreen.cs      Portada al arrancar (7 s) con barra de carga
+├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Compradores/Comprador_*.prefab (8 por supermercado)
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*; Texturas/ con las baldosas
 ├── 04_Fonts/                fuentes de los letreros (Archivo Black y Pirata One) con su licencia OFL
 ├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
@@ -410,8 +430,11 @@ Assets/_CarritoCaotico/
 │   ├── CarritoSceneBuilder.Ambientacion.cs  Letreros, luminarias, baldosas, etiquetas, flechas y ventanas
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── ShopperModels.cs     Compradores caricaturescos con esqueleto (estilos, peinados, disfraces)
+│   ├── ShopperPreview.cs    Menú Carrito > Vista previa de compradores (Docs/compradores_*.png)
+│   ├── RigInspector.cs      Menú Carrito > Inspeccionar esqueletos (Docs/esqueletos.md)
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
-│   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
+│   ├── HudBuilder.cs        Interfaz (menú en lista, tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
 │   ├── AudioBuilder.cs      Objeto Audio de cada escena con los sonidos de Kenney
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
@@ -435,10 +458,13 @@ Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism pa
 - **Tipografía:** la fuente integrada de Unity en negrita. La skill propone Fredoka/Nunito, pero habría que importarlas.
 - **Botones:** sprites del *UI Pack* de Kenney con relieve: amarillo para la acción principal, gris para el resto y flechas en los selectores.
 - **Animación:** al pasar el mouse o seleccionar con teclado o mando, el botón crece un 6 %, sube 4 px y suena. Al pulsarlo se aplasta. El botón principal late suavemente. Funciona también en pausa.
+- **Menú principal:** en lugar de tarjetas, texto blanco con sombra sobre la escena, título con contorno del color de la tienda y una pincelada ámbar (`UI_Pincelada.png`, generada por código) detrás de la opción elegida.
 
 ## Pruebas
 
 Desde Unity, abre *Window → General → Test Runner* y ejecuta las pestañas **EditMode** y **PlayMode**. Las pruebas PlayMode necesitan la escena generada.
+
+Las pruebas de animación (`CarritoShopperAnimationTests`) miden en el mundo que los pies apoyados no se deslizan, que siempre hay un pie en el suelo, que dan pasos al girar, que las manos sujetan el asa, que la mano llega a un producto bajo agachándose y que dos rivales en marcha no se meten uno dentro de otro. `CarritoMenuTests` comprueba la navegación del menú; con la variable de entorno `CARRITO_CAPTURA_MENU=<carpeta>` guarda además una captura del menú de cada supermercado.
 
 Las pruebas LAN (`CarritoLanTests`) abren conexiones reales en `127.0.0.1` (puertos 47811 y 47812): una sesión hace de este PC y otra, sin escena, hace del otro PC.
 
@@ -469,7 +495,10 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 
 ## Problemas conocidos
 
-- Los rivales siguen una red fija de pasillos sin NavMesh: no esquivan el carrito de los jugadores, lo empujan.
+- Los rivales siguen una red fija de pasillos sin NavMesh. Frenan y rodean al carrito y a otros compradores, pero si el carrito los embiste lo empujan (son cinemáticos).
+- Los compradores y el reponedor son modelos de piezas (primitivas unidas a los huesos), no mallas con piel. La animación es procedural; no hay clips ni Animator. Para cambiarlos por modelos con malla y animaciones, ver `Docs/personajes-revision.md`.
+- El pingüino tiene el cuello y los pies con peso cero en su malla: esos huesos se mueven, pero la malla no los sigue. Habría que repintar los pesos en un programa 3D.
+- El cerdo tiene los brazos más cortos que la distancia al asa: se inclina y estira los brazos, pero las manos pueden quedar algo separadas del asa.
 - En un solo PC la separación de la lista es solo visual: está en el lado derecho de la pantalla y el Empujador no debe mirarla. En LAN el Empujador no la ve.
 - La LAN es para dos PC en la misma red; no hay juego por Internet. El Empujador del PC cliente nota unos 100 ms de retraso al conducir, porque la física la calcula el anfitrión.
 - Los productos dentro de la canasta pueden salir volando en curvas muy cerradas o al derrapar. Es intencionado, pero todavía no está equilibrado.
@@ -481,7 +510,6 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 - Juego por Internet (Unity Relay) además de la LAN.
 - Sonidos propios del carrito (ruedas, choques) y de la caja registradora.
 - Más productos, ofertas y obstáculos dinámicos, como clientes o reponedores.
-- Menú principal y selección de dificultad.
 - Ajuste fino de la física de la canasta.
 
 ## Créditos

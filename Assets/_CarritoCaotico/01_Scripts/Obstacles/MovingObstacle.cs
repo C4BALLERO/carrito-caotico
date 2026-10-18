@@ -7,7 +7,7 @@ namespace CarritoCaotico
     /// carrito y los productos que encuentra. Se detiene unos instantes en cada extremo.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public class MovingObstacle : MonoBehaviour
+    public class MovingObstacle : MonoBehaviour, IShopperBrain
     {
         [SerializeField] Vector3 pointA;
         [SerializeField] Vector3 pointB;
@@ -16,6 +16,8 @@ namespace CarritoCaotico
         [Tooltip("Altura de flotación (fantasmas). 0 = camina por el suelo.")]
         [SerializeField, Min(0f)] float bobHeight;
         [SerializeField] float bobSpeed = 2f;
+        [Tooltip("Grados por segundo al darse la vuelta en cada extremo.")]
+        [SerializeField] float turnSpeed = 200f;
 
         Rigidbody body;
         Vector3 from;
@@ -25,6 +27,12 @@ namespace CarritoCaotico
 
         public Vector3 PointA => pointA;
         public Vector3 PointB => pointB;
+        public bool IsPaused => pauseTimer > 0f;
+
+        // El reponedor (con esqueleto) mira las estanterías mientras espera en cada extremo.
+        public ShopperAction Action => IsPaused ? ShopperAction.Browsing : ShopperAction.None;
+        public Vector3 ReachPoint => transform.position + transform.right * 1.5f + Vector3.up * 1.2f;
+        public float ReachProgress => 0f;
 
         void Awake()
         {
@@ -60,10 +68,16 @@ namespace CarritoCaotico
                 Vector3 next = Vector3.MoveTowards(position, target, speed * dt);
                 Vector3 flat = target - position;
                 flat.y = 0f;
+                bool facing = true;
                 if (flat.sqrMagnitude > 0.0001f)
-                    body.MoveRotation(Quaternion.RotateTowards(body.rotation, Quaternion.LookRotation(flat.normalized), 360f * dt));
+                {
+                    Quaternion wanted = Quaternion.LookRotation(flat.normalized);
+                    body.MoveRotation(Quaternion.RotateTowards(body.rotation, wanted, turnSpeed * dt));
+                    // Primero se da la vuelta y luego camina (no anda de espaldas).
+                    facing = Quaternion.Angle(body.rotation, wanted) < 35f;
+                }
 
-                position = next;
+                if (facing) position = next;
                 if ((new Vector3(position.x, 0f, position.z) - new Vector3(to.x, 0f, to.z)).sqrMagnitude < 0.0004f)
                 {
                     (from, to) = (to, from);

@@ -501,7 +501,11 @@ namespace CarritoCaotico
                         Id = (ushort)rival.NetId,
                         Position = rival.transform.position,
                         Yaw = rival.transform.eulerAngles.y,
-                        Color = rival.TintColor
+                        Color = rival.TintColor,
+                        Variant = (byte)Mathf.Clamp(rival.Variant, 0, 255),
+                        Action = rival.Action,
+                        Progress = rival.ReachProgress,
+                        ReachPoint = rival.ReachPoint
                     });
                 }
             }
@@ -601,6 +605,7 @@ namespace CarritoCaotico
                     replicas[rival.Id] = replica;
                 }
                 replica.Track.Push(time, rival.Position, Quaternion.Euler(0f, rival.Yaw, 0f));
+                if (replica.Rival != null) replica.Rival.SetReplicaAction(rival.Action, rival.ReachPoint, rival.Progress);
             }
             replicaRemovals.Clear();
             foreach (var pair in replicas)
@@ -624,8 +629,9 @@ namespace CarritoCaotico
 
         Replica CreateReplica(RivalState state)
         {
-            if (rivals == null || rivals.Prefab == null) return null;
-            RivalShopper rival = Instantiate(rivals.Prefab, state.Position, Quaternion.Euler(0f, state.Yaw, 0f));
+            RivalShopper prefab = rivals != null ? rivals.PrefabFor(state.Variant) : null;
+            if (prefab == null) return null;
+            RivalShopper rival = Instantiate(prefab, state.Position, Quaternion.Euler(0f, state.Yaw, 0f));
             rival.name = $"Comprador_Rival_{state.Id}";
             rival.InitReplica(state.Color);
             if (rival.TryGetComponent(out Rigidbody body)) body.interpolation = RigidbodyInterpolation.None;

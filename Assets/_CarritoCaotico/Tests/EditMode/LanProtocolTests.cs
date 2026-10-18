@@ -83,7 +83,8 @@ namespace CarritoCaotico.Tests
             snapshot.Contents.Add((ProductType.Calabaza, 1));
             snapshot.Products.Add(new ProductState { Index = 17, Position = new Vector3(1f, 2f, 3f), Rotation = Quaternion.Euler(0f, 45f, 0f), Flags = ProductState.HeldFlag });
             snapshot.Products.Add(new ProductState { Index = 300, Position = new Vector3(-7f, 0.4f, 9f), Rotation = Quaternion.identity, Flags = ProductState.TakenFlag });
-            snapshot.Rivals.Add(new RivalState { Id = 6, Position = new Vector3(5f, 0f, -2f), Yaw = 180f, Color = new Color32(249, 115, 22, 255) });
+            snapshot.Rivals.Add(new RivalState { Id = 6, Position = new Vector3(5f, 0f, -2f), Yaw = 180f, Color = new Color32(249, 115, 22, 255),
+                Variant = 5, Action = ShopperAction.Reaching, Progress = 0.4f, ReachPoint = new Vector3(4f, 0.6f, -2.5f) });
             snapshot.Obstacles.Add(new ObstacleState { Index = 1, Position = new Vector3(0f, 1.2f, 4f), Yaw = 270f });
 
             var writer = new NetWriter();
@@ -109,6 +110,10 @@ namespace CarritoCaotico.Tests
             Assert.Less(Quaternion.Angle(snapshot.Products[0].Rotation, decoded.Products[0].Rotation), 0.05f);
             Assert.AreEqual(6, decoded.Rivals[0].Id);
             Assert.AreEqual((Color32)new Color32(249, 115, 22, 255), decoded.Rivals[0].Color);
+            Assert.AreEqual(5, decoded.Rivals[0].Variant, "El otro PC usa el mismo modelo de comprador.");
+            Assert.AreEqual(ShopperAction.Reaching, decoded.Rivals[0].Action);
+            Assert.AreEqual(0.4f, decoded.Rivals[0].Progress, 1f / 255f);
+            Assert.AreEqual(new Vector3(4f, 0.6f, -2.5f), decoded.Rivals[0].ReachPoint);
             Assert.AreEqual(270f, decoded.Obstacles[0].Yaw);
         }
 

@@ -276,9 +276,9 @@ namespace CarritoCaotico
         {
             if (padText != null)
             {
-                padText.text = GameInput.PadMode == PadAssignment.Agarrador ? "Mando: Agarrador"
-                    : GameInput.PadMode == PadAssignment.Empujador ? "Mando: Empujador"
-                    : "Mando: automático";
+                padText.text = GameInput.PadMode == PadAssignment.Agarrador ? "Agarrador"
+                    : GameInput.PadMode == PadAssignment.Empujador ? "Empujador"
+                    : "Automático";
             }
             if (padDetailText != null)
             {
@@ -414,7 +414,7 @@ namespace CarritoCaotico
                 lanBigAddressText.text = string.IsNullOrEmpty(ip) ? "Sin red" : ip;
             }
 
-            if (lanButtonText != null) lanButtonText.text = connected ? "LAN: conectado" : "Jugar en LAN";
+            if (lanButtonText != null) lanButtonText.text = connected ? "LAN: CONECTADO" : "JUGAR EN LAN";
             if (tutorialButton != null) tutorialButton.interactable = !connected;
             if (rolesText != null)
             {

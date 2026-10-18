@@ -45,8 +45,7 @@ namespace CarritoCaotico.EditorTools
         struct Theme
         {
             public Color Accent;        // cabecera de la lista y del menú (texto blanco encima)
-            public Color MenuBack;
-            public Color MenuStripe;
+            public Color MenuBack;      // tinte de la viñeta del menú sobre la escena
             public Color MenuSubtitle;
         }
 
@@ -54,6 +53,9 @@ namespace CarritoCaotico.EditorTools
         static Sprite rounded;
         static Sprite circle;
         static Sprite check;
+        static Sprite vignetteSprite;
+        static Sprite columnSprite;
+        static Sprite brushSprite;
         static Sprite kenneyPrimary;
         static Sprite kenneySecondary;
         static Sprite kenneyGreen;
@@ -74,15 +76,13 @@ namespace CarritoCaotico.EditorTools
                 ? new Theme
                 {
                     Accent = new Color32(194, 65, 12, 255),       // naranja calabaza oscuro (5.2:1 con blanco)
-                    MenuBack = new Color32(30, 16, 46, 255),
-                    MenuStripe = new Color32(46, 24, 70, 255),
+                    MenuBack = new Color32(22, 10, 34, 255),
                     MenuSubtitle = new Color32(254, 215, 170, 255)
                 }
                 : new Theme
                 {
                     Accent = new Color32(124, 58, 237, 255),      // morado del Agarrador
-                    MenuBack = new Color32(236, 253, 245, 255),
-                    MenuStripe = new Color32(209, 250, 229, 255),
+                    MenuBack = new Color32(6, 24, 30, 255),
                     MenuSubtitle = new Color32(209, 250, 229, 255)
                 };
             EnsureSprites();
@@ -503,45 +503,120 @@ namespace CarritoCaotico.EditorTools
         // Menú principal
         // ======================================================================
 
+        const float MenuRowWidth = 860f;
+        const float MenuRowHeight = 58f;
+
+        /// <summary>
+        /// Menú principal con la jerarquía de los menús de juegos de acción: el supermercado de
+        /// fondo (la cámara lo recorre, <see cref="MenuBackdrop"/>), título grande arriba, opciones de
+        /// texto en una columna centrada con la elegida sobre una pincelada, y su descripción abajo.
+        /// </summary>
         static void BuildMenu(Transform root, Dictionary<string, object> refs, StoreId store)
         {
             Transform overlay = Overlay(root, "Menu_Principal", theme.MenuBack);
-            for (int i = 0; i < 8; i++)
-            {
-                Image stripe = Box(overlay, "Franja", theme.MenuStripe, circleSprite: false, ppu: 8f);
-                Anchor(stripe.rectTransform, new Vector2(i / 8f, 0f), new Vector2(i / 8f + 0.0625f, 1f), Vector2.zero, Vector2.zero);
-            }
+            var vignette = overlay.GetComponent<Image>();
+            vignette.sprite = vignetteSprite;
+            // Oscurece el centro para que el texto se lea sobre la escena, que se ve a los lados.
+            Image column = Box(overlay, "Columna", theme.MenuBack, circleSprite: false, ppu: 1f);
+            column.sprite = columnSprite;
+            column.type = Image.Type.Simple;
+            Anchor(column.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(-640f, 0f), new Vector2(640f, 0f));
 
-            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(1000f, 1030f), Card, 1f);
-            Image band = Box(card.transform, "Cabecera", store == StoreId.Halloween ? (Color)theme.Accent : (Color)Success, circleSprite: false, ppu: 1f);
-            Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -176f), new Vector2(-10f, -10f));
-            Text title = Label(band.transform, "Titulo", "Carrito Caótico", 86, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(title.rectTransform, new Vector2(0f, 0.32f), Vector2.one, Vector2.zero, Vector2.zero);
-            Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo para dos  ·  en un PC o en LAN  ·  Better Together", 26, theme.MenuSubtitle, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(subtitle.rectTransform, Vector2.zero, new Vector2(1f, 0.36f), new Vector2(0f, 12f), Vector2.zero);
+            // Título y subtítulo.
+            Text title = Label(overlay, "Titulo", "CARRITO CAÓTICO", 128, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            TopCenter(title.rectTransform, -150f, new Vector2(1600f, 160f));
+            var outline = title.gameObject.AddComponent<Outline>();
+            outline.effectColor = store == StoreId.Halloween ? (Color)theme.Accent : (Color)new Color32(22, 101, 52, 255);
+            outline.effectDistance = new Vector2(4f, -4f);
+            var titleShadow = title.gameObject.AddComponent<Shadow>();
+            titleShadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
+            titleShadow.effectDistance = new Vector2(0f, -10f);
+            Text subtitle = MenuText(overlay, "Subtitulo", Spaced("COOPERATIVO PARA DOS · EN UN PC O EN LAN"), 22, TextAnchor.MiddleCenter);
+            subtitle.color = theme.MenuSubtitle;
+            TopCenter(subtitle.rectTransform, -248f, new Vector2(1600f, 34f));
+            Image ornament = Box(overlay, "Adorno", store == StoreId.Halloween ? (Color)theme.Accent : (Color)Warning, circleSprite: false, ppu: 1f);
+            ornament.sprite = brushSprite;
+            ornament.type = Image.Type.Simple;
+            TopCenter(ornament.rectTransform, -282f, new Vector2(560f, 10f));
 
-            // Selectores de supermercado, nivel, personajes y mando.
-            var (previousStore, storeText, nextStore, storeDetail) = Selector(card.transform, "SUPERMERCADO", -190f, StoreCatalog.DisplayName(store), 420f);
-            var (previousLevel, levelText, nextLevel, levelDetail) = Selector(card.transform, "NIVEL", -332f, "Nivel 1", 300f);
-            var (previousPusher, pusherText, nextPusher) = HalfSelector(card.transform, "JUGADOR 1 · EMPUJADOR", -474f, -250f,
+            // Opciones.
+            var listGo = new GameObject("Opciones", typeof(RectTransform));
+            listGo.transform.SetParent(overlay, false);
+            var listRect = (RectTransform)listGo.transform;
+            listRect.anchorMin = listRect.anchorMax = listRect.pivot = new Vector2(0.5f, 1f);
+            listRect.anchoredPosition = new Vector2(0f, -316f);
+            listRect.sizeDelta = new Vector2(MenuRowWidth, MenuRowHeight * 10f);
+            Transform list = listGo.transform;
+
+            Image highlight = Box(list, "Resaltado", Warning, circleSprite: false, ppu: 1f);
+            highlight.sprite = brushSprite;
+            highlight.type = Image.Type.Simple;
+            highlight.rectTransform.anchorMin = highlight.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            highlight.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            highlight.rectTransform.anchoredPosition = new Vector2(0f, -MenuRowHeight * 0.5f);
+            highlight.rectTransform.sizeDelta = new Vector2(MenuRowWidth + 160f, MenuRowHeight + 6f);
+
+            var rows = new List<MenuList.Row>();
+            Button play = ActionRow(list, rows, "Boton_Jugar", "JUGAR", UISound.Click);
+            Button tutorial = ActionRow(list, rows, "Boton_Tutorial", "TUTORIAL", UISound.Click);
+            Button lan = ActionRow(list, rows, "Boton_LAN", "JUGAR EN LAN", UISound.Click);
+            var (previousStore, storeText, nextStore) = ValueRow(list, rows, "Supermercado", "SUPERMERCADO", StoreCatalog.DisplayName(store));
+            var (previousLevel, levelText, nextLevel) = ValueRow(list, rows, "Nivel", "NIVEL", "Nivel 1");
+            var (previousPusher, pusherText, nextPusher) = ValueRow(list, rows, "Empujador", "J1 · EMPUJADOR",
                 CharacterChoice.DisplayName(CharacterChoice.DefaultPusher));
-            var (previousGrabber, grabberText, nextGrabber) = HalfSelector(card.transform, "JUGADOR 2 · AGARRADOR", -474f, 250f,
+            var (previousGrabber, grabberText, nextGrabber) = ValueRow(list, rows, "Agarrador", "J2 · AGARRADOR",
                 CharacterChoice.DisplayName(CharacterChoice.DefaultGrabber));
-            var (previousPad, padText, nextPad, padDetail) = Selector(card.transform, "MANDO (UN JUGADOR CON TECLADO Y OTRO CON MANDO)", -596f, "Mando: automático", 420f);
+            var (previousPad, padText, nextPad) = ValueRow(list, rows, "Mando", "MANDO", "Automático");
+            Button sound = ActionRow(list, rows, "Boton_Sonido", GameAudio.ModeName(AudioMode.Todo), UISound.Toggle);
+            Button quit = ActionRow(list, rows, "Boton_Salir", "SALIR", UISound.Back);
 
-            Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -756f), new Vector2(420f, 92f), 40, 1f);
-            Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -756f), new Vector2(240f, 92f), 30, 1f);
-            Button lan = CardButton(card.transform, "Boton_LAN", "Jugar en LAN", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(-260f, -864f), new Vector2(280f, 62f), 24, 1.5f);
-            Button sound = CardButton(card.transform, "Boton_Sonido", GameAudio.ModeName(AudioMode.Todo), null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(40f, -864f), new Vector2(300f, 62f), 24, 1.5f);
-            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(300f, -864f), new Vector2(180f, 62f), 24, 1.5f);
-
-            Text roles = Label(card.transform, "Roles",
+            // Descripción de la opción elegida.
+            var footerGo = new GameObject("Descripcion", typeof(RectTransform));
+            footerGo.transform.SetParent(overlay, false);
+            var footer = (RectTransform)footerGo.transform;
+            footer.anchorMin = footer.anchorMax = footer.pivot = new Vector2(0.5f, 1f);
+            footer.anchoredPosition = new Vector2(0f, -916f);
+            footer.sizeDelta = new Vector2(1240f, 72f);
+            Text roles = Detail(footer, "Roles",
                 "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
-                "¿Primera vez? Hagan el <b>Tutorial</b>: en partida la lista solo la mira el Agarrador.",
-                20, Ink, TextAnchor.UpperCenter, FontStyle.Normal);
-            Place(roles.rectTransform, new Vector2(40f, -940f), new Vector2(920f, 80f));
-            roles.lineSpacing = 1.25f;
-            roles.horizontalOverflow = HorizontalWrapMode.Wrap;
+                "¿Primera vez? Hagan el <b>Tutorial</b>: en partida la lista solo la mira el Agarrador.");
+            rows[1].detail = Detail(footer, "Detalle_Tutorial", "Aprendan juntos, paso a paso: conducir, agarrar, leer la lista y pagar.").gameObject;
+            rows[2].detail = Detail(footer, "Detalle_LAN", "Cada jugador en su PC y en la misma red wifi: uno crea la partida y el otro se une.").gameObject;
+            Text storeDetail = Detail(footer, "Detalle_Supermercado", "");
+            rows[3].detail = storeDetail.gameObject;
+            Text levelDetail = Detail(footer, "Detalle_Nivel", "");
+            rows[4].detail = levelDetail.gameObject;
+            rows[5].detail = Detail(footer, "Detalle_Empujador", "El <b>Empujador</b> conduce el carrito (WASD). Elige su personaje.").gameObject;
+            rows[6].detail = Detail(footer, "Detalle_Agarrador", "El <b>Agarrador</b> lee la lista y agarra los productos (flechas). Elige su personaje.").gameObject;
+            Text padDetail = Detail(footer, "Detalle_Mando", "");
+            rows[7].detail = padDetail.gameObject;
+            rows[8].detail = Detail(footer, "Detalle_Sonido", "Música y efectos, solo efectos o silencio.").gameObject;
+            rows[9].detail = Detail(footer, "Detalle_Salir", "Cerrar el juego.").gameObject;
+
+            Text hint = MenuText(overlay, "Ayuda", "↑ ↓  ELEGIR        ‹ ›  CAMBIAR        ENTER  ACEPTAR", 20, TextAnchor.MiddleCenter);
+            hint.color = new Color(1f, 1f, 1f, 0.6f);
+            TopCenter(hint.rectTransform, -1032f, new Vector2(1200f, 30f));
+
+            var menuList = overlay.gameObject.AddComponent<MenuList>();
+            var serialized = new SerializedObject(menuList);
+            SerializedProperty array = serialized.FindProperty("rows");
+            array.arraySize = rows.Count;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("rect").objectReferenceValue = rows[i].rect;
+                element.FindPropertyRelative("main").objectReferenceValue = rows[i].main;
+                element.FindPropertyRelative("label").objectReferenceValue = rows[i].label;
+                element.FindPropertyRelative("value").objectReferenceValue = rows[i].value;
+                element.FindPropertyRelative("previous").objectReferenceValue = rows[i].previous;
+                element.FindPropertyRelative("next").objectReferenceValue = rows[i].next;
+                element.FindPropertyRelative("detail").objectReferenceValue = rows[i].detail;
+            }
+            serialized.FindProperty("highlight").objectReferenceValue = highlight.rectTransform;
+            serialized.FindProperty("defaultDetail").objectReferenceValue = roles.gameObject;
+            serialized.FindProperty("selectedText").colorValue = Ink;
+            serialized.FindProperty("valueText").colorValue = Warning;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
 
             overlay.gameObject.SetActive(false);
             refs["menuPanel"] = overlay.gameObject;
@@ -571,6 +646,121 @@ namespace CarritoCaotico.EditorTools
             refs["lanButtonText"] = lan.GetComponentInChildren<Text>(true);
             refs["soundButton"] = sound;
             refs["soundButtonText"] = sound.GetComponentInChildren<Text>(true);
+        }
+
+        /// <summary>Fila del menú: toda la fila es el botón; arriba y abajo pasan de fila.</summary>
+        static Button MenuRow(Transform list, List<MenuList.Row> rows, string name, UISound sound)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(list, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, -(rows.Count + 0.5f) * MenuRowHeight);
+            rect.sizeDelta = new Vector2(MenuRowWidth, MenuRowHeight - 4f);
+            var hit = go.AddComponent<Image>();
+            hit.color = Color.clear; // zona de clic de toda la fila
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = hit;
+            button.transition = Selectable.Transition.None;
+            // Vertical salta las opciones desactivadas (Tutorial en LAN) y las flechas (sin navegación).
+            button.navigation = new Navigation { mode = Navigation.Mode.Vertical, wrapAround = true };
+            var feedback = go.AddComponent<UIButtonFeedback>();
+            feedback.Configure(false, sound);
+            feedback.ConfigureListItem();
+            rows.Add(new MenuList.Row { rect = rect, main = button });
+            elementCount++;
+            return button;
+        }
+
+        static Button ActionRow(Transform list, List<MenuList.Row> rows, string name, string text, UISound sound)
+        {
+            Button button = MenuRow(list, rows, name, sound);
+            Text label = MenuText(button.transform, "Texto", text, 36, TextAnchor.MiddleCenter);
+            Anchor(label.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            rows[rows.Count - 1].label = label;
+            return button;
+        }
+
+        /// <summary>Fila con valor: "TÍTULO  ‹ valor ›". Izquierda y derecha (o las flechas) lo cambian.</summary>
+        static (Button previous, Text value, Button next) ValueRow(Transform list, List<MenuList.Row> rows, string name, string caption, string initial)
+        {
+            Button main = MenuRow(list, rows, "Opcion_" + name, UISound.Toggle);
+            MenuList.Row row = rows[rows.Count - 1];
+            row.label = MenuText(main.transform, "Titulo", caption, 32, TextAnchor.MiddleRight);
+            Anchor(row.label.rectTransform, Vector2.zero, new Vector2(0.5f, 1f), Vector2.zero, new Vector2(-28f, 0f));
+            row.previous = ArrowButton(main.transform, "Anterior_" + name, "‹", 52f);
+            row.value = MenuText(main.transform, "Valor", initial, 32, TextAnchor.MiddleCenter);
+            Anchor(row.value.rectTransform, new Vector2(0.5f, 0f), new Vector2(1f, 1f), new Vector2(84f, 0f), new Vector2(-60f, 0f));
+            row.value.resizeTextForBestFit = true;
+            row.value.resizeTextMinSize = 18;
+            row.value.resizeTextMaxSize = 32;
+            row.next = ArrowButton(main.transform, "Siguiente_" + name, "›", MenuRowWidth * 0.5f - 30f);
+            return (row.previous, row.value, row.next);
+        }
+
+        static Button ArrowButton(Transform row, string name, string glyph, float x)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(row, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(x, 0f);
+            rect.sizeDelta = new Vector2(56f, 56f);
+            var hit = go.AddComponent<Image>();
+            hit.color = Color.clear;
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = hit;
+            button.transition = Selectable.Transition.None;
+            // Sin navegación: arriba y abajo pasan de fila, no se detienen en la flecha.
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            Text text = MenuText(go.transform, "Texto", glyph, 56, TextAnchor.MiddleCenter);
+            Anchor(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(0f, 4f), new Vector2(0f, 4f));
+            go.AddComponent<UIButtonFeedback>().Configure(false, UISound.Toggle);
+            elementCount++;
+            return button;
+        }
+
+        /// <summary>Texto blanco con sombra suave para leerse sobre la escena.</summary>
+        static Text MenuText(Transform parent, string name, string text, int size, TextAnchor alignment)
+        {
+            Text label = Label(parent, name, text, size, Color.white, alignment, FontStyle.Bold);
+            var shadow = label.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            shadow.effectDistance = new Vector2(0f, -3f);
+            return label;
+        }
+
+        static Text Detail(Transform footer, string name, string text)
+        {
+            Text detail = Label(footer, name, text, 23, new Color32(226, 232, 240, 255), TextAnchor.UpperCenter, FontStyle.Normal);
+            Anchor(detail.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            detail.horizontalOverflow = HorizontalWrapMode.Wrap;
+            detail.lineSpacing = 1.2f;
+            var shadow = detail.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
+            shadow.effectDistance = new Vector2(0f, -2f);
+            return detail;
+        }
+
+        static void TopCenter(RectTransform rect, float centerY, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, centerY);
+            rect.sizeDelta = size;
+        }
+
+        /// <summary>Espaciado de letras para el subtítulo ("A B C   D E").</summary>
+        static string Spaced(string text)
+        {
+            var builder = new System.Text.StringBuilder(text.Length * 2);
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (i > 0) builder.Append(text[i] == ' ' || text[i - 1] == ' ' ? "  " : " ");
+                if (text[i] != ' ') builder.Append(text[i]);
+            }
+            return builder.ToString();
         }
 
         // ======================================================================
@@ -710,25 +900,6 @@ namespace CarritoCaotico.EditorTools
             Place(detail.rectTransform, new Vector2(40f, top - 108f), new Vector2(920f, 28f));
             detail.horizontalOverflow = HorizontalWrapMode.Wrap;
             return (previous, value, next, detail);
-        }
-
-        /// <summary>Selector compacto "&lt; valor &gt;" de media anchura, sin línea de detalle.</summary>
-        static (Button previous, Text value, Button next) HalfSelector(Transform parent, string caption, float top, float centerX, string initial)
-        {
-            const float half = 120f;
-            Text captionText = Label(parent, "Titulo_" + caption, caption, 19, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Place(captionText.rectTransform, new Vector2(500f + centerX - 230f, top), new Vector2(460f, 26f));
-
-            Button previous = CardButton(parent, "Anterior_" + caption, "<", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(centerX - half - 52f, top - 32f), new Vector2(70f, 70f), 36, 1.5f);
-            Image box = Box(parent, "Valor_" + caption, KeyCap, circleSprite: false, ppu: 1.5f);
-            Anchor(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(centerX - half, top - 102f), new Vector2(centerX + half, top - 32f));
-            Text value = Label(box.transform, "Texto", initial, 36, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Anchor(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
-            value.resizeTextForBestFit = true;
-            value.resizeTextMinSize = 20;
-            value.resizeTextMaxSize = 36;
-            Button next = CardButton(parent, "Siguiente_" + caption, ">", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(centerX + half + 52f, top - 32f), new Vector2(70f, 70f), 36, 1.5f);
-            return (previous, value, next);
         }
 
         // ======================================================================
@@ -1030,6 +1201,9 @@ namespace CarritoCaotico.EditorTools
             rounded = EnsureSprite("UI_Redondeado", 96, RoundedAlpha, 32);
             circle = EnsureSprite("UI_Circulo", 64, CircleAlpha, 0);
             check = EnsureSprite("UI_Check", 64, CheckAlpha, 0);
+            vignetteSprite = EnsureSprite("UI_Vineta", 128, VignetteAlpha, 0);
+            columnSprite = EnsureSprite("UI_Columna", 128, ColumnAlpha, 0);
+            brushSprite = EnsureSprite("UI_Pincelada", 256, BrushAlpha, 0);
 
             // Sprites de Kenney (CC0): borde de 9 cortes con el relieve inferior más alto.
             var buttonBorder = new Vector4(24f, 30f, 24f, 22f);
@@ -1125,6 +1299,40 @@ namespace CarritoCaotico.EditorTools
             float cy = Mathf.Clamp(y, radius, size - radius);
             float distance = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
             return radius - distance + 0.5f;
+        }
+
+        /// <summary>Viñeta: deja ver el centro de la escena y oscurece los bordes.</summary>
+        static float VignetteAlpha(float x, float y, int size)
+        {
+            float u = x / size * 2f - 1f;
+            float v = y / size * 2f - 1f;
+            return Mathf.Lerp(0.28f, 0.92f, Smooth(0.35f, 1.35f, Mathf.Sqrt(u * u + v * v)));
+        }
+
+        /// <summary>Franja vertical que se desvanece a los lados (detrás de las opciones).</summary>
+        static float ColumnAlpha(float x, float y, int size)
+        {
+            float u = Mathf.Abs(x / size * 2f - 1f);
+            return 0.6f * (1f - Smooth(0.2f, 1f, u));
+        }
+
+        /// <summary>Pincelada horizontal con bordes irregulares y extremos deshilachados.</summary>
+        static float BrushAlpha(float x, float y, int size)
+        {
+            float u = x / size;
+            float v = y / size;
+            float half = 0.36f + 0.035f * Mathf.Sin(u * 23f) + 0.02f * Mathf.Sin(u * 61f + 1.3f);
+            float across = 1f - Smooth(half - 0.07f, half, Mathf.Abs(v - 0.5f));
+            float fray = 0.12f + 0.06f * Mathf.Sin(v * 37f) + 0.03f * Mathf.Sin(v * 91f);
+            float along = Smooth(0f, fray, u) * Smooth(0f, fray, 1f - u);
+            float streaks = 0.88f + 0.12f * Mathf.Sin(v * 140f + Mathf.Sin(u * 9f) * 2f);
+            return across * along * streaks;
+        }
+
+        static float Smooth(float edge0, float edge1, float x)
+        {
+            float t = Mathf.Clamp01((x - edge0) / (edge1 - edge0));
+            return t * t * (3f - 2f * t);
         }
 
         static float CircleAlpha(float x, float y, int size)
