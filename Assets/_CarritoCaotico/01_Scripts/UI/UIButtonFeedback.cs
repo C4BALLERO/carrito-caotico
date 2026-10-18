@@ -25,6 +25,12 @@ namespace CarritoCaotico
         [SerializeField] UISound clickSound = UISound.Click;
         [Tooltip("Al pasar el mouse se convierte en la opción elegida (menús en lista).")]
         [SerializeField] bool selectOnHover;
+        [Header("Texto sobre la pincelada")]
+        [Tooltip("Texto del botón: cambia de color cuando la pincelada aparece detrás.")]
+        [SerializeField, Optional] Text label;
+        [SerializeField] Color idleText = Color.white;
+        [SerializeField] Color activeText = new Color32(15, 23, 42, 255);
+        [SerializeField] Color disabledText = new Color(1f, 1f, 1f, 0.35f);
 
         RectTransform rect;
         Selectable selectable;
@@ -90,6 +96,11 @@ namespace CarritoCaotico
             scale = Mathf.Lerp(scale, TargetScale, t);
             lift = Mathf.Lerp(lift, IsHighlighted && !pressed && Interactable ? hoverLift : 0f, t);
             rect.localScale = new Vector3(scale, scale, 1f);
+            if (label != null)
+            {
+                Color wanted = !Interactable ? disabledText : IsHighlighted ? activeText : idleText;
+                if (label.color != wanted) label.color = wanted;
+            }
             if (rect.parent == null || rect.parent.GetComponent<LayoutGroup>() == null)
                 rect.anchoredPosition = basePosition + new Vector2(0f, lift);
             lastApplied = rect.anchoredPosition;
@@ -133,6 +144,14 @@ namespace CarritoCaotico
             GameAudio.PlayUI(clickSound);
             // Pequeño aplastamiento también al confirmar con Enter o A.
             scale = pressScale;
+        }
+
+        /// <summary>Texto que pasa de <paramref name="idle"/> a <paramref name="active"/> al elegir el botón.</summary>
+        public void ConfigureLabel(Text text, Color idle, Color active)
+        {
+            label = text;
+            idleText = idle;
+            activeText = active;
         }
 
         /// <summary>Configuración usada por el generador de la interfaz.</summary>

@@ -74,10 +74,12 @@ namespace CarritoCaotico.EditorTools
             // Los .meta del pack solo traen el GUID y Unity detectaba la textura (cuadrada) como
             // Cubemap: se fija como textura 2D normal.
             if (AssetImporter.GetAtPath(definition.TexturePath) is TextureImporter importer
-                && (importer.textureShape != TextureImporterShape.Texture2D || importer.textureType != TextureImporterType.Default))
+                && (importer.textureShape != TextureImporterShape.Texture2D || importer.textureType != TextureImporterType.Default || importer.mipmapEnabled))
             {
                 importer.textureType = TextureImporterType.Default;
                 importer.textureShape = TextureImporterShape.Texture2D;
+                // Paleta de colores: con mipmaps, a distancia se mezcla en gris.
+                importer.mipmapEnabled = false;
                 importer.SaveAndReimport();
             }
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(definition.TexturePath);

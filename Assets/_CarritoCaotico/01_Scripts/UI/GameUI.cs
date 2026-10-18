@@ -89,6 +89,11 @@ namespace CarritoCaotico
         [SerializeField] Button menuButton;
 
         [Header("Paleta (contraste mínimo 4.5:1 para texto)")]
+        [Tooltip("Texto sobre los paneles oscuros.")]
+        [SerializeField] Color text = new Color32(248, 250, 252, 255);
+        [Tooltip("Fondo de los paneles (el reloj cuando no hay prisa).")]
+        [SerializeField] Color panel = new Color32(12, 22, 30, 226);
+        [Tooltip("Tinta oscura: texto sobre el ámbar y fondo de los avisos.")]
         [SerializeField] Color ink = new Color32(15, 23, 42, 255);
         [SerializeField] Color neutral = new Color32(226, 232, 240, 255);
         [SerializeField] Color success = new Color32(4, 120, 87, 255);
@@ -237,7 +242,7 @@ namespace CarritoCaotico
             // Color y texto: el estado no depende solo del color.
             Color color = target > 0.6f ? success : target > 0.3f ? warning : danger;
             if (healthFillImage != null) healthFillImage.color = color;
-            if (healthText != null) healthText.color = target > 0.3f ? ink : danger;
+            if (healthText != null) healthText.color = target > 0.3f ? text : danger;
 
             Vector2 offset = Vector2.zero;
             if (Time.unscaledTime < shakeUntil)
@@ -276,8 +281,8 @@ namespace CarritoCaotico
             if (IsTutorial)
             {
                 timerText.text = "Tutorial";
-                timerText.color = ink;
-                if (timerBackground != null) timerBackground.color = Color.white;
+                timerText.color = text;
+                if (timerBackground != null) timerBackground.color = panel;
                 return;
             }
 
@@ -296,8 +301,8 @@ namespace CarritoCaotico
             }
             else
             {
-                timerBackground.color = Color.white;
-                timerText.color = ink;
+                timerBackground.color = panel;
+                timerText.color = text;
             }
         }
 
@@ -343,13 +348,13 @@ namespace CarritoCaotico
                 if (row.nameText != null)
                 {
                     row.nameText.text = $"{required} × {ProductCatalog.DisplayName(type)}";
-                    row.nameText.color = done ? success : ink;
+                    row.nameText.color = done ? success : text;
                 }
                 if (row.countPill != null) row.countPill.color = done ? success : neutral;
                 if (row.countText != null)
                 {
                     row.countText.text = done ? "¡Listo!" : $"{collected}/{required}";
-                    row.countText.color = done ? Color.white : ink;
+                    row.countText.color = done ? Color.white : text;
                 }
             }
 
@@ -362,7 +367,7 @@ namespace CarritoCaotico
                 listProgressText.text = shoppingList.IsComplete
                     ? "¡Lista completa! Vayan a la caja"
                     : $"Conseguido: {got} de {total} unidades";
-                listProgressText.color = shoppingList.IsComplete ? success : ink;
+                listProgressText.color = shoppingList.IsComplete ? success : text;
             }
             if (listProgressFill != null)
             {

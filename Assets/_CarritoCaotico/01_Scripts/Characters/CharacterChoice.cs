@@ -3,12 +3,25 @@ using UnityEngine;
 
 namespace CarritoCaotico
 {
-    /// <summary>Personajes jugables. El orden es estable: se guarda como número en PlayerPrefs.</summary>
+    /// <summary>
+    /// Personajes jugables. Los números son estables (se guardan en PlayerPrefs): los nuevos se
+    /// añaden al final. El orden del menú es el de <see cref="CharacterChoice.All"/>.
+    /// </summary>
     public enum CharacterId
     {
         Pinguino,
         Zorro,
         Cerdo,
+        // Personajes KayKit (CC0), los mismos que usan los compradores rivales.
+        Caballero,
+        Barbaro,
+        Maga,
+        Picaro,
+        PicaroCapucha,
+        Esqueleto,
+        EsqueletoGuerrero,
+        EsqueletoPicaro,
+        EsqueletoMago,
     }
 
     /// <summary>
@@ -20,10 +33,16 @@ namespace CarritoCaotico
         const string PusherKey = "CarritoCaotico.PersonajeEmpujador";
         const string GrabberKey = "CarritoCaotico.PersonajeAgarrador";
 
-        public const CharacterId DefaultPusher = CharacterId.Pinguino;
-        public const CharacterId DefaultGrabber = CharacterId.Zorro;
+        public const CharacterId DefaultPusher = CharacterId.Caballero;
+        public const CharacterId DefaultGrabber = CharacterId.Maga;
 
-        public static readonly CharacterId[] All = { CharacterId.Pinguino, CharacterId.Zorro, CharacterId.Cerdo };
+        /// <summary>Orden del selector del menú: primero los personajes KayKit.</summary>
+        public static readonly CharacterId[] All =
+        {
+            CharacterId.Caballero, CharacterId.Barbaro, CharacterId.Maga, CharacterId.Picaro, CharacterId.PicaroCapucha,
+            CharacterId.Esqueleto, CharacterId.EsqueletoGuerrero, CharacterId.EsqueletoPicaro, CharacterId.EsqueletoMago,
+            CharacterId.Pinguino, CharacterId.Zorro, CharacterId.Cerdo,
+        };
 
         public static event Action Changed;
 
@@ -39,11 +58,13 @@ namespace CarritoCaotico
             set => Save(GrabberKey, value);
         }
 
-        /// <summary>Siguiente (+1) o anterior (-1) personaje, dando la vuelta.</summary>
+        /// <summary>Siguiente (+1) o anterior (-1) personaje en el orden del menú, dando la vuelta.</summary>
         public static CharacterId Cycle(CharacterId current, int delta)
         {
             int count = All.Length;
-            return (CharacterId)((((int)current + delta) % count + count) % count);
+            int index = Array.IndexOf(All, current);
+            if (index < 0) index = 0;
+            return All[((index + delta) % count + count) % count];
         }
 
         public static string DisplayName(CharacterId id)
@@ -52,6 +73,15 @@ namespace CarritoCaotico
             {
                 case CharacterId.Zorro: return "Zorro";
                 case CharacterId.Cerdo: return "Cerdo";
+                case CharacterId.Caballero: return "Caballero";
+                case CharacterId.Barbaro: return "Bárbaro";
+                case CharacterId.Maga: return "Maga";
+                case CharacterId.Picaro: return "Pícaro";
+                case CharacterId.PicaroCapucha: return "Pícaro con capucha";
+                case CharacterId.Esqueleto: return "Esqueleto";
+                case CharacterId.EsqueletoGuerrero: return "Esqueleto guerrero";
+                case CharacterId.EsqueletoPicaro: return "Esqueleto pícaro";
+                case CharacterId.EsqueletoMago: return "Esqueleto mago";
                 default: return "Pingüino";
             }
         }
@@ -59,7 +89,7 @@ namespace CarritoCaotico
         static CharacterId Load(string key, CharacterId fallback)
         {
             int value = PlayerPrefs.GetInt(key, (int)fallback);
-            return value >= 0 && value < All.Length ? (CharacterId)value : fallback;
+            return Enum.IsDefined(typeof(CharacterId), value) ? (CharacterId)value : fallback;
         }
 
         static void Save(string key, CharacterId value)

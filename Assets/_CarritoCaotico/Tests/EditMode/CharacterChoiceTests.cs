@@ -9,8 +9,20 @@ namespace CarritoCaotico.Tests
         public void Cycle_WrapsAroundInBothDirections()
         {
             Assert.AreEqual(CharacterId.Zorro, CharacterChoice.Cycle(CharacterId.Pinguino, 1));
-            Assert.AreEqual(CharacterId.Pinguino, CharacterChoice.Cycle(CharacterId.Cerdo, 1));
-            Assert.AreEqual(CharacterId.Cerdo, CharacterChoice.Cycle(CharacterId.Pinguino, -1));
+            Assert.AreEqual(CharacterChoice.All[0], CharacterChoice.Cycle(CharacterId.Cerdo, 1), "Después del último vuelve al primero.");
+            Assert.AreEqual(CharacterId.Cerdo, CharacterChoice.Cycle(CharacterChoice.All[0], -1));
+        }
+
+        [Test]
+        public void KayKitCharacters_AreFirstAndTheDefault()
+        {
+            Assert.AreEqual(CharacterId.Caballero, CharacterChoice.All[0], "Los personajes KayKit van primero en el menú.");
+            Assert.AreEqual(12, CharacterChoice.All.Length);
+            Assert.AreEqual(CharacterId.Caballero, CharacterChoice.DefaultPusher);
+            Assert.AreEqual(CharacterId.Maga, CharacterChoice.DefaultGrabber);
+            var seen = new System.Collections.Generic.HashSet<CharacterId>(CharacterChoice.All);
+            foreach (CharacterId id in System.Enum.GetValues(typeof(CharacterId)))
+                Assert.IsTrue(seen.Contains(id), $"{id} no está en el menú.");
         }
 
         [Test]
