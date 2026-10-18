@@ -287,6 +287,7 @@ Además, con cada nivel los rivales caminan más rápido, tardan menos en agarra
 
 ### Compradores rivales
 
+- Usan los mismos cuerpos que los jugadores (pingüino, zorro o cerdo, uno por rival y el mismo en los dos PC en LAN) con el mismo bamboleo y aleteo al caminar. Cada uno empuja un carrito con las paredes de su color.
 - Entran por un lateral de la tienda y recorren una red de pasillos (centros de pasillo y tres pasillos transversales). Se detienen frente a un producto y lo meten en su carrito, donde se ve.
 - Cuando llenan el carrito se van y, al rato, entra otro.
 - Si se llevan un producto de tu lista aparece el aviso **«¡Un rival se llevó…!»**. El chip superior derecho cuenta los rivales y los productos robados.

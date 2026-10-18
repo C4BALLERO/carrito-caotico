@@ -15,6 +15,8 @@ namespace CarritoCaotico
 
         [SerializeField] Transform basketPoint;
         [SerializeField] Renderer[] tintRenderers;
+        [Tooltip("Un cuerpo por personaje, en el orden de CharacterId; se activa uno según NetId.")]
+        [SerializeField] GameObject[] bodies;
         [SerializeField] float turnSpeed = 540f;
         [SerializeField] float arriveDistance = 0.15f;
 
@@ -32,7 +34,7 @@ namespace CarritoCaotico
         MaterialPropertyBlock block;
 
         public int Carried => carried;
-        /// <summary>Número de rival para la red.</summary>
+        /// <summary>Número de rival para la red; también elige su cuerpo.</summary>
         public int NetId { get; set; }
         public Color TintColor { get; private set; } = Color.gray;
         public Transform BasketPoint => basketPoint != null ? basketPoint : transform;
@@ -55,6 +57,7 @@ namespace CarritoCaotico
             carried = 0;
             phase = Phase.Choosing;
             timer = 0f;
+            ShowBody();
             Tint(color);
         }
 
@@ -63,7 +66,19 @@ namespace CarritoCaotico
         {
             manager = null;
             phase = Phase.Gone;
+            ShowBody();
             Tint(color);
+        }
+
+        /// <summary>Activa el cuerpo que toca a este rival: el mismo en el anfitrión y en el cliente.</summary>
+        void ShowBody()
+        {
+            if (bodies == null || bodies.Length == 0) return;
+            int chosen = Mathf.Abs(NetId) % bodies.Length;
+            for (int i = 0; i < bodies.Length; i++)
+            {
+                if (bodies[i] != null) bodies[i].SetActive(i == chosen);
+            }
         }
 
         void Tint(Color color)

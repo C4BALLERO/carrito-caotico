@@ -1112,7 +1112,14 @@ namespace CarritoCaotico.EditorTools
 
         // ---------- Compradores rivales ----------
 
-        /// <summary>Prefab del comprador rival: cuerpo tintable, cabeza y carrito pequeño delante.</summary>
+        const float RivalHeight = 1.3f;
+        /// <summary>El frente del rival queda justo detrás del asa de su carrito.</summary>
+        const float RivalFrontZ = 0.2f;
+
+        /// <summary>
+        /// Prefab del comprador rival: uno de los personajes jugables (con el mismo bamboleo y
+        /// brazos que en el carrito) empujando un carrito pequeño con paredes tintables.
+        /// </summary>
         static RivalShopper CreateRivalPrefab()
         {
             var root = new GameObject("Comprador_Rival");
@@ -1127,14 +1134,29 @@ namespace CarritoCaotico.EditorTools
             capsule.radius = 0.32f;
             Transform t = root.transform;
 
-            GameObject torso = Prim(PrimitiveType.Capsule, "Cuerpo", t, new Vector3(0f, 0.75f, 0f), new Vector3(0.5f, 0.75f, 0.5f), "Rival", false);
-            Prim(PrimitiveType.Sphere, "Cabeza", t, new Vector3(0f, 1.66f, 0f), Vector3.one * 0.32f, "Piel", false);
+            // Un cuerpo por personaje; RivalShopper activa uno según su número.
+            var bodies = new Object[CharacterModels.All.Length];
+            foreach (CharacterModels.Definition definition in CharacterModels.All)
+            {
+                CharacterModels.Character shopper = CharacterModels.Build(definition, "Cuerpo_" + definition.Folder, t,
+                    Vector3.zero, RivalHeight, PusherArms, Materials[definition.Folder]);
+                shopper.Root.transform.localPosition += Vector3.forward * (RivalFrontZ - shopper.LocalBounds.max.z);
+                var waddle = shopper.Root.AddComponent<CharacterWaddle>();
+                SetRefs(waddle, ("cartBody", body), ("model", shopper.Model));
+                if (!definition.KeepPose)
+                {
+                    SetRefs(shopper.Root.AddComponent<FlipperFlap>(),
+                        ("waddle", waddle), ("leftFlipper", shopper.LeftArm), ("rightFlipper", shopper.RightArm));
+                }
+                shopper.Root.SetActive(definition.Id == CharacterId.Pinguino);
+                bodies[(int)definition.Id] = shopper.Root;
+            }
 
             Transform cartRoot = Empty("Carrito_Rival", t, new Vector3(0f, 0f, 0.65f)).transform;
             Prim(PrimitiveType.Cube, "Fondo", cartRoot, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.05f, 0.62f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Frontal", cartRoot, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Izq", cartRoot, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Der", cartRoot, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
+            GameObject front = Prim(PrimitiveType.Cube, "Pared_Frontal", cartRoot, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), "Rival", false);
+            GameObject left = Prim(PrimitiveType.Cube, "Pared_Izq", cartRoot, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Rival", false);
+            GameObject right = Prim(PrimitiveType.Cube, "Pared_Der", cartRoot, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Rival", false);
             GameObject handle = Prim(PrimitiveType.Cylinder, "Asa", cartRoot, new Vector3(0f, 0.95f, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), "Asa", false);
             handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             foreach (Vector3 p in new[] { new Vector3(-0.25f, 0.08f, 0.25f), new Vector3(0.25f, 0.08f, 0.25f), new Vector3(-0.25f, 0.08f, -0.25f), new Vector3(0.25f, 0.08f, -0.25f) })
@@ -1147,11 +1169,8 @@ namespace CarritoCaotico.EditorTools
 
             var rival = root.AddComponent<RivalShopper>();
             SetRefs(rival, ("basketPoint", basket.transform));
-            var serialized = new SerializedObject(rival);
-            SerializedProperty tints = serialized.FindProperty("tintRenderers");
-            tints.arraySize = 1;
-            tints.GetArrayElementAtIndex(0).objectReferenceValue = torso.GetComponent<Renderer>();
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            SetArray(rival, "tintRenderers", new Object[] { front.GetComponent<Renderer>(), left.GetComponent<Renderer>(), right.GetComponent<Renderer>() });
+            SetArray(rival, "bodies", bodies);
 
             string path = $"{PrefabsFolder}/Comprador_Rival.prefab";
             bool existed = File.Exists(path);
