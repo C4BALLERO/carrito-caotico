@@ -74,6 +74,7 @@ Generación desde línea de comandos (útil para CI):
 | Mover el brazo | Flechas | Stick izquierdo |
 | Agarrar / soltar | `Enter` (o `Enter` del teclado numérico) | Botón sur |
 | Lanzar | `Ctrl derecho` | Gatillo derecho / botón oeste |
+| Ver la lista (mantener, solo en un PC) | `Shift derecho` | `LB` |
 
 ### General
 
@@ -196,7 +197,13 @@ Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción
 
 ### Interfaz durante la partida
 
-Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó…!»). Los controles aparecen en tres sitios:
+Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó algo de vuestra lista!»).
+
+**La lista solo la mira el Agarrador:**
+- **En un PC**, durante la partida va **plegada** (solo reloj y progreso total) para que el Empujador no la vea. El Agarrador la despliega **manteniendo** `Shift derecho` (`Shift izquierdo` con controles intercambiados, `LB` con mando). Mientras la mira, **el brazo se queda quieto**: hay que elegir entre leer y agarrar. En la preparación se ve entera para memorizarla, y el tutorial tiene un paso que lo enseña.
+- **En LAN**, el PC del Empujador nunca la ve y el del Agarrador la ve siempre.
+
+Los controles aparecen en tres sitios:
 
 - el tutorial;
 - la tarjeta de preparación de cada nivel, con el esquema activo;

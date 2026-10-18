@@ -139,6 +139,10 @@ namespace CarritoCaotico.EditorTools
             Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -80f), new Vector2(-8f, -8f));
             Text title = Label(band.transform, "Titulo", "Lista del Agarrador", 30, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             Anchor(title.rectTransform, Vector2.zero, Vector2.one, new Vector2(16f, 0f), new Vector2(-160f, 0f));
+            // Plegada, la cabecera muestra "Lista · mantén Shift der.": se encoge para caber junto al reloj.
+            title.resizeTextForBestFit = true;
+            title.resizeTextMinSize = 18;
+            title.resizeTextMaxSize = 30;
             Image timerPill = Box(band.transform, "Reloj", Color.white, circleSprite: false, ppu: 1.6f);
             Anchor(timerPill.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-150f, -25f), new Vector2(-12f, 25f));
             Text timerText = Label(timerPill.transform, "Tiempo", "2:00", 30, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -281,7 +285,7 @@ namespace CarritoCaotico.EditorTools
             Image doneCard = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700f, 400f), Card, 1f);
             Text doneTitle = Label(doneCard.transform, "Titulo", "¡Tutorial completado!", 50, Success, TextAnchor.MiddleCenter, FontStyle.Bold);
             Place(doneTitle.rectTransform, new Vector2(20f, -30f), new Vector2(660f, 70f));
-            Text doneBody = Label(doneCard.transform, "Texto", "Ya saben conducir, agarrar, soltar, lanzar y pagar.\nEn partida solo verán la lista: ¡a comunicarse!", 24, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Text doneBody = Label(doneCard.transform, "Texto", "Ya saben conducir, agarrar, lanzar, mirar la lista y pagar.\nEn partida la lista va plegada: ¡a comunicarse!", 24, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
             Place(doneBody.rectTransform, new Vector2(30f, -110f), new Vector2(640f, 90f));
             doneBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             Button play = CardButton(doneCard.transform, "Boton_Jugar", "Jugar nivel 1", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-120f, -240f), new Vector2(380f, 84f), 28, 1f);
@@ -502,7 +506,7 @@ namespace CarritoCaotico.EditorTools
 
             Text roles = Label(card.transform, "Roles",
                 "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
-                "¿Primera vez? Hagan el <b>Tutorial</b>: en partida solo se ve la lista de compras.",
+                "¿Primera vez? Hagan el <b>Tutorial</b>: en partida la lista solo la mira el Agarrador.",
                 20, Ink, TextAnchor.UpperCenter, FontStyle.Normal);
             Place(roles.rectTransform, new Vector2(40f, -940f), new Vector2(920f, 80f));
             roles.lineSpacing = 1.25f;
