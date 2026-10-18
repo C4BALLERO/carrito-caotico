@@ -7,6 +7,7 @@ namespace CarritoCaotico
     /// Brazo extensible del Agarrador. La mano se mueve en el espacio local del carrito,
     /// dentro de un área limitada, y puede agarrar, soltar o lanzar un único producto.
     /// No atraviesa obstáculos fijos (estanterías, paredes, caja) ni agarra a través de ellos.
+    /// En un solo PC, mientras el Agarrador mira la lista el brazo se queda quieto.
     /// </summary>
     public class GrabberArm : MonoBehaviour
     {
@@ -81,6 +82,8 @@ namespace CarritoCaotico
         public Vector3 HandLocalTarget => targetLocal;
         public Transform GrabPoint => grabPoint;
         public bool InputEnabled => inputEnabled;
+        /// <summary>true mientras el Agarrador mantiene la tecla de ver la lista: el brazo no se mueve ni agarra.</summary>
+        public bool IsReadingList { get; private set; }
 
         /// <summary>Se dispara cuando la mano agarra o deja de sostener un producto.</summary>
         public event Action<Product> HeldProductChanged;
@@ -100,7 +103,8 @@ namespace CarritoCaotico
             if (hand == null) return;
             float dt = Time.deltaTime;
 
-            if (inputEnabled)
+            IsReadingList = inputEnabled && GameInput.GrabberListHeld();
+            if (inputEnabled && !IsReadingList)
             {
                 Vector2 move = GameInput.GrabberMove();
                 targetLocal.x += move.x * handSpeed * dt;
@@ -117,7 +121,7 @@ namespace CarritoCaotico
             candidate = held == null && displayHeld == null ? FindNearestProduct() : null;
 
             // En el cliente LAN agarrar y lanzar los resuelve el anfitrión.
-            if (inputEnabled && localActions)
+            if (inputEnabled && localActions && !IsReadingList)
             {
                 if (GameInput.GrabberGrabPressed())
                 {
