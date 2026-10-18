@@ -118,6 +118,10 @@ Otra rama sustituía los rivales por personajes KayKit (CC0) con malla con piel 
   - `KayKit_HoldsTheHandleAndReachesTheProduct`: manos a 2,4 cm del asa y mano a 6,6 cm del producto.
   - `KayKitShoppers_UseTheSharedClipsAndHoldTheCart`.
 
+Capturas en partida, hechas con una cámara junto al rival:
+- `kaykit_clasico_caminando.png` y `kaykit_halloween_caminando.png`: empujando el carrito con las manos en el asa.
+- `kaykit_clasico_cogiendo.png` y `kaykit_halloween_cogiendo.png`: con el producto en la mano.
+
 ## Pendiente
 
 - Los compradores son modelos segmentados, no mallas con piel. Para usar modelos de un artista: importar el FBX con esqueleto, asignar sus huesos en `ShopperRig` y quitar las piezas generadas; `ShopperAnimator` y `RivalShopper` no cambian.

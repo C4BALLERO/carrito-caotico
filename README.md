@@ -421,7 +421,9 @@ Assets/_CarritoCaotico/
 │       ├── MenuBackdrop.cs      Cámara que recorre el supermercado detrás del menú
 │       ├── UIButtonFeedback.cs  Animación de hover y pulsación de los botones, con sonido
 │       ├── TutorialController.cs  Tutorial guiado
-│       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
+│       ├── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
+│       ├── LoadingCart.cs       Carrito que rueda sobre la barra de carga
+│       └── SplashScreen.cs      Portada al arrancar (7 s) con barra de carga
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Compradores/Comprador_*.prefab (8 caricaturescos por supermercado) y Comprador_KayKit_*.prefab (5 aventureros y 4 esqueletos)
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*; Texturas/ con las baldosas
 ├── 04_Fonts/                fuentes de los letreros (Archivo Black y Pirata One) con su licencia OFL
