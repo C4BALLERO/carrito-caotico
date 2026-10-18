@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
@@ -69,6 +70,8 @@ namespace CarritoCaotico
 
         [Header("Recibo")]
         [SerializeField] GameObject receiptPanel;
+        [Tooltip("Segundos que se deja ver la explosión del carrito (dura 1,6 s) antes de mostrar el recibo.")]
+        [SerializeField, Min(0f)] float explosionReceiptDelay = 1.8f;
         [SerializeField] Text receiptTitleText;
         [SerializeField] Text receiptTimeText;
         [SerializeField] Text receiptNamesText;
@@ -573,6 +576,24 @@ namespace CarritoCaotico
         // ---------- Recibo ----------
 
         void ShowReceipt(ShoppingReceipt receipt)
+        {
+            // Si el carrito explotó, primero se deja ver la explosión.
+            if (gameManager != null && gameManager.State == GameState.CarritoDestruido && explosionReceiptDelay > 0f)
+            {
+                StartCoroutine(ShowReceiptAfterExplosion(receipt));
+                return;
+            }
+            ShowReceiptNow(receipt);
+        }
+
+        IEnumerator ShowReceiptAfterExplosion(ShoppingReceipt receipt)
+        {
+            yield return new WaitForSecondsRealtime(explosionReceiptDelay);
+            // Si mientras tanto reiniciaron o volvieron al menú, ya no hay recibo que mostrar.
+            if (gameManager != null && gameManager.State == GameState.CarritoDestruido) ShowReceiptNow(receipt);
+        }
+
+        void ShowReceiptNow(ShoppingReceipt receipt)
         {
             // En el tutorial el cierre lo muestra el TutorialController.
             if (receiptPanel == null || receipt == null || IsTutorial) return;

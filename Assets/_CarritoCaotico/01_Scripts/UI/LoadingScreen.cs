@@ -8,7 +8,7 @@ namespace CarritoCaotico
 {
     /// <summary>
     /// Pantalla de carga persistente: ilustración del supermercado de destino, título, consejo y
-    /// barra de progreso mientras la escena se carga en segundo plano. Las imágenes se toman de
+    /// barra de progreso (con el carrito rodando encima) mientras la escena se carga en segundo plano. Las imágenes se toman de
     /// Resources/Carga: primero las generadas con IA ("*_ia_*") y, si no hay, las capturas.
     /// </summary>
     public class LoadingScreen : MonoBehaviour
@@ -24,6 +24,7 @@ namespace CarritoCaotico
         Text title;
         Text tip;
         RectTransform barFill;
+        LoadingCart cart;
         Font font;
 
         public static bool IsLoading { get; private set; }
@@ -91,13 +92,15 @@ namespace CarritoCaotico
             title = NewText(band.transform, "Titulo", 54, FontStyle.Bold, TextAnchor.UpperLeft);
             Stretch(title.rectTransform, new Vector2(0f, 0.5f), Vector2.one, new Vector2(80f, 0f), new Vector2(-80f, -26f));
             tip = NewText(band.transform, "Consejo", 28, FontStyle.Normal, TextAnchor.UpperLeft);
-            Stretch(tip.rectTransform, new Vector2(0f, 0.18f), new Vector2(1f, 0.52f), new Vector2(80f, 0f), new Vector2(-80f, 0f));
+            // Por encima del carrito que rueda sobre la barra.
+            Stretch(tip.rectTransform, new Vector2(0f, 0.44f), new Vector2(1f, 0.70f), new Vector2(80f, 0f), new Vector2(-80f, 0f));
 
             Image track = NewImage(band.transform, "Barra", new Color(1f, 1f, 1f, 0.25f));
             Stretch(track.rectTransform, new Vector2(0f, 0.08f), new Vector2(1f, 0.14f), new Vector2(80f, 0f), new Vector2(-80f, 0f));
             Image fill = NewImage(track.transform, "Relleno", new Color32(245, 158, 11, 255));
             barFill = fill.rectTransform;
             Stretch(barFill, Vector2.zero, new Vector2(0f, 1f));
+            cart = LoadingCart.Create(track.rectTransform, 96f, 14f);
 
             group.alpha = 0f;
             canvas.enabled = false;
@@ -181,6 +184,7 @@ namespace CarritoCaotico
         void SetProgress(float value)
         {
             if (barFill != null) barFill.anchorMax = new Vector2(Mathf.Clamp01(value), 1f);
+            if (cart != null) cart.SetProgress(value);
         }
 
         Image NewImage(Transform parent, string name, Color color)
