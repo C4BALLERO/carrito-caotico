@@ -6,38 +6,66 @@ using Object = UnityEngine.Object;
 namespace CarritoCaotico.EditorTools
 {
     /// <summary>
-    /// Personajes con modelo 3D importado. Los ajustes de importación se fijan desde código para
-    /// que el resultado no dependa del Inspector de cada equipo. El frente de cada modelo mira
-    /// hacia +Z y su base queda en y = 0.
+    /// Personajes con modelo 3D importado (FBX de Tripo con huesos de nombres humanoides). Los
+    /// ajustes de importación se fijan desde código para que el resultado no dependa del
+    /// Inspector de cada equipo. El frente de cada modelo mira hacia +Z y su base queda en y = 0.
     /// </summary>
     internal static class CharacterModels
     {
         public const string ModelsFolder = CarritoSceneBuilder.RootFolder + "/06_Models";
-        public const string PenguinModelPath = ModelsFolder + "/Pinguino/Pinguino.fbx";
-        public const string PenguinTexturePath = ModelsFolder + "/Pinguino/Pinguino_BaseColor.jpg";
 
-        /// <summary>Altura del pingüino en la escena (metros).</summary>
-        public const float PenguinHeight = 1.25f;
+        /// <summary>Datos de un personaje: archivos, altura en la escena y pose de los brazos.</summary>
+        internal sealed class Definition
+        {
+            public string DisplayName;
+            public string ModelPath;
+            public string TexturePath;
+            /// <summary>Altura en la escena (metros).</summary>
+            public float Height;
+            /// <summary>
+            /// Dirección de reposo del brazo derecho (espacio del personaje); el izquierdo es su
+            /// reflejo. Vector3.zero conserva la pose del modelo.
+            /// </summary>
+            public Vector3 ArmRestDirection;
+        }
 
-        /// <summary>Dirección de reposo de las aletas (espacio del personaje): abajo, algo abiertas y hacia el asa.</summary>
-        static readonly Vector3 FlipperRestDirection = new Vector3(0.45f, -0.75f, 0.5f);
+        /// <summary>Empujador: aletas abajo, algo abiertas y hacia el asa.</summary>
+        public static readonly Definition Penguin = new Definition
+        {
+            DisplayName = "pingüino",
+            ModelPath = ModelsFolder + "/Pinguino/Pinguino.fbx",
+            TexturePath = ModelsFolder + "/Pinguino/Pinguino_BaseColor.jpg",
+            Height = 1.25f,
+            ArmRestDirection = new Vector3(0.45f, -0.75f, 0.5f),
+        };
+
+        /// <summary>Agarrador: conserva su pose (señala con la mano derecha).</summary>
+        public static readonly Definition Fox = new Definition
+        {
+            DisplayName = "zorro",
+            ModelPath = ModelsFolder + "/Zorro/Zorro.fbx",
+            TexturePath = ModelsFolder + "/Zorro/Zorro_BaseColor.jpg",
+            Height = 1f,
+            ArmRestDirection = Vector3.zero,
+        };
 
         internal struct Character
         {
             public GameObject Root;
             public Transform Model;
-            public Transform LeftFlipper;
-            public Transform RightFlipper;
+            public Transform LeftArm;
+            public Transform RightArm;
+            public Transform RightHand;
         }
 
         /// <summary>
-        /// Ajustes del pingüino: rig Generic para conservar los huesos (las aletas se mueven por
-        /// código), sin materiales ni animaciones del FBX y con la textura limitada a 1024 px.
+        /// Ajustes de importación: rig Generic sin avatar para conservar los huesos (los brazos se
+        /// mueven por código), sin materiales ni animaciones del FBX y textura limitada a 1024 px.
         /// </summary>
-        public static void ConfigurePenguinImport()
+        public static void ConfigureImport(Definition definition)
         {
-            var model = AssetImporter.GetAtPath(PenguinModelPath) as ModelImporter;
-            if (model == null) throw new InvalidOperationException($"No se encontró el modelo {PenguinModelPath}.");
+            var model = AssetImporter.GetAtPath(definition.ModelPath) as ModelImporter;
+            if (model == null) throw new InvalidOperationException($"No se encontró el modelo {definition.ModelPath}.");
 
             bool changed = false;
             if (model.materialImportMode != ModelImporterMaterialImportMode.None) { model.materialImportMode = ModelImporterMaterialImportMode.None; changed = true; }
@@ -50,8 +78,8 @@ namespace CarritoCaotico.EditorTools
             if (model.importVisibility) { model.importVisibility = false; changed = true; }
             if (changed) model.SaveAndReimport();
 
-            var texture = AssetImporter.GetAtPath(PenguinTexturePath) as TextureImporter;
-            if (texture == null) throw new InvalidOperationException($"No se encontró la textura {PenguinTexturePath}.");
+            var texture = AssetImporter.GetAtPath(definition.TexturePath) as TextureImporter;
+            if (texture == null) throw new InvalidOperationException($"No se encontró la textura {definition.TexturePath}.");
             if (texture.maxTextureSize != 1024)
             {
                 texture.maxTextureSize = 1024;
@@ -59,24 +87,24 @@ namespace CarritoCaotico.EditorTools
             }
         }
 
-        /// <summary>Material del pingüino con su textura de color.</summary>
-        public static void ApplyPenguinTexture(Material material)
+        /// <summary>Asigna al material la textura de color del personaje.</summary>
+        public static void ApplyTexture(Material material, Definition definition)
         {
-            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(PenguinTexturePath);
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(definition.TexturePath);
             if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", texture);
             if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", texture);
             EditorUtility.SetDirty(material);
         }
 
         /// <summary>
-        /// Coloca el pingüino como hijo de <paramref name="parent"/>, escalado a
-        /// <see cref="PenguinHeight"/>, con las aletas bajadas desde la pose T del modelo.
+        /// Coloca el personaje como hijo de <paramref name="parent"/>, escalado a su altura, con
+        /// la base en <paramref name="localPosition"/> y los brazos bajados desde la pose T.
         /// </summary>
-        public static Character BuildPenguin(string name, Transform parent, Vector3 localPosition, Material material)
+        public static Character Build(Definition definition, string name, Transform parent, Vector3 localPosition, Material material)
         {
-            ConfigurePenguinImport();
-            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PenguinModelPath);
-            if (asset == null) throw new InvalidOperationException($"No se pudo cargar {PenguinModelPath}.");
+            ConfigureImport(definition);
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(definition.ModelPath);
+            if (asset == null) throw new InvalidOperationException($"No se pudo cargar {definition.ModelPath}.");
 
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
@@ -92,18 +120,22 @@ namespace CarritoCaotico.EditorTools
             if (animator != null) Object.DestroyImmediate(animator);
 
             var skin = model.GetComponentInChildren<SkinnedMeshRenderer>();
-            if (skin == null) throw new InvalidOperationException("El pingüino no tiene SkinnedMeshRenderer: revisa el rig del FBX.");
+            if (skin == null) throw new InvalidOperationException($"El {definition.DisplayName} no tiene SkinnedMeshRenderer: revisa el rig del FBX.");
             skin.sharedMaterial = material;
 
             Transform left = FindDeep(model.transform, "Left_UpperArm");
             Transform right = FindDeep(model.transform, "Right_UpperArm");
-            LowerFlipper(left, FindDeep(model.transform, "Left_Hand"), root.transform, -1f);
-            LowerFlipper(right, FindDeep(model.transform, "Right_Hand"), root.transform, 1f);
+            Transform rightHand = FindDeep(model.transform, "Right_Hand");
+            if (definition.ArmRestDirection != Vector3.zero)
+            {
+                LowerArm(left, FindDeep(model.transform, "Left_Hand"), root.transform, definition.ArmRestDirection, -1f);
+                LowerArm(right, rightHand, root.transform, definition.ArmRestDirection, 1f);
+            }
 
-            // Escala a la altura deseada y apoya la base en el suelo. Se mide la malla ya posada:
-            // los límites de un SkinnedMeshRenderer no se actualizan en el editor.
+            // Escala a la altura deseada y apoya la base. Se mide la malla ya posada: los límites
+            // de un SkinnedMeshRenderer no se actualizan en el editor.
             Bounds bounds = PosedBounds(skin);
-            model.transform.localScale = Vector3.one * (PenguinHeight / Mathf.Max(0.01f, bounds.size.y));
+            model.transform.localScale = Vector3.one * (definition.Height / Mathf.Max(0.01f, bounds.size.y));
             bounds = PosedBounds(skin);
             model.transform.position += new Vector3(
                 root.transform.position.x - bounds.center.x,
@@ -116,7 +148,7 @@ namespace CarritoCaotico.EditorTools
             Vector3 localSize = skin.transform.InverseTransformVector(bounds.size);
             skin.localBounds = new Bounds(localCenter, new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z)) * 1.3f);
 
-            return new Character { Root = root, Model = model.transform, LeftFlipper = left, RightFlipper = right };
+            return new Character { Root = root, Model = model.transform, LeftArm = left, RightArm = right, RightHand = rightHand };
         }
 
         /// <summary>Límites en el mundo de la malla deformada por los huesos en su pose actual.</summary>
@@ -133,12 +165,12 @@ namespace CarritoCaotico.EditorTools
             return bounds;
         }
 
-        /// <summary>Gira el hueso del brazo para que la aleta apunte a la dirección de reposo.</summary>
-        static void LowerFlipper(Transform upperArm, Transform hand, Transform character, float side)
+        /// <summary>Gira el hueso del brazo para que apunte a la dirección de reposo.</summary>
+        static void LowerArm(Transform upperArm, Transform hand, Transform character, Vector3 restDirection, float side)
         {
             if (upperArm == null || hand == null) return;
             Vector3 current = hand.position - upperArm.position;
-            Vector3 local = FlipperRestDirection;
+            Vector3 local = restDirection;
             local.x *= side;
             Vector3 desired = character.TransformDirection(local.normalized);
             upperArm.rotation = Quaternion.FromToRotation(current, desired) * upperArm.rotation;

@@ -263,7 +263,9 @@ Assets/_CarritoCaotico/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
 │   ├── Characters/
-│   │   └── PenguinWaddle.cs     Bamboleo del pingüino Empujador según la velocidad del carrito
+│   │   ├── CharacterWaddle.cs   Bamboleo de los personajes del carrito según su velocidad
+│   │   ├── FlipperFlap.cs       Aleteo del pingüino Empujador
+│   │   └── ArmReach.cs          Brazo del zorro Agarrador que señala la mano extensible
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -275,7 +277,8 @@ Assets/_CarritoCaotico/
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
 ├── 06_Models/
-│   └── Pinguino/            modelo del Empujador (FBX con huesos) y su textura de color
+│   ├── Pinguino/            Empujador: modelo FBX con huesos y textura de color
+│   └── Zorro/               Agarrador: modelo FBX con huesos y textura de color
 ├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
@@ -345,7 +348,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Créditos
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
-- Modelo 3D del pingüino Empujador generado con [Tripo AI](https://studio.tripo3d.ai/).
+- Modelos 3D del pingüino Empujador y del zorro Agarrador generados con [Tripo AI](https://studio.tripo3d.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

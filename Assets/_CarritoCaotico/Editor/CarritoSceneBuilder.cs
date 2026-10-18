@@ -396,8 +396,8 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Metal", new Color32(150, 160, 170, 255));
             GetMaterial("Rueda", new Color32(40, 44, 52, 255));
             GetMaterial("Asa", Coral);
-            CharacterModels.ApplyPenguinTexture(GetMaterial("Pinguino", Color.white));
-            GetMaterial("Agarrador", new Color32(168, 85, 247, 255));
+            CharacterModels.ApplyTexture(GetMaterial("Pinguino", Color.white), CharacterModels.Penguin);
+            CharacterModels.ApplyTexture(GetMaterial("Zorro", Color.white), CharacterModels.Fox);
             GetMaterial("Piel", new Color32(244, 200, 160, 255));
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
             GetMaterial("Mano", new Color32(255, 61, 127, 255));
@@ -996,14 +996,14 @@ namespace CarritoCaotico.EditorTools
             Prim(PrimitiveType.Cube, "Soporte_Asa_Der", t, new Vector3(0.45f, 1.08f, -0.9f), new Vector3(0.04f, 0.16f, 0.2f), "Metal", false);
 
             // Empujador: pingüino detrás del asa (el pico queda por detrás de la canasta).
-            CharacterModels.Character penguin = CharacterModels.BuildPenguin("Empujador_Pinguino", t, new Vector3(0f, 0f, -1.6f), Materials["Pinguino"]);
-            var waddle = penguin.Root.AddComponent<PenguinWaddle>();
-            SetRefs(waddle, ("cartBody", body), ("model", penguin.Model),
-                ("leftFlipper", penguin.LeftFlipper), ("rightFlipper", penguin.RightFlipper));
+            CharacterModels.Character penguin = CharacterModels.Build(CharacterModels.Penguin, "Empujador_Pinguino", t, new Vector3(0f, 0f, -1.6f), Materials["Pinguino"]);
+            var waddle = penguin.Root.AddComponent<CharacterWaddle>();
+            SetRefs(waddle, ("cartBody", body), ("model", penguin.Model));
+            SetRefs(penguin.Root.AddComponent<FlipperFlap>(),
+                ("waddle", waddle), ("leftFlipper", penguin.LeftArm), ("rightFlipper", penguin.RightArm));
 
-            // Agarrador sentado en el asiento del carrito.
-            Prim(PrimitiveType.Capsule, "Agarrador_Cuerpo", t, new Vector3(0.18f, 0.9f, -0.6f), new Vector3(0.36f, 0.3f, 0.36f), "Agarrador", false);
-            Prim(PrimitiveType.Sphere, "Agarrador_Cabeza", t, new Vector3(0.18f, 1.32f, -0.6f), Vector3.one * 0.28f, "Piel", false);
+            // Agarrador: zorro de pie en el asiento (se ve de pecho para arriba sobre las paredes).
+            CharacterModels.Character fox = CharacterModels.Build(CharacterModels.Fox, "Agarrador_Zorro", t, new Vector3(-0.02f, 0.4f, -0.47f), Materials["Zorro"]);
 
             // Trigger de la canasta.
             GameObject basket = Empty("Canasta_Trigger", t, new Vector3(0f, 0.72f, 0.23f));
@@ -1021,6 +1021,13 @@ namespace CarritoCaotico.EditorTools
             GameObject grabPoint = Empty("Punto_Agarre", hand.transform, new Vector3(0f, -0.12f, 0f));
             GameObject shadow = Prim(PrimitiveType.Cylinder, "Sombra_Mano", null, Vector3.zero, new Vector3(0.3f, 0.005f, 0.3f), "SombraMano", false);
             shadow.transform.SetParent(root.transform.parent, true);
+
+            // El zorro se mueve poco (va dentro del carrito) y señala siempre su mano extensible.
+            var foxMotion = fox.Root.AddComponent<CharacterWaddle>();
+            foxMotion.ConfigureMotion(3f, 0.02f, 6f);
+            SetRefs(foxMotion, ("cartBody", body), ("model", fox.Model));
+            SetRefs(fox.Root.AddComponent<ArmReach>(),
+                ("upperArm", fox.RightArm), ("hand", fox.RightHand), ("target", hand.transform));
 
             var grabber = root.AddComponent<GrabberArm>();
             SetRefs(grabber,
