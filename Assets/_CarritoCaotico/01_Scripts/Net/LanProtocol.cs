@@ -80,7 +80,7 @@ namespace CarritoCaotico
     public static class LanProtocol
     {
         /// <summary>Se sube al cambiar el formato de cualquier mensaje.</summary>
-        public const int Version = 2;
+        public const int Version = 3;
         public const ushort DefaultPort = 7777;
 
         public static void WriteCounts(NetWriter writer, IReadOnlyList<(ProductType type, int count)> items)
@@ -335,6 +335,12 @@ namespace CarritoCaotico
         public Vector3 Position;
         public float Yaw;
         public Color32 Color;
+        /// <summary>Modelo de comprador.</summary>
+        public byte Variant;
+        public ShopperAction Action;
+        /// <summary>Avance del gesto de alcanzar (0..1).</summary>
+        public float Progress;
+        public Vector3 ReachPoint;
     }
 
     public struct ObstacleState
@@ -418,6 +424,10 @@ namespace CarritoCaotico
                 writer.WriteByte(rival.Color.r);
                 writer.WriteByte(rival.Color.g);
                 writer.WriteByte(rival.Color.b);
+                writer.WriteByte(rival.Variant);
+                writer.WriteByte((byte)rival.Action);
+                writer.WriteByte((byte)Mathf.RoundToInt(Mathf.Clamp01(rival.Progress) * 255f));
+                writer.WriteVector3(rival.ReachPoint);
             }
 
             writer.WriteByte((byte)Mathf.Min(Obstacles.Count, 255));
@@ -471,7 +481,11 @@ namespace CarritoCaotico
                     Id = reader.ReadUShort(),
                     Position = reader.ReadVector3(),
                     Yaw = reader.ReadFloat(),
-                    Color = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), 255)
+                    Color = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), 255),
+                    Variant = reader.ReadByte(),
+                    Action = (ShopperAction)reader.ReadByte(),
+                    Progress = reader.ReadByte() / 255f,
+                    ReachPoint = reader.ReadVector3()
                 });
             }
 

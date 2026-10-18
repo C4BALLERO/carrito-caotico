@@ -15,6 +15,8 @@ namespace CarritoCaotico
     {
         [Header("Referencias")]
         [SerializeField] RivalShopper rivalPrefab;
+        [Tooltip("Compradores distintos; se reparten en orden para que no se repitan seguidos.")]
+        [SerializeField] RivalShopper[] rivalPrefabs = Array.Empty<RivalShopper>();
         [SerializeField] ShoppingList shoppingList;
         [SerializeField] CartContents cartContents;
 
@@ -45,12 +47,23 @@ namespace CarritoCaotico
         readonly List<float> pendingSpawns = new List<float>();
         LevelConfig config;
         int spawned;
+        int variantOffset;
         int remoteActive = -1;
 
         public bool Running { get; private set; }
         public int ActiveCount => remoteActive >= 0 ? remoteActive : rivals.Count;
         public int TakenCount { get; private set; }
-        public RivalShopper Prefab => rivalPrefab;
+        public RivalShopper Prefab => rivalPrefabs != null && rivalPrefabs.Length > 0 ? rivalPrefabs[0] : rivalPrefab;
+        public int VariantCount => rivalPrefabs != null && rivalPrefabs.Length > 0 ? rivalPrefabs.Length : 1;
+        /// <summary>Carrito de los jugadores: los rivales le ceden el paso.</summary>
+        public Transform PlayerCart { get; private set; }
+
+        /// <summary>Modelo de comprador de una variante (el cliente LAN usa el mismo que el anfitrión).</summary>
+        public RivalShopper PrefabFor(int variant)
+        {
+            if (rivalPrefabs == null || rivalPrefabs.Length == 0) return rivalPrefab;
+            return rivalPrefabs[Mathf.Abs(variant) % rivalPrefabs.Length] ?? rivalPrefab;
+        }
         public IReadOnlyList<RivalShopper> Rivals => rivals;
         public int ConfiguredCount => config != null ? config.RivalCount : 0;
 
@@ -63,6 +76,12 @@ namespace CarritoCaotico
         public void Begin(LevelConfig levelConfig)
         {
             config = levelConfig;
+            if (cartContents != null)
+            {
+                CartController cart = cartContents.GetComponentInParent<CartController>();
+                PlayerCart = cart != null ? cart.transform : null;
+            }
+            variantOffset = Random.Range(0, VariantCount);
             products.Clear();
             products.AddRange(FindObjectsByType<Product>(FindObjectsInactive.Exclude));
             Running = true;
@@ -96,7 +115,7 @@ namespace CarritoCaotico
 
         void Update()
         {
-            if (!Running || rivalPrefab == null) return;
+            if (!Running || Prefab == null) return;
             for (int i = pendingSpawns.Count - 1; i >= 0; i--)
             {
                 if (Time.time < pendingSpawns[i]) continue;
@@ -107,9 +126,11 @@ namespace CarritoCaotico
 
         void Spawn()
         {
-            RivalShopper rival = Instantiate(rivalPrefab, entryPoint, Quaternion.LookRotation(Vector3.right));
+            int variant = (spawned + variantOffset) % VariantCount;
+            RivalShopper rival = Instantiate(PrefabFor(variant), entryPoint, Quaternion.LookRotation(Vector3.right));
             rival.name = $"Comprador_Rival_{++spawned}";
             rival.NetId = spawned;
+            rival.Variant = variant;
             Color color = palette.Length > 0 ? palette[(spawned - 1) % palette.Length] : Color.gray;
             rival.Init(this, config.RivalSpeed, config.RivalGrabSeconds, config.RivalCapacity, color);
             rivals.Add(rival);
@@ -187,14 +208,19 @@ namespace CarritoCaotico
             if (product != null) reserved.Remove(product);
         }
 
-        public bool TakeProduct(RivalShopper rival, Product product)
+        /// <summary>
+        /// El rival se lleva el producto: a su mano si la tiene (luego lo deja en la canasta) o
+        /// directamente a la canasta.
+        /// </summary>
+        public bool TakeProduct(RivalShopper rival, Product product, Transform hand = null)
         {
             reserved.Remove(product);
             if (!IsAvailable(product) || !AllowedByFairness(product)) return false;
 
             int index = rival.Carried;
             var offset = new Vector3((index % 2 == 0 ? -0.12f : 0.12f), 0.05f + (index / 2) * 0.22f, 0f);
-            if (!product.TryTakeByRival(rival.BasketPoint, offset)) return false;
+            bool taken = hand != null ? product.TryTakeByRival(hand, Vector3.zero) : product.TryTakeByRival(rival.BasketPoint, offset);
+            if (!taken) return false;
 
             TakenCount++;
             ProductTaken?.Invoke(product);
