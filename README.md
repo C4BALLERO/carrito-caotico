@@ -240,6 +240,18 @@ Los controles aparecen en tres sitios:
 | Productos | 12 tipos de supermercado | 8 tipos de Halloween: calabaza, caramelos, vela, calavera de azúcar, poción, sombrero de bruja, murciélago de peluche, manzana de caramelo |
 | Ambiente | Luminoso, colores frescos | Oscuro con niebla morada, calabazas iluminadas, murciélagos, telarañas y un caldero en la caja |
 | Obstáculos móviles | Reponedor en la entrada | Dos fantasmas flotando por los pasillos transversales |
+| Letreros | Sobrios: tablas claras con borde de color y tipografía *Archivo Black* | Góticos de neón: tabla negra, borde y texto luminosos con tipografía *Pirata One*; algunos parpadean |
+| Suelo y luz | Baldosas claras, luminarias blancas sobre las estanterías y ventanas con cielo | Tablero negro y morado, luminarias verdosas que fallan y ventanas azules con luna llena |
+
+### Ambientación
+
+La genera `CarritoSceneBuilder.Ambientacion.cs` con primitivas, sin colisionadores, así que no afecta a la jugabilidad:
+
+- **Carteles de cabecera** de dos caras sobre los extremos de las estanterías que dan al pasillo central.
+- **Letreros colgantes** de las paredes laterales, con brazo de hierro y cadenas, y un cartel grande sobre la caja.
+- **Luminarias** sobre las estanterías (nunca sobre los pasillos, para no tapar el carrito), **etiquetas de precio** en las baldas, **flechas** en el suelo hacia la caja y **ventanas**.
+- No hay techo: la cámara en tercera persona va por encima de las paredes. Lo que cuelga queda por encima de los 2 m.
+- De noche, los neones tienen material emisivo, un halo en el texto y una luz de color; `NeonFlicker` hace parpadear algunos.
 
 ### Personajes
 
@@ -364,6 +376,8 @@ Assets/_CarritoCaotico/
 │   ├── Audio/
 │   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
 │   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
+│   ├── Decor/
+│   │   └── NeonFlicker.cs       Parpadeo de neones y luminarias estropeadas
 │   ├── Characters/
 │   │   ├── CharacterChoice.cs   Personaje elegido por cada jugador (guardado en PlayerPrefs)
 │   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
@@ -383,7 +397,8 @@ Assets/_CarritoCaotico/
 │       ├── TutorialController.cs  Tutorial guiado
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
-├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
+├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*; Texturas/ con las baldosas
+├── 04_Fonts/                fuentes de los letreros (Archivo Black y Pirata One) con su licencia OFL
 ├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
 ├── 06_Models/
 │   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
@@ -392,6 +407,7 @@ Assets/_CarritoCaotico/
 ├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
+│   ├── CarritoSceneBuilder.Ambientacion.cs  Letreros, luminarias, baldosas, etiquetas, flechas y ventanas
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
@@ -472,6 +488,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
 - Modelos 3D de los personajes (pingüino, zorro y cerdo) generados con [Tripo AI](https://studio.tripo3d.ai/).
+- Fuentes de los letreros: [Archivo Black](https://fonts.google.com/specimen/Archivo+Black) (The Archivo Black Project Authors) y [Pirata One](https://fonts.google.com/specimen/Pirata+One) (Rodrigo Fuenzalida y Nicolás Massi), bajo la licencia SIL Open Font License 1.1 (incluida en `04_Fonts/`).
 - Efectos de sonido y ambientes generados con ElevenLabs Sound Effects v2, y música generada con Stable Audio 2.5, ambos a través de [fal.ai](https://fal.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
