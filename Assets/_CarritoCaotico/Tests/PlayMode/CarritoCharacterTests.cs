@@ -21,8 +21,9 @@ namespace CarritoCaotico.Tests
             // La elección se guarda en PlayerPrefs: se fija para la prueba y se restaura después.
             savedPusher = CharacterChoice.Pusher;
             savedGrabber = CharacterChoice.Grabber;
-            CharacterChoice.Pusher = CharacterChoice.DefaultPusher;
-            CharacterChoice.Grabber = CharacterChoice.DefaultGrabber;
+            // Estas pruebas revisan el pingüino y el zorro (los KayKit tienen las suyas).
+            CharacterChoice.Pusher = CharacterId.Pinguino;
+            CharacterChoice.Grabber = CharacterId.Zorro;
         }
 
         [TearDown]

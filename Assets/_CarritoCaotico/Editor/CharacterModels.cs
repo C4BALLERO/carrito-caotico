@@ -35,11 +35,36 @@ namespace CarritoCaotico.EditorTools
             public string RightFoot = "Right_Foot";
             public string Head = "Head";
             public string Spine = "Spine";
+            /// <summary>Personaje KayKit: varias mallas, textura PNG y archivos en 06_Models/NPC.</summary>
+            public string ModelOverride;
+            public string TextureOverride;
+            /// <summary>Esqueletos KayKit: las mallas «_Eyes» brillan.</summary>
+            public bool GlowEyes;
+            /// <summary>Nombre de los objetos en la escena (la carpeta, salvo en los KayKit, que comparten material).</summary>
+            public string Name;
+            public string ObjectName => Name ?? Folder;
 
-            public string ModelPath => $"{ModelsFolder}/{Folder}/{Folder}.fbx";
-            public string TexturePath => $"{ModelsFolder}/{Folder}/{Folder}_BaseColor.jpg";
+            public string ModelPath => ModelOverride ?? $"{ModelsFolder}/{Folder}/{Folder}.fbx";
+            public string TexturePath => TextureOverride ?? $"{ModelsFolder}/{Folder}/{Folder}_BaseColor.jpg";
             public string DisplayName => CharacterChoice.DisplayName(Id);
         }
+
+        /// <summary>
+        /// Personaje KayKit (los mismos modelos que los rivales). Comparte material con los rivales
+        /// («NPC_&lt;textura&gt;») y los huesos del pack, que son iguales en todos.
+        /// </summary>
+        static Definition KayKit(CharacterId id, string pack, string model, string texture) => new Definition
+        {
+            Id = id, Folder = "NPC_" + texture, Name = id.ToString(),
+            ModelOverride = $"{ModelsFolder}/NPC/{pack}/{model}.fbx",
+            TextureOverride = $"{ModelsFolder}/NPC/{pack}/{texture}.png",
+            GlowEyes = pack == "Esqueletos",
+            LeftUpperArm = "upperarm.l", LeftLowerArm = "lowerarm.l", LeftHand = "hand.l",
+            RightUpperArm = "upperarm.r", RightLowerArm = "lowerarm.r", RightHand = "hand.r",
+            LeftUpperLeg = "upperleg.l", LeftLowerLeg = "lowerleg.l", LeftFoot = "foot.l",
+            RightUpperLeg = "upperleg.r", RightLowerLeg = "lowerleg.r", RightFoot = "foot.r",
+            Head = "head", Spine = "spine",
+        };
 
         /// <summary>Todos los personajes, en el orden de <see cref="CharacterId"/>.</summary>
         public static readonly Definition[] All =
@@ -55,6 +80,15 @@ namespace CarritoCaotico.EditorTools
                 RightUpperLeg = "mixamorig:RightUpLeg", RightLowerLeg = "mixamorig:RightLeg", RightFoot = "mixamorig:RightFoot",
                 Head = "mixamorig:Head", Spine = "mixamorig:Spine",
             },
+            KayKit(CharacterId.Caballero, "Aventureros", "Knight", "knight_texture"),
+            KayKit(CharacterId.Barbaro, "Aventureros", "Barbarian", "barbarian_texture"),
+            KayKit(CharacterId.Maga, "Aventureros", "Mage", "mage_texture"),
+            KayKit(CharacterId.Picaro, "Aventureros", "Rogue", "rogue_texture"),
+            KayKit(CharacterId.PicaroCapucha, "Aventureros", "RogueHooded", "rogue_texture"),
+            KayKit(CharacterId.Esqueleto, "Esqueletos", "Skeleton_Minion", "skeleton_texture"),
+            KayKit(CharacterId.EsqueletoGuerrero, "Esqueletos", "Skeleton_Warrior", "skeleton_texture"),
+            KayKit(CharacterId.EsqueletoPicaro, "Esqueletos", "Skeleton_Rogue", "skeleton_texture"),
+            KayKit(CharacterId.EsqueletoMago, "Esqueletos", "Skeleton_Mage", "skeleton_texture"),
         };
 
         internal struct Character
@@ -88,11 +122,26 @@ namespace CarritoCaotico.EditorTools
             if (model.importVisibility) { model.importVisibility = false; changed = true; }
             if (changed) model.SaveAndReimport();
 
+            EnsureTexture(definition);
+        }
+
+        /// <summary>
+        /// Textura 2D normal de 1024 px como máximo. Los .meta del pack KayKit solo traen el GUID y
+        /// Unity detectaba sus PNG (cuadrados) como Cubemap.
+        /// </summary>
+        static void EnsureTexture(Definition definition)
+        {
             var texture = AssetImporter.GetAtPath(definition.TexturePath) as TextureImporter;
             if (texture == null) throw new InvalidOperationException($"No se encontró la textura {definition.TexturePath}.");
-            if (texture.maxTextureSize != 1024)
+            // Las de KayKit son paletas de colores: con mipmaps, a distancia los colores se mezclan en gris.
+            bool palette = definition.TextureOverride != null;
+            if (texture.maxTextureSize != 1024 || texture.textureShape != TextureImporterShape.Texture2D || texture.textureType != TextureImporterType.Default
+                || (palette && texture.mipmapEnabled))
             {
                 texture.maxTextureSize = 1024;
+                texture.textureShape = TextureImporterShape.Texture2D;
+                texture.textureType = TextureImporterType.Default;
+                if (palette) texture.mipmapEnabled = false;
                 texture.SaveAndReimport();
             }
         }
@@ -100,6 +149,7 @@ namespace CarritoCaotico.EditorTools
         /// <summary>Asigna al material la textura de color del personaje.</summary>
         public static void ApplyTexture(Material material, Definition definition)
         {
+            EnsureTexture(definition);
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(definition.TexturePath);
             if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", texture);
             if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", texture);
@@ -113,7 +163,7 @@ namespace CarritoCaotico.EditorTools
         /// espacio del personaje; el izquierdo es su reflejo).
         /// </summary>
         public static Character Build(Definition definition, string name, Transform parent, Vector3 localPosition,
-            float height, Vector3 armRestDirection, Material material)
+            float height, Vector3 armRestDirection, Material material, Material eyes = null)
         {
             ConfigureImport(definition);
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(definition.ModelPath);
@@ -132,9 +182,12 @@ namespace CarritoCaotico.EditorTools
             var animator = model.GetComponent<Animator>();
             if (animator != null) Object.DestroyImmediate(animator);
 
-            var skin = model.GetComponentInChildren<SkinnedMeshRenderer>();
-            if (skin == null) throw new InvalidOperationException($"El {definition.DisplayName} no tiene SkinnedMeshRenderer: revisa el rig del FBX.");
-            skin.sharedMaterial = material;
+            // Los KayKit tienen varias mallas (cuerpo, cabeza, brazos, piernas, ojos…) con el mismo esqueleto.
+            SkinnedMeshRenderer[] skins = model.GetComponentsInChildren<SkinnedMeshRenderer>();
+            if (skins.Length == 0) throw new InvalidOperationException($"El {definition.DisplayName} no tiene SkinnedMeshRenderer: revisa el rig del FBX.");
+            // Cascos, sombreros y capas de los KayKit son mallas sueltas colgadas de los huesos.
+            foreach (Renderer part in model.GetComponentsInChildren<Renderer>(true))
+                part.sharedMaterial = eyes != null && part.name.EndsWith("_Eyes") ? eyes : material;
 
             Transform left = FindBone(model.transform, definition.LeftUpperArm);
             Transform right = FindBone(model.transform, definition.RightUpperArm);
@@ -147,19 +200,22 @@ namespace CarritoCaotico.EditorTools
 
             // Escala a la altura deseada y apoya la base. Se mide la malla ya posada: los límites
             // de un SkinnedMeshRenderer no se actualizan en el editor.
-            Bounds bounds = PosedBounds(skin);
+            Bounds bounds = PosedBounds(skins);
             model.transform.localScale = Vector3.one * (height / Mathf.Max(0.01f, bounds.size.y));
-            bounds = PosedBounds(skin);
+            bounds = PosedBounds(skins);
             model.transform.position += new Vector3(
                 root.transform.position.x - bounds.center.x,
                 root.transform.position.y - bounds.min.y,
                 root.transform.position.z - bounds.center.z);
 
             // Límites para el culling, con margen para el bamboleo.
-            bounds = PosedBounds(skin);
-            Vector3 localCenter = skin.transform.InverseTransformPoint(bounds.center);
-            Vector3 localSize = skin.transform.InverseTransformVector(bounds.size);
-            skin.localBounds = new Bounds(localCenter, new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z)) * 1.3f);
+            bounds = PosedBounds(skins);
+            foreach (SkinnedMeshRenderer skin in skins)
+            {
+                Vector3 localCenter = skin.transform.InverseTransformPoint(bounds.center);
+                Vector3 localSize = skin.transform.InverseTransformVector(bounds.size);
+                skin.localBounds = new Bounds(localCenter, new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z)) * 1.3f);
+            }
 
             return new Character
             {
@@ -168,17 +224,29 @@ namespace CarritoCaotico.EditorTools
             };
         }
 
-        /// <summary>Límites en el mundo de la malla deformada por los huesos en su pose actual.</summary>
-        static Bounds PosedBounds(SkinnedMeshRenderer skin)
+        /// <summary>Límites en el mundo de las mallas deformadas por los huesos en su pose actual.</summary>
+        static Bounds PosedBounds(SkinnedMeshRenderer[] skins)
         {
+            Bounds bounds = default;
+            bool first = true;
             var baked = new Mesh();
-            skin.BakeMesh(baked, true);
-            Vector3[] vertices = baked.vertices;
+            foreach (SkinnedMeshRenderer skin in skins)
+            {
+                skin.BakeMesh(baked, true);
+                Vector3[] vertices = baked.vertices;
+                Transform t = skin.transform;
+                foreach (Vector3 vertex in vertices)
+                {
+                    Vector3 world = t.position + t.rotation * vertex;
+                    if (first) { bounds = new Bounds(world, Vector3.zero); first = false; }
+                    else bounds.Encapsulate(world);
+                }
+            }
             Object.DestroyImmediate(baked);
-            Transform t = skin.transform;
-            var bounds = new Bounds(t.position + t.rotation * vertices[0], Vector3.zero);
-            for (int i = 1; i < vertices.Length; i++)
-                bounds.Encapsulate(t.position + t.rotation * vertices[i]);
+            // Piezas rígidas (casco, sombrero) colgadas de los huesos.
+            if (skins.Length > 0)
+                foreach (MeshRenderer piece in skins[0].transform.root.GetComponentsInChildren<MeshRenderer>())
+                    if (piece.transform.IsChildOf(skins[0].transform.parent)) bounds.Encapsulate(piece.bounds);
             return bounds;
         }
 

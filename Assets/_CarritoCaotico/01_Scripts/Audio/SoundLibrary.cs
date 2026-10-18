@@ -66,9 +66,11 @@ namespace CarritoCaotico
         {
             switch (id)
             {
+                case CharacterId.Pinguino: return vozPinguino;
                 case CharacterId.Zorro: return vozZorro;
                 case CharacterId.Cerdo: return vozCerdo;
-                default: return vozPinguino;
+                // Los KayKit no tienen voz propia: al elegirlos no suena ninguna.
+                default: return null;
             }
         }
 

@@ -274,6 +274,53 @@ namespace CarritoCaotico.Tests
             Assert.Less(leftGap, expected + 0.06f, $"{pusher.name}: la mano va hacia el asa (brazo {pusher.ArmLength:0.00} m, asa a {shoulderToGrip:0.00} m).");
         }
 
+        /// <summary>Los KayKit también se pueden elegir: el Empujador KayKit sujeta el asa y el Agarrador asoma del carrito.</summary>
+        [UnityTest]
+        public IEnumerator KayKitPlayers_PushWithTheirHandsOnTheHandle()
+        {
+            if (!File.Exists(ScenePath)) Assert.Ignore("La escena no está generada.");
+            CharacterId savedPusher = CharacterChoice.Pusher, savedGrabber = CharacterChoice.Grabber;
+            try
+            {
+                foreach (CharacterId id in new[] { CharacterId.Caballero, CharacterId.EsqueletoGuerrero })
+                {
+                    CharacterChoice.Pusher = id;
+                    CharacterChoice.Grabber = CharacterId.Maga;
+                    GameSession.SetSeed(1);
+                    GameSession.Begin(1, StoreId.Clasico);
+#if UNITY_EDITOR
+                    yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
+#endif
+                    yield return null;
+                    var manager = Object.FindAnyObjectByType<GameManager>();
+                    for (float t = 0f; manager.State != GameState.EnJuego && t < 8f; t += Time.deltaTime) yield return null;
+                    var crew = manager.Cart.GetComponent<CartCrew>();
+                    Assert.IsTrue(crew.ActivePusher.name.EndsWith(id.ToString()), $"Empujador activo: {crew.ActivePusher.name}.");
+                    Rigidbody body = manager.Cart.Body;
+                    for (float t = 0f; t < 1f; t += Time.deltaTime)
+                    {
+                        body.linearVelocity = body.transform.forward * 2f;
+                        yield return null;
+                    }
+                    var rig = crew.ActivePusher.GetComponent<CartPusherRig>();
+                    float gap = Mathf.Max(Vector3.Distance(rig.LeftHand.position, rig.LeftGrip.position), Vector3.Distance(rig.RightHand.position, rig.RightGrip.position));
+                    Assert.Less(gap, 0.05f, $"{id}: las manos sujetan el asa.");
+                    Assert.Less(rig.Lean, 20f, $"{id}: empuja sin doblarse del todo.");
+
+                    // El Agarrador KayKit asoma por encima del borde del carrito.
+                    Transform head = null;
+                    foreach (Transform t in crew.ActiveGrabber.GetComponentsInChildren<Transform>())
+                        if (t.name == "head") head = t;
+                    Assert.Greater(head.position.y - body.position.y, 1f, "La cabeza del Agarrador se ve sobre el carrito.");
+                }
+            }
+            finally
+            {
+                CharacterChoice.Pusher = savedPusher;
+                CharacterChoice.Grabber = savedGrabber;
+            }
+        }
+
         [UnityTest]
         public IEnumerator Rivals_KeepTheirDistanceAndGrabWithTheHand()
         {
@@ -300,7 +347,8 @@ namespace CarritoCaotico.Tests
                 {
                     variants.Add(list[i].Variant);
                     foreach (Product p in Object.FindObjectsByType<Product>())
-                        if (p.IsTakenByRival && p.transform.parent != null && p.transform.parent.name.StartsWith("Mano_")) heldInHand = true;
+                        // Manos de los caricaturescos («Mano_…») o de los KayKit («hand.l/r»).
+                        if (p.IsTakenByRival && p.transform.parent != null && (p.transform.parent.name.StartsWith("Mano_") || p.transform.parent.name.StartsWith("hand."))) heldInHand = true;
                     for (int j = i + 1; j < list.Count; j++)
                     {
                         if (list[i].CurrentSpeed < 0.1f && list[j].CurrentSpeed < 0.1f) continue;
