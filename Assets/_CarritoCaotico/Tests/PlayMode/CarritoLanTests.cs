@@ -78,9 +78,8 @@ namespace CarritoCaotico.Tests
             yield return null;
             var cameraRig = Object.FindAnyObjectByType<CameraController>();
             var cart = Object.FindAnyObjectByType<CartController>();
-            Renderer head = null;
-            foreach (Renderer r in cart.GetComponentsInChildren<Renderer>())
-                if (r.name == "Empujador_Cabeza") head = r;
+            // Cuerpo del Empujador elegido (personaje con modelo 3D).
+            Renderer head = Object.FindAnyObjectByType<CartCrew>().ActivePusher.GetComponentInChildren<SkinnedMeshRenderer>();
             Assert.IsNotNull(head);
 
             // Sin LAN (un solo PC) no hay primera persona.
