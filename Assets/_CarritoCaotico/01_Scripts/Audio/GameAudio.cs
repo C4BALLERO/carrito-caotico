@@ -85,9 +85,9 @@ namespace CarritoCaotico
         }
 
         public static string ModeName(AudioMode value) =>
-            value == AudioMode.Todo ? "Sonido: todo"
-            : value == AudioMode.SoloEfectos ? "Sonido: efectos"
-            : "Sonido: no";
+            value == AudioMode.Todo ? "SONIDO: TODO"
+            : value == AudioMode.SoloEfectos ? "SONIDO: SOLO EFECTOS"
+            : "SONIDO: NO";
 
         public static bool MusicOn => Mode == AudioMode.Todo;
         public static bool EffectsOn => Mode != AudioMode.Silencio;

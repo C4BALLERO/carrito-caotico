@@ -348,6 +348,24 @@ namespace CarritoCaotico
             return false;
         }
 
+        /// <summary>Menús: -1 izquierda, 1 derecha, 0 nada (flechas, A/D, cruceta o stick).</summary>
+        public static int MenuHorizontalPressed()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame) return -1;
+                if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame) return 1;
+            }
+            for (int i = 0; i < Gamepad.all.Count; i++)
+            {
+                Gamepad pad = Gamepad.all[i];
+                if (pad.dpad.left.wasPressedThisFrame || pad.leftStick.left.wasPressedThisFrame) return -1;
+                if (pad.dpad.right.wasPressedThisFrame || pad.leftStick.right.wasPressedThisFrame) return 1;
+            }
+            return 0;
+        }
+
         /// <summary>Volver en los menús: Esc o B en el mando.</summary>
         public static bool BackPressed()
         {

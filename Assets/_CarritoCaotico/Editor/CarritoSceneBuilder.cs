@@ -283,7 +283,8 @@ namespace CarritoCaotico.EditorTools
             var rivalManager = systems.AddComponent<RivalManager>();
             var audioDirector = systems.AddComponent<AudioDirector>();
             Count("Sistemas (GameManager, GameTimer, ShoppingList, RivalManager, AudioDirector)");
-            RivalShopper rivalPrefab = CreateRivalPrefab();
+            RivalShopper[] rivalPrefabs = ShopperModels.CreateRivalPrefabs(current.Id, PrefabsFolder, GetMaterial);
+            Count("Compradores caricaturescos (prefabs)");
 
             var (ui, menu, tutorial) = HudBuilder.Build(uiFont, current.Id);
             Stats.TryGetValue("Elementos de UI", out int signElements);
@@ -304,6 +305,8 @@ namespace CarritoCaotico.EditorTools
                 ("gameManager", manager), ("timer", timer), ("shoppingList", shoppingList),
                 ("checkout", checkout), ("rivals", rivalManager));
             SetRefs(menu, ("gameManager", manager));
+            // Fondo vivo del menú: la cámara recorre el supermercado mientras se elige.
+            cameraController.gameObject.AddComponent<MenuBackdrop>().Configure(manager, current.FloorHalfWidth, current.FloorHalfLength);
             SetRefs(tutorial,
                 ("gameManager", manager), ("cart", cart.Controller), ("grabber", cart.Arm),
                 ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
@@ -312,7 +315,7 @@ namespace CarritoCaotico.EditorTools
                 ("shoppingList", shoppingList), ("cartContents", cart.Contents), ("cart", cart.Controller),
                 ("grabber", cart.Arm), ("checkout", checkout), ("rivals", rivalManager));
             ConfigureStore(manager, shoppingList);
-            ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
+            ConfigureRivals(rivalManager, rivalPrefabs, shoppingList, cart.Contents);
             AudioBuilder.Build(cartHealth);
             Count("Audio (GameAudio con música y efectos)");
 
@@ -750,19 +753,10 @@ namespace CarritoCaotico.EditorTools
             Count("Obstáculos fijos");
         }
 
+        /// <summary>Reponedor: comprador caricaturesco con uniforme que cruza la entrada con una caja.</summary>
         static void Stocker(Transform parent, Vector3 a, Vector3 b)
         {
-            GameObject stocker = Empty("Reponedor", parent, a);
-            var body = stocker.AddComponent<Rigidbody>();
-            body.isKinematic = true;
-            var capsule = stocker.AddComponent<CapsuleCollider>();
-            capsule.center = new Vector3(0f, 0.9f, 0f);
-            capsule.height = 1.8f;
-            capsule.radius = 0.35f;
-            Prim(PrimitiveType.Capsule, "Cuerpo", stocker.transform, new Vector3(0f, 0.75f, 0f), new Vector3(0.55f, 0.75f, 0.55f), "Reponedor", false);
-            Prim(PrimitiveType.Sphere, "Cabeza", stocker.transform, new Vector3(0f, 1.65f, 0f), Vector3.one * 0.32f, "Piel", false);
-            Prim(PrimitiveType.Cube, "Caja", stocker.transform, new Vector3(0f, 1.05f, 0.4f), new Vector3(0.6f, 0.45f, 0.4f), "Carton", false);
-            stocker.AddComponent<MovingObstacle>().Configure(a, b, 1.4f, 0f);
+            ShopperModels.BuildStocker(parent, a, b, GetMaterial);
             Count("Obstáculos móviles");
         }
 
@@ -1057,6 +1051,9 @@ namespace CarritoCaotico.EditorTools
         /// </summary>
         static Object[] BuildCrew(Transform cart, Rigidbody body, Transform grabberHand)
         {
+            // Agarres del asa para las manos del Empujador.
+            Transform handleLeft = Empty("Agarre_Asa_Izq", cart, new Vector3(-0.28f, 1.15f, -0.98f)).transform;
+            Transform handleRight = Empty("Agarre_Asa_Der", cart, new Vector3(0.28f, 1.15f, -0.98f)).transform;
             var pushers = new Object[CharacterModels.All.Length];
             var pusherRenderers = new Object[CharacterModels.All.Length];
             var grabbers = new Object[CharacterModels.All.Length];
@@ -1071,11 +1068,16 @@ namespace CarritoCaotico.EditorTools
                 pusher.Root.transform.localPosition += Vector3.forward * (PusherFrontZ - pusher.LocalBounds.max.z);
                 var waddle = pusher.Root.AddComponent<CharacterWaddle>();
                 SetRefs(waddle, ("cartBody", body), ("model", pusher.Model));
-                if (!definition.KeepPose)
-                {
-                    SetRefs(pusher.Root.AddComponent<FlipperFlap>(),
-                        ("waddle", waddle), ("leftFlipper", pusher.LeftArm), ("rightFlipper", pusher.RightArm));
-                }
+                // Ahora camina con los pies plantados: menos balanceo del cuerpo entero.
+                waddle.ConfigureMotion(4f, 0.02f, 7f);
+                // Pies que pisan al ritmo del carrito, manos en el asa y cabeza hacia la curva.
+                Transform m = pusher.Model;
+                pusher.Root.AddComponent<CartPusherRig>().Configure(body,
+                    new[] { CharacterModels.Bone(m, definition.LeftUpperLeg), CharacterModels.Bone(m, definition.LeftLowerLeg), CharacterModels.Bone(m, definition.LeftFoot),
+                            CharacterModels.Bone(m, definition.RightUpperLeg), CharacterModels.Bone(m, definition.RightLowerLeg), CharacterModels.Bone(m, definition.RightFoot) },
+                    new[] { CharacterModels.Bone(m, definition.LeftUpperArm), CharacterModels.Bone(m, definition.LeftLowerArm), CharacterModels.Bone(m, definition.LeftHand),
+                            CharacterModels.Bone(m, definition.RightUpperArm), CharacterModels.Bone(m, definition.RightLowerArm), CharacterModels.Bone(m, definition.RightHand) },
+                    handleLeft, handleRight, CharacterModels.Bone(m, definition.Head), CharacterModels.Bone(m, definition.Spine));
                 pusher.Root.SetActive(definition.Id == CharacterChoice.DefaultPusher);
                 pushers[index] = pusher.Root;
                 pusherRenderers[index] = pusher.Model.GetComponentInChildren<SkinnedMeshRenderer>(true);
@@ -1089,6 +1091,8 @@ namespace CarritoCaotico.EditorTools
                 SetRefs(motion, ("cartBody", body), ("model", grabber.Model));
                 SetRefs(grabber.Root.AddComponent<ArmReach>(),
                     ("upperArm", grabber.RightArm), ("hand", grabber.RightHand), ("target", grabberHand));
+                // Sigue con la vista su mano extensible.
+                grabber.Root.AddComponent<HeadLook>().Configure(CharacterModels.Bone(grabber.Model, definition.Head), grabberHand, grabber.Root.transform);
                 grabber.Root.SetActive(definition.Id == CharacterChoice.DefaultGrabber);
                 grabbers[index] = grabber.Root;
             }
@@ -1112,55 +1116,6 @@ namespace CarritoCaotico.EditorTools
 
         // ---------- Compradores rivales ----------
 
-        /// <summary>Prefab del comprador rival: cuerpo tintable, cabeza y carrito pequeño delante.</summary>
-        static RivalShopper CreateRivalPrefab()
-        {
-            var root = new GameObject("Comprador_Rival");
-            var body = root.AddComponent<Rigidbody>();
-            body.isKinematic = true;
-            body.useGravity = false;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-            var capsule = root.AddComponent<CapsuleCollider>();
-            capsule.center = new Vector3(0f, 0.9f, 0f);
-            capsule.height = 1.8f;
-            capsule.radius = 0.32f;
-            Transform t = root.transform;
-
-            GameObject torso = Prim(PrimitiveType.Capsule, "Cuerpo", t, new Vector3(0f, 0.75f, 0f), new Vector3(0.5f, 0.75f, 0.5f), "Rival", false);
-            Prim(PrimitiveType.Sphere, "Cabeza", t, new Vector3(0f, 1.66f, 0f), Vector3.one * 0.32f, "Piel", false);
-
-            Transform cartRoot = Empty("Carrito_Rival", t, new Vector3(0f, 0f, 0.65f)).transform;
-            Prim(PrimitiveType.Cube, "Fondo", cartRoot, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.05f, 0.62f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Frontal", cartRoot, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Izq", cartRoot, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
-            Prim(PrimitiveType.Cube, "Pared_Der", cartRoot, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Metal", false);
-            GameObject handle = Prim(PrimitiveType.Cylinder, "Asa", cartRoot, new Vector3(0f, 0.95f, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), "Asa", false);
-            handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            foreach (Vector3 p in new[] { new Vector3(-0.25f, 0.08f, 0.25f), new Vector3(0.25f, 0.08f, 0.25f), new Vector3(-0.25f, 0.08f, -0.25f), new Vector3(0.25f, 0.08f, -0.25f) })
-            {
-                GameObject wheel = Prim(PrimitiveType.Cylinder, "Rueda", cartRoot, p, new Vector3(0.14f, 0.03f, 0.14f), "Rueda", false);
-                wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            }
-            Prim(PrimitiveType.Cube, "Pata", cartRoot, new Vector3(0f, 0.26f, 0f), new Vector3(0.04f, 0.36f, 0.04f), "Metal", false);
-            GameObject basket = Empty("Punto_Canasta", cartRoot, new Vector3(0f, 0.6f, 0f));
-
-            var rival = root.AddComponent<RivalShopper>();
-            SetRefs(rival, ("basketPoint", basket.transform));
-            var serialized = new SerializedObject(rival);
-            SerializedProperty tints = serialized.FindProperty("tintRenderers");
-            tints.arraySize = 1;
-            tints.GetArrayElementAtIndex(0).objectReferenceValue = torso.GetComponent<Renderer>();
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-
-            string path = $"{PrefabsFolder}/Comprador_Rival.prefab";
-            bool existed = File.Exists(path);
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-            Object.DestroyImmediate(root);
-            Count(existed ? "Prefabs actualizados" : "Prefabs creados");
-            return prefab.GetComponent<RivalShopper>();
-        }
-
         /// <summary>Supermercado de la escena y tipos de producto que vende.</summary>
         static void ConfigureStore(GameManager manager, ShoppingList list)
         {
@@ -1183,9 +1138,10 @@ namespace CarritoCaotico.EditorTools
         }
 
         /// <summary>Red de pasillos de los rivales: centros de pasillo y tres pasillos transversales.</summary>
-        static void ConfigureRivals(RivalManager manager, RivalShopper prefab, ShoppingList list, CartContents contents)
+        static void ConfigureRivals(RivalManager manager, RivalShopper[] prefabs, ShoppingList list, CartContents contents)
         {
-            SetRefs(manager, ("rivalPrefab", prefab), ("shoppingList", list), ("cartContents", contents));
+            SetRefs(manager, ("rivalPrefab", prefabs[0]), ("shoppingList", list), ("cartContents", contents));
+            SetArray(manager, "rivalPrefabs", prefabs);
             var serialized = new SerializedObject(manager);
 
             SerializedProperty aisles = serialized.FindProperty("aisleCentersX");
@@ -1376,6 +1332,27 @@ namespace CarritoCaotico.EditorTools
             importer.SaveAndReimport();
         }
 
+        /// <summary>True si el campo de esa ruta (también dentro de listas) lleva <see cref="OptionalAttribute"/>.</summary>
+        static bool IsOptional(Type type, string propertyPath)
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+            System.Reflection.FieldInfo field = null;
+            foreach (string part in propertyPath.Split('.'))
+            {
+                if (part == "Array" || part.StartsWith("data[")) continue;
+                if (field != null)
+                {
+                    type = field.FieldType.IsArray ? field.FieldType.GetElementType()
+                        : field.FieldType.IsGenericType ? field.FieldType.GetGenericArguments()[0]
+                        : field.FieldType;
+                }
+                field = null;
+                for (Type t = type; t != null && field == null; t = t.BaseType) field = t.GetField(part, flags);
+                if (field == null) return false;
+            }
+            return field != null && field.IsDefined(typeof(OptionalAttribute), true);
+        }
+
         /// <summary>Busca referencias vacías y comprueba la configuración básica de la escena.</summary>
         public static bool Validate(Scene scene, out string report)
         {
@@ -1400,7 +1377,7 @@ namespace CarritoCaotico.EditorTools
                     while (property.NextVisible(true))
                     {
                         if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == null
-                            && property.name != "m_Script")
+                            && property.name != "m_Script" && !IsOptional(behaviour.GetType(), property.propertyPath))
                         {
                             problems.Add($"{behaviour.GetType().Name} en '{behaviour.name}': referencia vacía '{property.name}'.");
                         }
