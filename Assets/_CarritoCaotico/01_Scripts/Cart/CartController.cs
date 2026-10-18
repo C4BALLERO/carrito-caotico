@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace CarritoCaotico
@@ -65,6 +66,12 @@ namespace CarritoCaotico
         public bool ControlsEnabled => controlsEnabled;
         public float ForwardSpeed => body != null ? Vector3.Dot(body.linearVelocity, transform.forward) : 0f;
 
+        /// <summary>Velocidad mínima de impacto (m/s) para avisar de un choque.</summary>
+        const float BumpMinSpeed = 1.5f;
+
+        /// <summary>Choque contra algo que no es un producto; el valor es la velocidad del impacto (m/s).</summary>
+        public event Action<float> Bumped;
+
         void Awake()
         {
             body = GetComponent<Rigidbody>();
@@ -90,6 +97,13 @@ namespace CarritoCaotico
                 steerInput = 0f;
                 driftInput = false;
             }
+        }
+
+        void OnCollisionEnter(Collision collision)
+        {
+            if (collision.rigidbody != null && collision.rigidbody.GetComponent<Product>() != null) return;
+            float speed = collision.relativeVelocity.magnitude;
+            if (speed >= BumpMinSpeed) Bumped?.Invoke(speed);
         }
 
         void FixedUpdate()

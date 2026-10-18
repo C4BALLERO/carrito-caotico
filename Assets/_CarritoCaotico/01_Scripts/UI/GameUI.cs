@@ -50,6 +50,12 @@ namespace CarritoCaotico
         [SerializeField] Text listProgressText;
         [SerializeField] RectTransform listProgressFill;
 
+        [Header("Vida del carrito")]
+        [SerializeField] RectTransform healthPanel;
+        [SerializeField] RectTransform healthFill;
+        [SerializeField] Image healthFillImage;
+        [SerializeField] Text healthText;
+
         [Header("Avisos, preparación y pausa")]
         [SerializeField] GameObject messagePanel;
         [SerializeField] Text messageText;
@@ -96,17 +102,31 @@ namespace CarritoCaotico
         float messageHideTime = -1f;
         int shownSeconds = -1;
 
-        // Disposición LAN: el Empujador solo ve reloj y progreso.
+        // Lista plegada: el Empujador solo ve reloj y progreso.
         bool hideList;
         bool layoutCaptured;
-        NetRole layoutRole = NetRole.Ninguno;
+        string appliedTitle;
         Vector2 panelSize;
         Vector2 progressTextPosition;
         Vector2 progressTrackPosition;
         string listTitle;
 
-        /// <summary>true en el PC del Empujador en LAN: la lista no se muestra.</summary>
+        /// <summary>
+        /// true con la lista plegada: en el PC del Empujador en LAN y, en un solo PC, durante la
+        /// partida mientras el Agarrador no mantenga su tecla de ver la lista.
+        /// </summary>
         public bool IsListHidden => hideList;
+
+        // Barra de vida: se mueve suave hacia el valor real y tiembla con cada golpe.
+        float shownHealth = 1f;
+        float shakeUntil = -1f;
+        Vector2 healthPanelPosition;
+        bool healthPositionCaptured;
+        bool lowHealthWarned;
+
+        /// <summary>Fracción que muestra la barra de vida ahora mismo.</summary>
+        public float ShownHealth => shownHealth;
+        CartHealth Health => gameManager != null ? gameManager.Health : null;
 
         bool IsTutorial => gameManager != null && gameManager.IsTutorial;
 
@@ -128,6 +148,7 @@ namespace CarritoCaotico
                 rivals.Changed += RefreshSubtitle;
                 rivals.ProductTaken += OnRivalTookProduct;
             }
+            if (Health != null) Health.Damaged += OnCartDamaged;
             if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
             if (nextLevelButton != null) nextLevelButton.onClick.AddListener(OnNextLevelClicked);
             if (menuButton != null) menuButton.onClick.AddListener(OnMenuClicked);
@@ -150,6 +171,7 @@ namespace CarritoCaotico
                 rivals.Changed -= RefreshSubtitle;
                 rivals.ProductTaken -= OnRivalTookProduct;
             }
+            if (Health != null) Health.Damaged -= OnCartDamaged;
             if (restartButton != null) restartButton.onClick.RemoveListener(OnRestartClicked);
             if (nextLevelButton != null) nextLevelButton.onClick.RemoveListener(OnNextLevelClicked);
             if (menuButton != null) menuButton.onClick.RemoveListener(OnMenuClicked);
@@ -159,7 +181,7 @@ namespace CarritoCaotico
         {
             if (receiptPanel != null) receiptPanel.SetActive(false);
             if (messagePanel != null) messagePanel.SetActive(false);
-            ApplyLanLayout(GameInput.LanRole);
+            UpdateListVisibility();
             if (timer != null) OnSecondsChanged(Mathf.CeilToInt(timer.Remaining));
             RefreshList();
             ApplyScheme(GameInput.Scheme);
@@ -184,7 +206,61 @@ namespace CarritoCaotico
                 if (messagePanel != null) messagePanel.SetActive(false);
             }
 
+            UpdateListVisibility();
             UpdateTimerPulse();
+            UpdateHealthBar();
+        }
+
+        // ---------- Vida del carrito ----------
+
+        void UpdateHealthBar()
+        {
+            CartHealth health = Health;
+            if (healthPanel == null) return;
+            bool visible = health != null && !IsTutorial && gameManager.State != GameState.Menu;
+            if (healthPanel.gameObject.activeSelf != visible) healthPanel.gameObject.SetActive(visible);
+            if (!visible) return;
+            if (!healthPositionCaptured)
+            {
+                healthPanelPosition = healthPanel.anchoredPosition;
+                healthPositionCaptured = true;
+            }
+
+            float target = health.Fraction;
+            shownHealth = Mathf.MoveTowards(shownHealth, target, Time.unscaledDeltaTime * 1.5f);
+            if (healthFill != null) healthFill.anchorMax = new Vector2(Mathf.Clamp01(shownHealth), 1f);
+            if (healthText != null) healthText.text = health.IsDestroyed ? "¡BUM!" : $"{Mathf.CeilToInt(target * 100f)}%";
+
+            // Color y texto: el estado no depende solo del color.
+            Color color = target > 0.6f ? success : target > 0.3f ? warning : danger;
+            if (healthFillImage != null) healthFillImage.color = color;
+            if (healthText != null) healthText.color = target > 0.3f ? ink : danger;
+
+            Vector2 offset = Vector2.zero;
+            if (Time.unscaledTime < shakeUntil)
+            {
+                float strength = 9f * (shakeUntil - Time.unscaledTime) / 0.35f;
+                offset = new Vector2(Mathf.Sin(Time.unscaledTime * 90f), Mathf.Cos(Time.unscaledTime * 70f)) * strength;
+            }
+            else if (target <= 0.3f && !health.IsDestroyed)
+            {
+                // Con poca vida la tarjeta late.
+                float pulse = 1f + 0.05f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f));
+                healthPanel.localScale = new Vector3(pulse, pulse, 1f);
+            }
+            if (target > 0.3f || health.IsDestroyed) healthPanel.localScale = Vector3.one;
+            healthPanel.anchoredPosition = healthPanelPosition + offset;
+        }
+
+        void OnCartDamaged(float amount)
+        {
+            shakeUntil = Time.unscaledTime + 0.35f;
+            CartHealth health = Health;
+            if (health != null && !health.IsDestroyed && health.Fraction <= 0.3f && !lowHealthWarned)
+            {
+                lowHealthWarned = true;
+                ShowMessage("¡Cuidado! El carrito está a punto de explotar", 2.5f, MessageKind.Danger);
+            }
         }
 
         // ---------- Temporizador (dentro de la cabecera de la lista) ----------
@@ -354,6 +430,7 @@ namespace CarritoCaotico
                     RefreshSubtitle();
                     break;
                 case GameState.TiempoAgotado:
+                case GameState.CarritoDestruido:
                 case GameState.CompraEntregada:
                     if (messagePanel != null) messagePanel.SetActive(false);
                     messageHideTime = -1f;
@@ -364,7 +441,7 @@ namespace CarritoCaotico
         void OnLevelConfigured(LevelConfig config)
         {
             // Con Intercambiado, en LAN los PC cambian de puesto.
-            ApplyLanLayout(GameInput.LanRole);
+            UpdateListVisibility();
             ApplyScheme(config.Scheme);
             RefreshSubtitle();
 
@@ -374,9 +451,11 @@ namespace CarritoCaotico
                 string rivalsLine = config.RivalCount == 0
                     ? "sin compradores rivales"
                     : config.RivalCount == 1 ? "1 comprador rival" : $"{config.RivalCount} compradores rivales";
+                // En un PC la lista se pliega al empezar: este es el momento de memorizarla.
+                string listKey = GameInput.GrabberListLabelFor(config.Scheme);
                 string scheme = config.Scheme == ControlScheme.Normal
-                    ? "Agarrador: lee la lista y guía al Empujador."
-                    : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b>";
+                    ? $"Agarrador: memoriza la lista. En partida, mantén <b>{listKey}</b> para verla."
+                    : $"<b>¡{LevelProgression.SchemeName(config.Scheme)}!</b> Lista: <b>{listKey}</b>";
                 if (GameInput.IsLan)
                 {
                     string you = GameInput.LanRole == NetRole.Empujador
@@ -393,7 +472,9 @@ namespace CarritoCaotico
         void OnRivalTookProduct(Product product)
         {
             if (shoppingList == null || shoppingList.GetRequired(product.Type) == 0) return;
-            ShowMessage($"¡Un rival se llevó {product.DisplayName}!", 2f, MessageKind.Warning);
+            // El nombre delataría la lista: solo lo ve el PC del Agarrador en LAN.
+            string what = GameInput.LanRole == NetRole.Agarrador ? product.DisplayName : "algo de vuestra lista";
+            ShowMessage($"¡Un rival se llevó {what}!", 2f, MessageKind.Warning);
         }
 
         void OnEmptyCart()
@@ -438,18 +519,31 @@ namespace CarritoCaotico
                 case NetRole.Agarrador:
                     return grabber + $" · {GameInput.CameraLabel} cámara\n<b>Tú tienes la lista:</b> guía al Empujador, que juega en el otro PC";
                 default:
-                    return pusher + "\n" + grabber;
+                    return pusher + "\n" + grabber + $" · {GameInput.GrabberListLabelFor(scheme)} ver lista (el brazo se para)";
             }
         }
 
         /// <summary>
-        /// LAN: el PC del Empujador oculta las filas de la lista y encoge la tarjeta (reloj y
-        /// progreso total). El del Agarrador y el juego en un PC muestran la lista completa.
+        /// La lista se pliega (solo reloj y progreso total) en el PC del Empujador en LAN y, en un
+        /// solo PC, durante la partida mientras el Agarrador no mantenga su tecla de ver la lista.
+        /// En la preparación se ve entera para que el Agarrador la memorice.
         /// </summary>
-        void ApplyLanLayout(NetRole role)
+        void UpdateListVisibility()
         {
-            if (layoutCaptured && role == layoutRole) return;
-            if (!layoutCaptured)
+            NetRole role = GameInput.LanRole;
+            if (role == NetRole.Empujador)
+                ApplyListLayout(true, "Empujador · sin lista");
+            else if (role == NetRole.Ninguno && gameManager != null && gameManager.State == GameState.EnJuego)
+                ApplyListLayout(!GameInput.GrabberListHeld(), $"Lista · mantén {GameInput.GrabberListLabel}");
+            else
+                ApplyListLayout(false, null);
+        }
+
+        void ApplyListLayout(bool collapsed, string collapsedTitle)
+        {
+            if (layoutCaptured && collapsed == hideList && (!collapsed || collapsedTitle == appliedTitle)) return;
+            bool firstTime = !layoutCaptured;
+            if (firstTime)
             {
                 layoutCaptured = true;
                 if (listPanel != null) panelSize = listPanel.sizeDelta;
@@ -457,16 +551,17 @@ namespace CarritoCaotico
                 if (listProgressFill != null && listProgressFill.parent is RectTransform track) progressTrackPosition = track.anchoredPosition;
                 if (listTitleText != null) listTitle = listTitleText.text;
             }
-            layoutRole = role;
-            hideList = role == NetRole.Empujador;
+            bool changed = firstTime || collapsed != hideList;
+            hideList = collapsed;
+            appliedTitle = collapsedTitle;
 
-            if (listTitleText != null) listTitleText.text = hideList ? "Empujador · sin lista" : listTitle;
-            if (listPanel != null) listPanel.sizeDelta = hideList ? new Vector2(panelSize.x, 200f) : panelSize;
+            if (listTitleText != null) listTitleText.text = collapsed ? collapsedTitle : listTitle;
+            if (listPanel != null) listPanel.sizeDelta = collapsed ? new Vector2(panelSize.x, 200f) : panelSize;
             if (listProgressText != null)
-                listProgressText.rectTransform.anchoredPosition = hideList ? new Vector2(progressTextPosition.x, -124f) : progressTextPosition;
+                listProgressText.rectTransform.anchoredPosition = collapsed ? new Vector2(progressTextPosition.x, -124f) : progressTextPosition;
             if (listProgressFill != null && listProgressFill.parent is RectTransform progressTrack)
-                progressTrack.anchoredPosition = hideList ? new Vector2(progressTrackPosition.x, -160f) : progressTrackPosition;
-            RefreshList();
+                progressTrack.anchoredPosition = collapsed ? new Vector2(progressTrackPosition.x, -160f) : progressTrackPosition;
+            if (changed) RefreshList();
         }
 
         void OnDevicesChanged()
@@ -485,7 +580,8 @@ namespace CarritoCaotico
             if (preparationPanel != null) preparationPanel.SetActive(false);
 
             if (receiptTitleText != null)
-                receiptTitleText.text = receipt.TimedOut ? "¡La tienda cerró!" : $"Recibo · {StoreCatalog.DisplayName(gameManager.Store)}";
+                receiptTitleText.text = gameManager.State == GameState.CarritoDestruido ? "¡El carrito explotó!"
+                    : receipt.TimedOut ? "¡La tienda cerró!" : $"Recibo · {StoreCatalog.DisplayName(gameManager.Store)}";
             if (receiptTimeText != null)
                 receiptTimeText.text = $"Tiempo empleado  <b>{GameTimer.Format(receipt.ElapsedSeconds)}</b>     ·     Tiempo restante  <b>{GameTimer.Format(receipt.RemainingSeconds)}</b>";
 

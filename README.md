@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-No usa assets externos: todo se construye con primitivas, materiales de color plano y UI nativa.
+El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -74,6 +74,7 @@ Generación desde línea de comandos (útil para CI):
 | Mover el brazo | Flechas | Stick izquierdo |
 | Agarrar / soltar | `Enter` (o `Enter` del teclado numérico) | Botón sur |
 | Lanzar | `Ctrl derecho` | Gatillo derecho / botón oeste |
+| Ver la lista (mantener, solo en un PC) | `Shift derecho` | `LB` |
 
 ### General
 
@@ -135,11 +136,21 @@ La vista elegida por el Empujador se guarda entre partidas. En primera persona l
 ### Cómo conectarse
 
 1. Compila el juego (**Carrito → Compilar para Windows (LAN)**) y copia la carpeta `Builds/Windows` a los dos PC. También vale abrir el proyecto en Unity en uno de ellos.
-2. **PC 1 (anfitrión):** *Jugar en LAN* → elige tu rol (Empujador o Agarrador) → **Crear partida**. El panel muestra tu IP (por ejemplo `192.168.1.20`).
-3. **PC 2:** *Jugar en LAN* → escribe esa IP → **Unirse**. Le toca el otro rol.
+2. **PC 1 (anfitrión):** *Jugar en LAN* → elige tu rol (Empujador o Agarrador) → **Crear partida**. El panel muestra **tu IP en grande** (por ejemplo `192.168.0.38`).
+3. **PC 2:** *Jugar en LAN*. Si los dos están en la misma wifi, **la partida aparece sola** y la IP se rellena; si no, escríbela. Pulsa **Unirse**. Le toca el otro rol.
 4. El anfitrión vuelve al menú, elige supermercado y nivel y pulsa **Jugar**. Los dos PC cargan el nivel a la vez.
 
-La primera vez, Windows puede preguntar si el juego puede usar la red: permite el acceso en **redes privadas**. El juego usa el puerto UDP **7777**.
+La IP que se muestra es la de la wifi o el cable de casa: los adaptadores virtuales (Hyper-V, WSL, VPN, Docker…) se dejan al final.
+
+### Si no conecta
+
+Casi siempre es Windows, que bloquea la conexión entrante en el PC anfitrión. En **los dos PC**:
+
+1. **Red privada:** *Configuración → Red e Internet → Wi-Fi → (tu red) → Tipo de perfil de red → Privada*. Con la red como **Pública**, el Firewall bloquea el juego.
+2. **Firewall:** la primera vez que creas una partida, Windows pregunta si el juego puede usar la red: marca **Redes privadas** y pulsa *Permitir*. Si lo cancelaste, ve a *Seguridad de Windows → Firewall y protección de red → Permitir una aplicación a través del firewall* y activa **Carrito Caotico** (o **Unity** si juegas desde el editor) en *Privada*.
+3. Comprueba que los dos están en **la misma wifi** (no una de invitados) y usa la IP que muestra el anfitrión.
+
+El juego usa el puerto UDP **7777** para jugar y el **47777** para anunciar la partida en la red.
 
 ### Cómo funciona
 
@@ -194,9 +205,27 @@ El tutorial guía a los dos jugadores paso a paso, en el supermercado clásico y
 
 Cada paso muestra sus teclas y avanza solo cuando los jugadores hacen la acción; `Tab` lo salta. Al terminar se puede pasar directamente al nivel 1.
 
+### Vida del carrito
+
+- El carrito tiene **100 de vida**. Los choques fuertes contra estantes, paredes, rivales u obstáculos le quitan vida según la velocidad del golpe (como mucho 30 por golpe). Los roces, el suelo y los productos no hacen daño.
+- La **barra de vida** está abajo a la izquierda, con el porcentaje y un color (verde, ámbar, rojo). Tiembla con cada golpe y late cuando queda poca; con un 30 % aparece un aviso.
+- A cero, **el carrito explota**: bolas de fuego, humo, un destello y las piezas del carrito volando. La partida termina con el recibo «¡El carrito explotó!» y la compra no cuenta.
+- En el tutorial el carrito no se rompe. En LAN la vida la calcula el anfitrión y la explosión se ve en los dos PC.
+
+### Botones y sonido del menú
+
+- Los botones crecen, suben un poco y suenan al pasar el mouse; con teclado o mando crecen al seleccionarlos. Al pulsarlos se aplastan. El botón principal late suavemente.
+- El botón **Sonido** cambia entre *todo*, *solo efectos* y *no*, para la música, los ambientes y los efectos. La elección se guarda entre partidas.
+
 ### Interfaz durante la partida
 
-Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó…!»). Los controles aparecen en tres sitios:
+Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel integrados en su cabecera, y avisos breves («¡Un rival se llevó algo de vuestra lista!»).
+
+**La lista solo la mira el Agarrador:**
+- **En un PC**, durante la partida va **plegada** (solo reloj y progreso total) para que el Empujador no la vea. El Agarrador la despliega **manteniendo** `Shift derecho` (`Shift izquierdo` con controles intercambiados, `LB` con mando). Mientras la mira, **el brazo se queda quieto**: hay que elegir entre leer y agarrar. En la preparación se ve entera para memorizarla, y el tutorial tiene un paso que lo enseña.
+- **En LAN**, el PC del Empujador nunca la ve y el del Agarrador la ve siempre.
+
+Los controles aparecen en tres sitios:
 
 - el tutorial;
 - la tarjeta de preparación de cada nivel, con el esquema activo;
@@ -211,6 +240,16 @@ Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel
 | Productos | 12 tipos de supermercado | 8 tipos de Halloween: calabaza, caramelos, vela, calavera de azúcar, poción, sombrero de bruja, murciélago de peluche, manzana de caramelo |
 | Ambiente | Luminoso, colores frescos | Oscuro con niebla morada, calabazas iluminadas, murciélagos, telarañas y un caldero en la caja |
 | Obstáculos móviles | Reponedor en la entrada | Dos fantasmas flotando por los pasillos transversales |
+
+### Personajes
+
+En el menú, la fila **Jugador 1 · Empujador** / **Jugador 2 · Agarrador** permite que cada jugador elija su personaje: **pingüino**, **zorro** o **cerdo**. La elección se guarda entre partidas y el carrito cambia al momento. Pueden elegir el mismo.
+
+- **Empujador:** de pie detrás del asa. Se bambolea al ritmo del carrito, se inclina en las curvas y, si el modelo venía en pose T (pingüino y cerdo), mueve los brazos.
+- **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve.
+- Por defecto: pingüino Empujador y zorro Agarrador.
+
+Los tres personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
 
 ### Obstáculos
 
@@ -281,6 +320,12 @@ La lista pide entre 3 y 5 unidades, con un máximo de 2 por tipo.
 
 Una unidad entregada cuenta como correcta o como sobrante, nunca como ambas.
 
+## Sonido
+
+`AudioDirector` (en *Sistemas*) pone la ambientación y la música según el supermercado: **de día** en el Súper Caótico y **tétrica, de Halloween** en el Súper Embrujado. También reproduce los efectos del carrito, el brazo, la lista, la caja, el reloj, el menú y la pausa (que silencia el juego).
+
+Los sonidos están en `Assets/_CarritoCaotico/05_Audio/`, repartidos en `Ambiente/`, `Musica/`, `Efectos/` y `UI/`. Cada uno se llama como un campo de `SoundLibrary` en snake_case (`sfxCajaPago` → `sfx_caja_pago`). Para añadir o cambiar uno, deja el archivo con ese nombre y regenera la escena: el generador lo conecta solo y avisa en la consola de los que faltan. Si falta un sonido, simplemente no suena.
+
 ## Estructura del proyecto
 
 ```
@@ -296,11 +341,14 @@ Assets/_CarritoCaotico/
 │   │   └── GameInput.cs         Lectura de teclado/mandos con el New Input System y rol de cada PC en LAN
 │   ├── Net/
 │   │   ├── LanSession.cs        Conexión LAN con Unity Transport (anfitrión y cliente), cargas de escena
+│   │   ├── LanDiscovery.cs      Anuncio y búsqueda de partidas en la wifi, e IP local más probable
 │   │   ├── LanSync.cs           Instantáneas, interpolación, controles remotos y eventos de la partida
 │   │   ├── LanProtocol.cs       Mensajes LAN y su formato binario
 │   │   └── NetBuffer.cs         Escritura y lectura binaria compacta
 │   ├── Cart/
 │   │   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
+│   │   ├── CartHealth.cs        Vida del carrito: daño por choques y explosión
+│   │   ├── ExplosionEffect.cs   Fuego, humo y destello de la explosión
 │   │   ├── CartContents.cs      Trigger de la canasta: contenido sin duplicados y peso
 │   │   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
 │   │   └── CameraController.cs  Cámara en tercera persona (órbita, suavizado, anticolisión) y primera persona del Empujador
@@ -313,26 +361,47 @@ Assets/_CarritoCaotico/
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
+│   ├── Audio/
+│   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
+│   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
+│   ├── Characters/
+│   │   ├── CharacterChoice.cs   Personaje elegido por cada jugador (guardado en PlayerPrefs)
+│   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
+│   │   ├── CharacterWaddle.cs   Bamboleo de los personajes del carrito según su velocidad
+│   │   ├── FlipperFlap.cs       Brazos que se agitan al empujar (modelos en pose T)
+│   │   └── ArmReach.cs          Brazo del Agarrador que señala la mano extensible
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
+│   ├── Audio/
+│   │   ├── GameAudio.cs         Hover del mouse, explosión, avisos LAN y modo de sonido (todo, efectos, no)
+│   │   └── ProceduralSounds.cs  Sonido de explosión sintetizado por código
 │   └── UI/
 │       ├── GameUI.cs            HUD, lista, mensajes y recibo
-│       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial) y menú de pausa
+│       ├── MenuUI.cs            Menú principal (tienda, nivel, tutorial, LAN, sonido) y menú de pausa
+│       ├── UIButtonFeedback.cs  Animación de hover y pulsación de los botones, con sonido
 │       ├── TutorialController.cs  Tutorial guiado
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
-├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
+├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
+├── 06_Models/
+│   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
+│   ├── Zorro/               personaje con pose propia (no en pose T)
+│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
+├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
+│   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
+│   ├── AudioBuilder.cs      Objeto Audio de cada escena con los sonidos de Kenney
 │   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Tests/
-    ├── EditMode/            Reglas de la lista, evaluación, protocolo LAN y controles por rol
-    └── PlayMode/            Integración sobre la escena generada, incluida la LAN por 127.0.0.1
+    ├── EditMode/            Reglas, protocolo LAN, controles por rol, modo de sonido, créditos y escenas generadas
+    └── PlayMode/            Integración sobre la escena: LAN por 127.0.0.1, sonidos, animación de botones y jugabilidad
 ```
 
 Las carpetas siguen la numeración de la asignatura (`00_Scenes`, `01_Scripts`, `02_Prefabs`, `03_Materials`, `04_Fonts`/`04_Shaders`, `05_Audio`, `06_Models`, `07_Sprites`). Las que aún no tienen contenido se crean cuando hagan falta. `Editor` y `Resources` conservan su nombre porque Unity los trata de forma especial. Los scripts se agrupan por responsabilidad, no por tipo técnico.
@@ -348,6 +417,8 @@ Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism pa
 - **Temporizador:** una barra de tiempo restante que pasa de verde a ámbar (30 s) y a rojo (15 s), con un pulso suave en los últimos 10 s.
 - **Controles:** se dibujan como teclas, con un medidor de carga que cambia de color según el peso.
 - **Tipografía:** la fuente integrada de Unity en negrita. La skill propone Fredoka/Nunito, pero habría que importarlas.
+- **Botones:** sprites del *UI Pack* de Kenney con relieve: amarillo para la acción principal, gris para el resto y flechas en los selectores.
+- **Animación:** al pasar el mouse o seleccionar con teclado o mando, el botón crece un 6 %, sube 4 px y suena. Al pulsarlo se aplasta. El botón principal late suavemente. Funciona también en pausa.
 
 ## Pruebas
 
@@ -392,7 +463,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Próximas tareas
 
 - Juego por Internet (Unity Relay) además de la LAN.
-- Sonido: carrito, caja registradora y música.
+- Sonidos propios del carrito (ruedas, choques) y de la caja registradora.
 - Más productos, ofertas y obstáculos dinámicos, como clientes o reponedores.
 - Menú principal y selección de dificultad.
 - Ajuste fino de la física de la canasta.
@@ -400,6 +471,8 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Créditos
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
+- Modelos 3D de los personajes (pingüino, zorro y cerdo) generados con [Tripo AI](https://studio.tripo3d.ai/).
+- Efectos de sonido y ambientes generados con ElevenLabs Sound Effects v2, y música generada con Stable Audio 2.5, ambos a través de [fal.ai](https://fal.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

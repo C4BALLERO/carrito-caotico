@@ -62,6 +62,7 @@ namespace CarritoCaotico
         float driftSeconds;
         Vector3 startHand;
         bool thrown;
+        float listReadSeconds;
 
         public int StepIndex => index;
         public int StepCount => steps.Count;
@@ -111,6 +112,7 @@ namespace CarritoCaotico
 
             stepTime += Time.deltaTime;
             if (cart != null && cart.IsDrifting) driftSeconds += Time.deltaTime;
+            if (GameInput.GrabberListHeld()) listReadSeconds += Time.deltaTime;
 
             if (index >= 0 && index < steps.Count && (steps[index].Done() || GameInput.TutorialSkipPressed()))
                 Celebrate();
@@ -201,9 +203,17 @@ namespace CarritoCaotico
             });
             steps.Add(new Step
             {
+                Who = "AGARRADOR · Jugador 2", WhoColor = GrabberPurple,
+                Title = "Mira la lista",
+                Body = "La lista va plegada para que el Empujador no la vea. Mantén la tecla para leerla: mientras la miras, el brazo se queda quieto.",
+                Keys = new[] { GameInput.GrabberListLabelFor(ControlScheme.Normal) },
+                Done = () => listReadSeconds >= 0.6f
+            });
+            steps.Add(new Step
+            {
                 Who = "LOS DOS", WhoColor = BothGreen,
                 Title = "Completen la lista",
-                Body = "Solo el Agarrador ve la lista de la derecha: debe decirle al Empujador adónde ir. Pista: Pasillo 3 · Frutas.",
+                Body = "Solo el Agarrador mira la lista: debe decirle al Empujador adónde ir. Pista: Pasillo 3 · Frutas.",
                 Keys = Array.Empty<string>(),
                 Done = () => shoppingList != null && shoppingList.IsComplete
             });
@@ -232,6 +242,7 @@ namespace CarritoCaotico
             if (grabber != null) startHand = grabber.HandLocalPosition;
             driftSeconds = 0f;
             thrown = false;
+            listReadSeconds = 0f;
 
             Step step = steps[index];
             if (panel != null) panel.SetActive(true);

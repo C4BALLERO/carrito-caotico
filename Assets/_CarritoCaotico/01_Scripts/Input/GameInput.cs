@@ -286,6 +286,28 @@ namespace CarritoCaotico
             return pad != null && (pad.rightTrigger.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame);
         }
 
+        /// <summary>
+        /// Un solo PC: el Agarrador mantiene esta tecla para desplegar la lista, que el Empujador no
+        /// debe ver. Shift der. (Shift izq. con Intercambiado) o LB de su mando. En LAN siempre es
+        /// false: cada PC ya muestra solo lo de su jugador.
+        /// </summary>
+        public static bool GrabberListHeld()
+        {
+            if (IsLan) return false;
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (Swapped ? keyboard.leftShiftKey : keyboard.rightShiftKey).isPressed) return true;
+
+            var pad = GrabberPad;
+            return pad != null && pad.leftShoulder.isPressed;
+        }
+
+        /// <summary>Tecla para ver la lista con el esquema activo.</summary>
+        public static string GrabberListLabel => GrabberListLabelFor(Scheme);
+
+        /// <summary>Tecla para ver la lista, según el dispositivo del Agarrador y el esquema.</summary>
+        public static string GrabberListLabelFor(ControlScheme scheme) =>
+            GrabberUsesGamepad ? "LB" : scheme == ControlScheme.Intercambiado ? "Shift izq." : "Shift der.";
+
         // ---------- General ----------
 
         /// <summary>Texto que explica qué usa cada jugador.</summary>
