@@ -106,7 +106,68 @@ namespace CarritoCaotico.EditorTools
                 Object.DestroyImmediate(root);
                 result[i] = prefab.GetComponent<RivalShopper>();
             }
-            return result;
+
+            // Personajes KayKit con clips: se mezclan con los caricaturescos como más variantes.
+            NpcModels.Definition[] npcs = NpcModels.ForStore(store);
+            RuntimeAnimatorController controller = NpcModels.GetController();
+            var all = new List<RivalShopper>(result);
+            foreach (NpcModels.Definition npc in npcs)
+            {
+                GameObject root = BuildClipRival(npc, store, material, controller);
+                string path = $"{folder}/Comprador_KayKit_{npc.Name}.prefab";
+                GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+                Object.DestroyImmediate(root);
+                all.Add(prefab.GetComponent<RivalShopper>());
+            }
+            return all.ToArray();
+        }
+
+        /// <summary>Altura del asa para los KayKit: sus hombros quedan a 0,8 m.</summary>
+        const float ClipRivalHandleHeight = 0.85f;
+        /// <summary>Los pies quedan algo detrás del centro para que las manos lleguen al asa.</summary>
+        const float ClipRivalBodyZ = -0.08f;
+
+        /// <summary>
+        /// Comprador KayKit: malla con piel, Animator con los clips compartidos y
+        /// <see cref="ClipShopperAnimator"/>, que los ajusta a la velocidad medida del clip.
+        /// </summary>
+        static GameObject BuildClipRival(NpcModels.Definition definition, StoreId store, Func<string, Color, Material> material, RuntimeAnimatorController controller)
+        {
+            var root = new GameObject("Comprador_KayKit_" + definition.Name);
+            var body = root.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = false;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.65f, 0f);
+            capsule.height = 1.3f;
+            capsule.radius = 0.3f;
+
+            Transform cart = BuildShopperCart(root.transform, material, out Transform leftGrip, out Transform rightGrip, out Transform basket, ClipRivalHandleHeight);
+            Material skin = material(definition.MaterialName, Color.white);
+            NpcModels.ApplyTexture(skin, definition);
+            Material eyes = null;
+            if (store == StoreId.Halloween)
+            {
+                Color glow = new Color32(120, 255, 220, 255);
+                eyes = material("NPC_Ojos", glow);
+                NpcModels.MakeGlow(eyes, glow);
+            }
+            NpcModels.Character character = NpcModels.Build(definition, "Cuerpo", root.transform, new Vector3(0f, 0f, ClipRivalBodyZ), skin, eyes, controller);
+            var (walkSpeed, grabContact) = NpcModels.MeasureClips(character);
+            Debug.Log($"[Carrito] {definition.Name}: el clip de caminar pisa a {walkSpeed:0.00} m/s; recoge en {grabContact:0.00} del clip.");
+
+            var rival = root.AddComponent<RivalShopper>();
+            var serialized = new SerializedObject(rival);
+            serialized.FindProperty("basketPoint").objectReferenceValue = basket;
+            serialized.FindProperty("leftHand").objectReferenceValue = character.LeftHand;
+            serialized.FindProperty("rightHand").objectReferenceValue = character.RightHand;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            root.AddComponent<ClipShopperAnimator>().Configure(character.Animator, character.Arms, character.Legs, character.Head, leftGrip, rightGrip, walkSpeed, grabContact);
+            cart.name = "Carrito_Rival";
+            return root;
         }
 
         static GameObject BuildRival(Style style, Func<string, Color, Material> material, int seed)
@@ -335,7 +396,8 @@ namespace CarritoCaotico.EditorTools
         }
 
         /// <summary>Carrito pequeño que empuja el comprador, con dos agarres en el asa.</summary>
-        static Transform BuildShopperCart(Transform root, Func<string, Color, Material> material, out Transform leftGrip, out Transform rightGrip, out Transform basket)
+        static Transform BuildShopperCart(Transform root, Func<string, Color, Material> material, out Transform leftGrip, out Transform rightGrip, out Transform basket,
+            float handleHeight = 0.95f)
         {
             Material metal = material("Metal", new Color32(150, 160, 170, 255));
             Material wheel = material("Rueda", new Color32(40, 44, 52, 255));
@@ -345,14 +407,17 @@ namespace CarritoCaotico.EditorTools
             Part(PrimitiveType.Cube, "Pared_Frontal", cart, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), metal);
             Part(PrimitiveType.Cube, "Pared_Izq", cart, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), metal);
             Part(PrimitiveType.Cube, "Pared_Der", cart, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), metal);
-            Part(PrimitiveType.Cylinder, "Asa", cart, new Vector3(0f, 0.95f, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), handle).transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            Part(PrimitiveType.Cube, "Soporte_Izq", cart, new Vector3(-0.28f, 0.86f, -0.33f), new Vector3(0.03f, 0.2f, 0.06f), metal);
-            Part(PrimitiveType.Cube, "Soporte_Der", cart, new Vector3(0.28f, 0.86f, -0.33f), new Vector3(0.03f, 0.2f, 0.06f), metal);
+            Part(PrimitiveType.Cylinder, "Asa", cart, new Vector3(0f, handleHeight, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), handle).transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            // Soportes desde dentro de las paredes hasta el asa.
+            float supportY = (0.7f + handleHeight) * 0.5f;
+            float supportHeight = handleHeight - 0.69f;
+            Part(PrimitiveType.Cube, "Soporte_Izq", cart, new Vector3(-0.28f, supportY, -0.33f), new Vector3(0.03f, supportHeight, 0.06f), metal);
+            Part(PrimitiveType.Cube, "Soporte_Der", cart, new Vector3(0.28f, supportY, -0.33f), new Vector3(0.03f, supportHeight, 0.06f), metal);
             foreach (Vector3 p in new[] { new Vector3(-0.25f, 0.08f, 0.25f), new Vector3(0.25f, 0.08f, 0.25f), new Vector3(-0.25f, 0.08f, -0.25f), new Vector3(0.25f, 0.08f, -0.25f) })
                 Part(PrimitiveType.Cylinder, "Rueda", cart, p, new Vector3(0.14f, 0.03f, 0.14f), wheel).transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             Part(PrimitiveType.Cube, "Pata", cart, new Vector3(0f, 0.26f, 0f), new Vector3(0.04f, 0.36f, 0.04f), metal);
-            leftGrip = Empty("Agarre_Izq", cart, new Vector3(-0.17f, 0.95f, -0.36f));
-            rightGrip = Empty("Agarre_Der", cart, new Vector3(0.17f, 0.95f, -0.36f));
+            leftGrip = Empty("Agarre_Izq", cart, new Vector3(-0.17f, handleHeight, -0.36f));
+            rightGrip = Empty("Agarre_Der", cart, new Vector3(0.17f, handleHeight, -0.36f));
             basket = Empty("Punto_Canasta", cart, new Vector3(0f, 0.6f, 0f));
             return cart;
         }

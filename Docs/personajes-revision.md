@@ -89,9 +89,42 @@ Se rehízo con la jerarquía de la referencia (menú de un juego de acción): es
 **Eliminado**
 - `02_Prefabs/Comprador_Rival.prefab`: lo sustituyen los compradores nuevos.
 
+## Compradores KayKit (fusión de `claude/charming-dijkstra-j8u1a5`)
+
+Otra rama sustituía los rivales por personajes KayKit (CC0) con malla con piel y clips. Se fusionó **mezclando** los dos tipos en cada tienda: KayKit y caricaturescos son variantes del mismo `RivalShopper` (`RivalManager.rivalPrefabs`).
+
+**Fallos encontrados en esa rama y corregidos:**
+- **Los clips no movían ningún hueso.** Las curvas de `NPC_Animaciones.fbx` cuelgan del armature (rutas `""` y `root/hips/…`), pero el Animator estaba en la raíz del modelo, donde las rutas son `Rig/root/…`. Solo casaba 1 de 42 rutas. Ahora el Animator va en `Rig` (42/42).
+- **Las texturas se importaban como Cubemap.** Los `.meta` del pack solo traen el GUID; ahora se fijan como textura 2D.
+- **Dos clases `CarritoCaotico.ShopperAnimator`.** La suya se sustituye por `ClipShopperAnimator`, que lee la misma IA (`IShopperBrain`) que los caricaturescos.
+- **`updateWhenOffscreen` activado** en todas las mallas: se cambia por límites ampliados una sola vez.
+
+**Animación de los KayKit (`ClipShopperAnimator`):**
+- **Caminar** va al ritmo de la velocidad real. El generador mide en los propios pies del clip a qué velocidad pisa: 0,49 m/s a escala 0,72.
+- **Pies bloqueados:** mientras el clip apoya un pie, ese pie se bloquea con IK de pierna.
+- **Medición** (pie apoyado que resbala respecto a lo que avanza el cuerpo):
+
+  | Velocidad | Resbala |
+  |---|---|
+  | 1,1 m/s | 5 % |
+  | 2,2 m/s (velocidad base de los rivales) | 12 % |
+  | 3 m/s | 15 % |
+  | 4,5 m/s | 36 % |
+
+  Sin ajustar el ritmo ni bloquear los pies, el pie se movía con el cuerpo: 100 %.
+- **Recoger** sigue el progreso del gesto, de modo que la mano llega al punto más bajo del clip (39 % de su duración) justo cuando la IA coge el producto. Encima, el IK lleva esa mano al producto, la otra queda en el asa y la cabeza mira el producto.
+- **Pruebas:**
+  - `KayKit_WalkClipKeepsTheFootPlanted`: menos del 15 % a 2,2 m/s.
+  - `KayKit_HoldsTheHandleAndReachesTheProduct`: manos a 2,4 cm del asa y mano a 6,6 cm del producto.
+  - `KayKitShoppers_UseTheSharedClipsAndHoldTheCart`.
+
+Capturas en partida, hechas con una cámara junto al rival:
+- `kaykit_clasico_caminando.png` y `kaykit_halloween_caminando.png`: empujando el carrito con las manos en el asa.
+- `kaykit_clasico_cogiendo.png` y `kaykit_halloween_cogiendo.png`: con el producto en la mano.
+
 ## Pendiente
 
 - Los compradores son modelos segmentados, no mallas con piel. Para usar modelos de un artista: importar el FBX con esqueleto, asignar sus huesos en `ShopperRig` y quitar las piezas generadas; `ShopperAnimator` y `RivalShopper` no cambian.
-- No hay clips de animación. Si se añaden, conviene un Animator solo para las capas que no calcula el código (por ejemplo, expresiones faciales) para que no compitan.
+- Los KayKit no tienen clip de correr. A la velocidad de los niveles altos (4,5 m/s), su pie apoyado aún resbala alrededor de un tercio. Faltaría `Running_A` del pack original, recortado con `Tools/recortar_kaykit.py`.
 - Los pesos del pingüino (cuello y pies) solo se arreglan en un programa 3D.
 - El cerdo no llega del todo al asa con sus brazos cortos.

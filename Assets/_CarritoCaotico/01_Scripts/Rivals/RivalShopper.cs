@@ -17,7 +17,10 @@ namespace CarritoCaotico
 
         [SerializeField] Transform basketPoint;
         [Tooltip("Esqueleto: coge los productos con la mano del lado del producto (vacío: van directos a la canasta).")]
-        [SerializeField] ShopperRig rig;
+        [SerializeField, Optional] ShopperRig rig;
+        [Tooltip("Manos de un modelo con clips (KayKit), que no tiene ShopperRig.")]
+        [SerializeField, Optional] Transform leftHand;
+        [SerializeField, Optional] Transform rightHand;
         [SerializeField] Renderer[] tintRenderers;
         [Tooltip("Grados por segundo al girar.")]
         [SerializeField] float turnSpeed = 240f;
@@ -276,9 +279,11 @@ namespace CarritoCaotico
         /// <summary>La mano del lado del producto (la misma que usa la animación).</summary>
         Transform ReachHand(Vector3 point)
         {
-            if (rig == null) return null;
+            Transform left = rig != null ? rig.leftHand : leftHand;
+            Transform right = rig != null ? rig.rightHand : rightHand;
+            if (left == null || right == null) return null;
             Vector3 toTarget = Vector3.ProjectOnPlane(point - transform.position, Vector3.up);
-            return Vector3.SignedAngle(transform.forward, toTarget, Vector3.up) >= 0f ? rig.rightHand : rig.leftHand;
+            return Vector3.SignedAngle(transform.forward, toTarget, Vector3.up) >= 0f ? right : left;
         }
 
         void StowHeld()

@@ -56,7 +56,10 @@ namespace CarritoCaotico.Tests
             floor.transform.position = new Vector3(100f, 0f, 100f);
             floor.transform.localScale = Vector3.one * 5f;
             shopper = Object.Instantiate(LoadPrefab(name), new Vector3(100f, 0f, 100f), Quaternion.identity);
-            shopper.GetComponent<ShopperAnimator>().AlwaysAnimate = true;
+            if (shopper.TryGetComponent(out ShopperAnimator procedural)) procedural.AlwaysAnimate = true;
+            if (shopper.TryGetComponent(out ClipShopperAnimator clips)) clips.AlwaysAnimate = true;
+            // La prueba mueve el transform a mano: sin interpolar, el Rigidbody no lo devuelve atrás.
+            if (shopper.TryGetComponent(out Rigidbody body)) body.interpolation = RigidbodyInterpolation.None;
             yield return null;
             yield return null;
         }
@@ -161,6 +164,74 @@ namespace CarritoCaotico.Tests
             }
             Assert.Less(closest, 0.15f, "La mano llega al producto.");
             Assert.Greater(deepest, 0.05f, "Se agacha para un producto bajo.");
+        }
+
+        static Transform Bone(GameObject root, string name)
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == name) return t;
+            return null;
+        }
+
+        /// <summary>
+        /// KayKit caminando a la velocidad base de los rivales (2,2 m/s): el clip va al ritmo medido
+        /// y el pie apoyado se bloquea con IK, así que el pie más bajo apenas se mueve por el suelo
+        /// comparado con lo que avanza el cuerpo (sin ritmo ni bloqueo era el 100 %).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator KayKit_WalkClipKeepsTheFootPlanted()
+        {
+            yield return Spawn("KayKit_Knight");
+            var clips = shopper.GetComponent<ClipShopperAnimator>();
+            Transform[] contacts = { Bone(shopper, "foot.l"), Bone(shopper, "foot.r") };
+            const float speed = 2.2f;
+            float slid = 0f, walked = 0f;
+            Transform lastFoot = null;
+            Vector3 last = Vector3.zero;
+            for (float t = 0f; t < 3f; t += Time.deltaTime)
+            {
+                shopper.transform.position += Vector3.forward * speed * Time.deltaTime;
+                yield return null;
+                if (t < 0.6f) continue; // deja que la animación entre en el ciclo de caminar
+                Transform foot = contacts[0];
+                foreach (Transform c in contacts) if (c.position.y < foot.position.y) foot = c;
+                Vector3 now = Vector3.ProjectOnPlane(foot.position, Vector3.up);
+                if (foot == lastFoot)
+                {
+                    slid += Vector3.Distance(now, last);
+                    walked += speed * Time.deltaTime;
+                }
+                lastFoot = foot;
+                last = now;
+            }
+            float ratio = slid / Mathf.Max(0.001f, walked);
+            Debug.Log($"[Carrito] KayKit: el pie apoyado se desliza {ratio:P0} de lo que avanza el cuerpo (clip a {clips.WalkClipSpeed:0.00} m/s).");
+            Assert.Less(ratio, 0.15f, "El pie apoyado casi no patina.");
+        }
+
+        [UnityTest]
+        public IEnumerator KayKit_HoldsTheHandleAndReachesTheProduct()
+        {
+            yield return Spawn("KayKit_Skeleton_Minion");
+            var clips = shopper.GetComponent<ClipShopperAnimator>();
+            yield return new WaitForSeconds(0.4f);
+            float leftGap = Vector3.Distance(clips.LeftHand.position, clips.LeftGrip.position);
+            float rightGap = Vector3.Distance(clips.RightHand.position, clips.RightGrip.position);
+            Debug.Log($"[Carrito] KayKit: manos a {leftGap:0.000} y {rightGap:0.000} m del asa.");
+            Assert.Less(Mathf.Max(leftGap, rightGap), 0.06f, "Las manos sujetan el asa.");
+
+            var brain = new FakeBrain { Action = ShopperAction.Reaching, ReachPoint = shopper.transform.position + new Vector3(0.45f, 0.7f, 0.3f) };
+            clips.SetBrain(brain);
+            float closest = float.MaxValue;
+            for (float t = 0f; t < 2.4f; t += Time.deltaTime)
+            {
+                brain.ReachProgress = Mathf.Min(0.55f, t / 2f * 0.55f + 0.2f);
+                yield return null;
+                closest = Mathf.Min(closest, Vector3.Distance(clips.RightHand.position, brain.ReachPoint));
+            }
+            Debug.Log($"[Carrito] KayKit: la mano llega a {closest:0.000} m del producto.");
+            Assert.Less(closest, 0.12f, "La mano llega al producto.");
+            Assert.AreEqual(0f, clips.GripWeight, 0.01f, "Suelta el asa para coger el producto.");
         }
 
         [UnityTest]

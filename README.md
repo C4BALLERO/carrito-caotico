@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`.
+El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`. Parte de los compradores rivales son personajes **CC0** de [KayKit](https://www.kaylousberg.com) (Kay Lousberg); ver `Assets/_CarritoCaotico/06_Models/NPC/CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -309,9 +309,16 @@ Además, con cada nivel los rivales caminan más rápido, tardan menos en agarra
 - Cuando llenan el carrito se van y, al rato, entra otro.
 - Si se llevan un producto de tu lista aparece el aviso **«¡Un rival se llevó…!»**. El chip superior derecho cuenta los rivales y los productos robados.
 - **Regla justa:** un rival nunca se lleva una unidad que necesites si con eso quedarían menos unidades en las baldas de las que te faltan. Te ganan los productos cercanos, pero la lista nunca se vuelve imposible.
+- **Dos tipos de comprador mezclados** en cada tienda. Cada rival es uno al azar, y es el mismo en los dos PC en LAN:
+  - ocho compradores caricaturescos con animación procedural;
+  - personajes **KayKit** con malla con piel y clips de animación: aventureros (caballero, bárbaro, maga y dos pícaros) en el Súper Caótico y esqueletos con ojos brillantes en el Súper Embrujado.
 - **Ocho compradores caricaturescos** por supermercado (señora de rulos, abuelo con bigote, chica con coleta, tipo con tupé, niño con gorra, señor con panza, señora con moño y chico afro), con cabeza grande, ojos con pupila, cejas, guantes blancos y zapatones. En Halloween van disfrazados (sombrero de bruja, capa o cuernos). El reponedor también es uno de ellos, con uniforme y una caja.
 - **Esqueleto propio** de 19 huesos (caderas, columna, pecho, cuello, cabeza, hombros, brazos, antebrazos, manos, muslos, piernas y pies) más ojos, cejas y boca. Las piezas cuelgan de los huesos, sin malla deformable.
 - **Animación procedural** (`ShopperAnimator`): pies plantados que dan pasos al caminar y al girar, respiración en reposo, brazos que se balancean al andar, frenadas con anticipación, inclinación en las curvas, parpadeo, mirada hacia los productos o el carrito del jugador y gestos (asentir, rascarse la cabeza, encogerse de hombros, mirar alrededor). Cada comprador lleva su propio ritmo para que no se muevan a la vez.
+- **KayKit** (`ClipShopperAnimator`):
+  - El Animator reproduce los clips de reposo, caminar y recoger, compartidos por todos porque tienen el mismo esqueleto.
+  - El clip de caminar va al ritmo de la velocidad real. El generador mide en los pies del clip a qué velocidad pisa (0,49 m/s) y, mientras el clip apoya un pie, lo bloquea en el suelo con IK de pierna.
+  - El clip de recoger sigue el progreso del gesto, así que la mano llega más abajo justo cuando la IA coge el producto. Encima, el IK lleva esa mano al producto y la otra al asa, y la cabeza lo mira.
 - **Al coger un producto** se paran, se giran hacia la balda, se agachan si está bajo, lo cogen con la mano, lo miran y lo dejan en su carrito.
 - **Sin atravesarse:** frenan si el carrito del jugador u otro comprador les corta el paso y, si siguen bloqueados más de 1,4 s, se apartan medio metro para rodearlo. Siguen la red de pasillos, así que no cruzan las estanterías.
 
@@ -399,7 +406,8 @@ Assets/_CarritoCaotico/
 │   │   ├── TwoBoneIK.cs         IK analítico de dos huesos y orientación de un hueso hacia un punto
 │   │   ├── FootPlanter.cs       Pasos: pies plantados, cuándo levantar cada pie y hacia dónde
 │   │   ├── ShopperRig.cs        Huesos y piezas de la cara de un comprador
-│   │   └── ShopperAnimator.cs   Animación procedural de los compradores (pasos, brazos, gestos, mirada)
+│   │   ├── ShopperAnimator.cs   Animación procedural de los compradores (pasos, brazos, gestos, mirada)
+│   │   └── ClipShopperAnimator.cs  Compradores KayKit: elige el clip, ritmo según la velocidad, pies bloqueados e IK de manos
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -416,20 +424,22 @@ Assets/_CarritoCaotico/
 │       ├── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
 │       ├── LoadingCart.cs       Carrito que rueda sobre la barra de carga
 │       └── SplashScreen.cs      Portada al arrancar (7 s) con barra de carga
-├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Compradores/Comprador_*.prefab (8 por supermercado)
+├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Compradores/Comprador_*.prefab (8 caricaturescos por supermercado) y Comprador_KayKit_*.prefab (5 aventureros y 4 esqueletos)
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*; Texturas/ con las baldosas
 ├── 04_Fonts/                fuentes de los letreros (Archivo Black y Pirata One) con su licencia OFL
 ├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
 ├── 06_Models/
 │   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
 │   ├── Zorro/               personaje con pose propia (no en pose T)
-│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   ├── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   └── NPC/                 rivales KayKit (CC0): Aventureros/, Esqueletos/, NPC_Animaciones.fbx compartido, NPC_Comprador.controller (generado) y CREDITOS.md
 ├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── CarritoSceneBuilder.Ambientacion.cs  Letreros, luminarias, baldosas, etiquetas, flechas y ventanas
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── NpcModels.cs         Importación de los KayKit, su Animator Controller y la medición de sus clips
 │   ├── ShopperModels.cs     Compradores caricaturescos con esqueleto (estilos, peinados, disfraces)
 │   ├── ShopperPreview.cs    Menú Carrito > Vista previa de compradores (Docs/compradores_*.png)
 │   ├── RigInspector.cs      Menú Carrito > Inspeccionar esqueletos (Docs/esqueletos.md)
@@ -496,7 +506,8 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Problemas conocidos
 
 - Los rivales siguen una red fija de pasillos sin NavMesh. Frenan y rodean al carrito y a otros compradores, pero si el carrito los embiste lo empujan (son cinemáticos).
-- Los compradores y el reponedor son modelos de piezas (primitivas unidas a los huesos), no mallas con piel. La animación es procedural; no hay clips ni Animator. Para cambiarlos por modelos con malla y animaciones, ver `Docs/personajes-revision.md`.
+- Los compradores caricaturescos y el reponedor son modelos de piezas (primitivas unidas a los huesos), no mallas con piel, y su animación es procedural. Los KayKit sí tienen malla con piel y clips.
+- Los KayKit solo tienen clips de reposo, caminar, recoger y celebrar (los FBX se recortaron con `Tools/recortar_kaykit.py`). A la velocidad de los niveles altos (4,5 m/s), el pie apoyado aún resbala alrededor de un tercio de lo que avanza: haría falta un clip de correr del pack original.
 - El pingüino tiene el cuello y los pies con peso cero en su malla: esos huesos se mueven, pero la malla no los sigue. Habría que repintar los pesos en un programa 3D.
 - El cerdo tiene los brazos más cortos que la distancia al asa: se inclina y estira los brazos, pero las manos pueden quedar algo separadas del asa.
 - En un solo PC la separación de la lista es solo visual: está en el lado derecho de la pantalla y el Empujador no debe mirarla. En LAN el Empujador no la ve.
