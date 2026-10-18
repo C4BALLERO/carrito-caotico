@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -407,6 +408,9 @@ namespace CarritoCaotico.EditorTools
             GetMaterial("Asa", Coral);
             foreach (CharacterModels.Definition character in CharacterModels.All)
                 CharacterModels.ApplyTexture(GetMaterial(character.Folder, Color.white), character);
+            foreach (NpcModels.Definition npc in NpcModels.ForStore(current.Id))
+                NpcModels.ApplyTexture(GetMaterial(npc.MaterialName, Color.white), npc);
+            if (current.Id == StoreId.Halloween) NpcModels.MakeGlow(GetMaterial("NPC_Ojos", new Color32(120, 255, 220, 255)), new Color32(120, 255, 220, 255));
             GetMaterial("Piel", new Color32(244, 200, 160, 255));
             GetMaterial("Brazo", new Color32(255, 140, 66, 255));
             GetMaterial("Mano", new Color32(255, 61, 127, 255));
@@ -1112,13 +1116,15 @@ namespace CarritoCaotico.EditorTools
 
         // ---------- Compradores rivales ----------
 
-        const float RivalHeight = 1.3f;
-        /// <summary>El frente del rival queda justo detrás del asa de su carrito.</summary>
-        const float RivalFrontZ = 0.2f;
+        /// <summary>Los pies del rival quedan a esta distancia detrás del centro de su cuerpo; así las manos llegan al asa.</summary>
+        const float RivalBodyZ = -0.08f;
+        /// <summary>Asa del carrito rival a la altura de las manos (los hombros quedan a 0,8 m).</summary>
+        const float RivalHandleY = 0.85f;
 
         /// <summary>
-        /// Prefab del comprador rival: uno de los personajes jugables (con el mismo bamboleo y
-        /// brazos que en el carrito) empujando un carrito pequeño con paredes tintables.
+        /// Prefab del comprador rival de este supermercado: un personaje KayKit animado por
+        /// supermercado (aventureros o esqueletos; RivalShopper activa uno según su número)
+        /// empujando un carrito pequeño con paredes tintables.
         /// </summary>
         static RivalShopper CreateRivalPrefab()
         {
@@ -1134,31 +1140,35 @@ namespace CarritoCaotico.EditorTools
             capsule.radius = 0.32f;
             Transform t = root.transform;
 
-            // Un cuerpo por personaje; RivalShopper activa uno según su número.
-            var bodies = new Object[CharacterModels.All.Length];
-            foreach (CharacterModels.Definition definition in CharacterModels.All)
-            {
-                CharacterModels.Character shopper = CharacterModels.Build(definition, "Cuerpo_" + definition.Folder, t,
-                    Vector3.zero, RivalHeight, PusherArms, Materials[definition.Folder]);
-                shopper.Root.transform.localPosition += Vector3.forward * (RivalFrontZ - shopper.LocalBounds.max.z);
-                var waddle = shopper.Root.AddComponent<CharacterWaddle>();
-                SetRefs(waddle, ("cartBody", body), ("model", shopper.Model));
-                if (!definition.KeepPose)
-                {
-                    SetRefs(shopper.Root.AddComponent<FlipperFlap>(),
-                        ("waddle", waddle), ("leftFlipper", shopper.LeftArm), ("rightFlipper", shopper.RightArm));
-                }
-                shopper.Root.SetActive(definition.Id == CharacterId.Pinguino);
-                bodies[(int)definition.Id] = shopper.Root;
-            }
-
             Transform cartRoot = Empty("Carrito_Rival", t, new Vector3(0f, 0f, 0.65f)).transform;
             Prim(PrimitiveType.Cube, "Fondo", cartRoot, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.05f, 0.62f), "Metal", false);
             GameObject front = Prim(PrimitiveType.Cube, "Pared_Frontal", cartRoot, new Vector3(0f, 0.65f, 0.3f), new Vector3(0.6f, 0.4f, 0.03f), "Rival", false);
             GameObject left = Prim(PrimitiveType.Cube, "Pared_Izq", cartRoot, new Vector3(-0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Rival", false);
             GameObject right = Prim(PrimitiveType.Cube, "Pared_Der", cartRoot, new Vector3(0.29f, 0.65f, 0f), new Vector3(0.03f, 0.4f, 0.62f), "Rival", false);
-            GameObject handle = Prim(PrimitiveType.Cylinder, "Asa", cartRoot, new Vector3(0f, 0.95f, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), "Asa", false);
+            GameObject handle = Prim(PrimitiveType.Cylinder, "Asa", cartRoot, new Vector3(0f, RivalHandleY, -0.36f), new Vector3(0.04f, 0.32f, 0.04f), "Asa", false);
             handle.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            Transform leftGrip = Empty("Agarre_Izq", cartRoot, new Vector3(-0.17f, RivalHandleY, -0.36f)).transform;
+            Transform rightGrip = Empty("Agarre_Der", cartRoot, new Vector3(0.17f, RivalHandleY, -0.36f)).transform;
+
+            // Un cuerpo por personaje del supermercado, todos con el mismo Animator Controller.
+            AnimatorController controller = NpcModels.GetController();
+            Materials.TryGetValue("NPC_Ojos", out Material eyes);
+            NpcModels.Definition[] characters = NpcModels.ForStore(current.Id);
+            var bodies = new Object[characters.Length];
+            for (int i = 0; i < characters.Length; i++)
+            {
+                NpcModels.Definition definition = characters[i];
+                NpcModels.Character shopper = NpcModels.Build(definition, "Cuerpo_" + definition.Name, t,
+                    new Vector3(0f, 0f, RivalBodyZ), Materials[definition.MaterialName], eyes, controller);
+                SetRefs(shopper.Root.AddComponent<ShopperAnimator>(),
+                    ("animator", shopper.Animator), ("mover", t),
+                    ("leftUpperArm", shopper.LeftUpperArm), ("leftHand", shopper.LeftHand),
+                    ("rightUpperArm", shopper.RightUpperArm), ("rightHand", shopper.RightHand),
+                    ("leftGrip", leftGrip), ("rightGrip", rightGrip));
+                shopper.Root.SetActive(i == 0);
+                bodies[i] = shopper.Root;
+            }
+
             foreach (Vector3 p in new[] { new Vector3(-0.25f, 0.08f, 0.25f), new Vector3(0.25f, 0.08f, 0.25f), new Vector3(-0.25f, 0.08f, -0.25f), new Vector3(0.25f, 0.08f, -0.25f) })
             {
                 GameObject wheel = Prim(PrimitiveType.Cylinder, "Rueda", cartRoot, p, new Vector3(0.14f, 0.03f, 0.14f), "Rueda", false);
@@ -1172,7 +1182,8 @@ namespace CarritoCaotico.EditorTools
             SetArray(rival, "tintRenderers", new Object[] { front.GetComponent<Renderer>(), left.GetComponent<Renderer>(), right.GetComponent<Renderer>() });
             SetArray(rival, "bodies", bodies);
 
-            string path = $"{PrefabsFolder}/Comprador_Rival.prefab";
+            // El clásico conserva el nombre de siempre para no romper las escenas ya generadas.
+            string path = current.Id == StoreId.Halloween ? $"{PrefabsFolder}/Comprador_Rival_Halloween.prefab" : $"{PrefabsFolder}/Comprador_Rival.prefab";
             bool existed = File.Exists(path);
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);

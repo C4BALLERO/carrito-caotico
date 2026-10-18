@@ -23,7 +23,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
-El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`.
+El escenario y los productos se construyen con primitivas y materiales de color plano. Los botones del menú y algunos sonidos de interfaz son assets **CC0** de [Kenney](https://kenney.nl); la lista está en `Assets/_CarritoCaotico/05_Audio/Kenney/CREDITOS.md`. Los compradores rivales son personajes **CC0** de [KayKit](https://www.kaylousberg.com) (Kay Lousberg); ver `Assets/_CarritoCaotico/06_Models/NPC/CREDITOS.md`.
 
 ## Instalación y ejecución
 
@@ -287,7 +287,8 @@ Además, con cada nivel los rivales caminan más rápido, tardan menos en agarra
 
 ### Compradores rivales
 
-- Usan los mismos cuerpos que los jugadores (pingüino, zorro o cerdo, uno por rival y el mismo en los dos PC en LAN) con el mismo bamboleo y aleteo al caminar. Cada uno empuja un carrito con las paredes de su color.
+- Son personajes animados de KayKit que comparten cuerpo y animaciones: **aventureros** (caballero, bárbaro, maga, pícaro) en el Súper Caótico y **esqueletos** en el Súper Embrujado. Cada rival es uno de ellos (el mismo en los dos PC en LAN).
+- Caminan con las manos en el asa de su carrito (las paredes llevan su color), esperan con la animación de reposo y se agachan a recoger cada producto (`ShopperAnimator`). En el PC cliente de LAN solo caminan y esperan.
 - Entran por un lateral de la tienda y recorren una red de pasillos (centros de pasillo y tres pasillos transversales). Se detienen frente a un producto y lo meten en su carrito, donde se ve.
 - Cuando llenan el carrito se van y, al rato, entra otro.
 - Si se llevan un producto de tu lista aparece el aviso **«¡Un rival se llevó…!»**. El chip superior derecho cuenta los rivales y los productos robados.
@@ -361,7 +362,8 @@ Assets/_CarritoCaotico/
 │   │   └── StoreCatalog.cs      Supermercados: escenas, nombres, consejos e imágenes de carga
 │   ├── Rivals/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
-│   │   └── RivalShopper.cs      IA de un comprador rival
+│   │   ├── RivalShopper.cs      IA de un comprador rival
+│   │   └── ShopperAnimator.cs   Animaciones del rival (caminar, esperar, recoger) y manos en el asa
 │   ├── Audio/
 │   │   ├── SoundLibrary.cs      Biblioteca de sonidos (ScriptableObject); un campo por archivo
 │   │   └── AudioDirector.cs     Ambiente, música y efectos según los eventos del juego
@@ -383,18 +385,20 @@ Assets/_CarritoCaotico/
 │       ├── UIButtonFeedback.cs  Animación de hover y pulsación de los botones, con sonido
 │       ├── TutorialController.cs  Tutorial guiado
 │       └── LoadingScreen.cs     Pantalla de carga persistente con ilustración y progreso
-├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
+├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab / Comprador_Rival_Halloween.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
 ├── 05_Audio/                ambientes, música, efectos e interfaz; SoundLibrary.asset (generado); Kenney/ con sonidos CC0 y CREDITOS.md
 ├── 06_Models/
 │   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
 │   ├── Zorro/               personaje con pose propia (no en pose T)
-│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   ├── Cerdo/               personaje con esqueleto de nombres Mixamo
+│   └── NPC/                 rivales KayKit (CC0): Aventureros/, Esqueletos/, NPC_Animaciones.fbx compartido, NPC_Comprador.controller (generado) y CREDITOS.md
 ├── 07_Sprites/              texturas generadas (esquinas, círculo, check) y Kenney/ con botones, flechas y campo de texto
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
+│   ├── NpcModels.cs         Importación de los rivales KayKit y su Animator Controller
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
 │   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
 │   ├── AudioBuilder.cs      Objeto Audio de cada escena con los sonidos de Kenney

@@ -15,7 +15,7 @@ namespace CarritoCaotico
 
         [SerializeField] Transform basketPoint;
         [SerializeField] Renderer[] tintRenderers;
-        [Tooltip("Un cuerpo por personaje, en el orden de CharacterId; se activa uno según NetId.")]
+        [Tooltip("Cuerpos posibles (personajes animados); se activa uno según NetId.")]
         [SerializeField] GameObject[] bodies;
         [SerializeField] float turnSpeed = 540f;
         [SerializeField] float arriveDistance = 0.15f;
@@ -32,6 +32,7 @@ namespace CarritoCaotico
         int capacity;
         int carried;
         MaterialPropertyBlock block;
+        ShopperAnimator animator;
 
         public int Carried => carried;
         /// <summary>Número de rival para la red; también elige su cuerpo.</summary>
@@ -79,6 +80,7 @@ namespace CarritoCaotico
             {
                 if (bodies[i] != null) bodies[i].SetActive(i == chosen);
             }
+            animator = bodies[chosen] != null ? bodies[chosen].GetComponent<ShopperAnimator>() : null;
         }
 
         void Tint(Color color)
@@ -129,6 +131,7 @@ namespace CarritoCaotico
                         phase = Phase.Grabbing;
                         timer = grabSeconds;
                         FaceTowards(target.transform.position, 1f);
+                        if (animator != null) animator.PlayGrab(grabSeconds);
                     }
                     break;
 
