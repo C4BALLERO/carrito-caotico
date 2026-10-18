@@ -22,6 +22,9 @@ namespace CarritoCaotico
         /// <summary>El carrito llegó a la caja sin productos.</summary>
         public event Action EmptyCartRejected;
 
+        /// <summary>Cliente LAN: el anfitrión avisa de que el carrito llegó vacío.</summary>
+        public void RaiseRemoteEmptyCart() => EmptyCartRejected?.Invoke();
+
         void Reset()
         {
             GetComponent<Collider>().isTrigger = true;

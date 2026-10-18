@@ -1,6 +1,6 @@
 # Carrito Caótico
 
-Juego cooperativo local para dos jugadores, hecho en Unity para la Game Jam **Better Together** de 48 horas.
+Juego cooperativo para dos jugadores, en un mismo PC o en **dos PC por LAN**, hecho en Unity para la Game Jam **Better Together** de 48 horas.
 
 Dos jugadores comparten un carrito de supermercado. Uno lo empuja y otro, sentado dentro, agarra productos con un brazo extensible. Solo quien agarra ve la lista de compras, así que tienen que hablar para encontrar los productos, meterlos en la canasta y llegar a la caja antes de que cierre la tienda.
 
@@ -20,6 +20,7 @@ Ninguno de los dos puede ganar solo. El Agarrador sabe qué comprar y el Empujad
 | Entrada | Input System (`com.unity.inputsystem`), *Active Input Handling* = Input System Package (New) |
 | UI | uGUI (`com.unity.ugui`) con la fuente integrada `LegacyRuntime.ttf` |
 | Pruebas | Unity Test Framework (`com.unity.test-framework`) |
+| Red (LAN) | Unity Transport (`com.unity.transport` 6.5.0, incluido en Unity 6.5) |
 | Plataforma | Windows 10/11 (x64) |
 
 No usa assets externos: todo se construye con primitivas, materiales de color plano y UI nativa.
@@ -117,6 +118,51 @@ A partir del **nivel 4**, cada nivel puede cambiar los controles al azar. El esq
 | Al revés | Teclas normales con las direcciones invertidas | Teclas normales con las direcciones invertidas |
 
 El esquema de cada nivel se mantiene al reintentarlo. Con el esquema intercambiado, también se intercambian los mandos.
+
+## Jugar en LAN (dos PC)
+
+Cada jugador juega en su PC, conectados a la misma red (wifi o cable). Así la lista queda oculta de verdad: solo aparece en el PC del Agarrador.
+
+| | Empujador | Agarrador |
+|---|---|---|
+| Vista | **Tercera persona o primera persona** (opcional, `V` o `Y` en el mando) | **Tercera persona** (siempre) |
+| Pantalla | Reloj y progreso total, sin lista | Lista completa |
+| Teclado | `W A S D` o flechas · `Shift` derrapar · mouse cámara | `W A S D` o flechas · `Enter` / `Espacio` agarrar · `F` / `Ctrl` lanzar · mouse cámara |
+| Mando | El primer mando del PC, con los mismos botones de siempre | El primer mando del PC, con los mismos botones de siempre |
+
+La vista elegida por el Empujador se guarda entre partidas. En primera persona la cámara va en sus ojos, detrás del asa, y su cuerpo solo proyecta sombra.
+
+### Cómo conectarse
+
+1. Compila el juego (**Carrito → Compilar para Windows (LAN)**) y copia la carpeta `Builds/Windows` a los dos PC. También vale abrir el proyecto en Unity en uno de ellos.
+2. **PC 1 (anfitrión):** *Jugar en LAN* → elige tu rol (Empujador o Agarrador) → **Crear partida**. El panel muestra tu IP (por ejemplo `192.168.1.20`).
+3. **PC 2:** *Jugar en LAN* → escribe esa IP → **Unirse**. Le toca el otro rol.
+4. El anfitrión vuelve al menú, elige supermercado y nivel y pulsa **Jugar**. Los dos PC cargan el nivel a la vez.
+
+La primera vez, Windows puede preguntar si el juego puede usar la red: permite el acceso en **redes privadas**. El juego usa el puerto UDP **7777**.
+
+### Cómo funciona
+
+- El **anfitrión** simula la física, los rivales, el reloj y las reglas. El otro PC manda los controles de su jugador y recibe unas 50 instantáneas por segundo, que interpola con 70 ms de retraso para que todo se mueva suave.
+- La mano del Agarrador se mueve en su propio PC sin esperar a la red. Agarrar, soltar y lanzar los resuelve el anfitrión donde está esa mano.
+- La pausa, reintentar, el siguiente nivel y volver al menú funcionan desde cualquiera de los dos PC.
+- Con el esquema **Intercambiado**, en LAN los dos PC **cambian de puesto** durante ese nivel: el Empujador pasa a agarrar y al revés, con su vista y su lista. **Al revés** invierte las direcciones como siempre.
+- Si se corta la conexión, los dos PC vuelven al menú con un aviso.
+- El tutorial es solo para un PC.
+
+### Probar en un solo PC
+
+Se pueden abrir dos copias del juego en el mismo PC con argumentos de línea de comandos:
+
+```bash
+Builds/Windows/CarritoCaotico.exe -screen-fullscreen 0 -screen-width 960 -screen-height 540 -lanHost Empujador -lanLocal -lanPlay 1
+```
+
+```bash
+Builds/Windows/CarritoCaotico.exe -screen-fullscreen 0 -screen-width 960 -screen-height 540 -lanJoin 127.0.0.1
+```
+
+`-lanHost Empujador|Agarrador` crea la partida, `-lanJoin IP` se une, `-lanPort` cambia el puerto, `-lanLocal` solo acepta conexiones de este PC y `-lanPlay N` empieza el nivel N al conectarse (`-lanStore Halloween` elige el otro supermercado).
 
 ## Cómo se juega
 
@@ -263,12 +309,17 @@ Assets/_CarritoCaotico/
 │   │   ├── GameTimer.cs         Cuenta regresiva de la partida
 │   │   └── LevelProgression.cs  Dificultad por nivel y esquemas de control
 │   ├── Input/
-│   │   └── GameInput.cs         Lectura de teclado/mandos con el New Input System
+│   │   └── GameInput.cs         Lectura de teclado/mandos con el New Input System y rol de cada PC en LAN
+│   ├── Net/
+│   │   ├── LanSession.cs        Conexión LAN con Unity Transport (anfitrión y cliente), cargas de escena
+│   │   ├── LanSync.cs           Instantáneas, interpolación, controles remotos y eventos de la partida
+│   │   ├── LanProtocol.cs       Mensajes LAN y su formato binario
+│   │   └── NetBuffer.cs         Escritura y lectura binaria compacta
 │   ├── Cart/
 │   │   ├── CartController.cs    Movimiento del carrito con fuerzas, derrape y masa con carga
 │   │   ├── CartContents.cs      Trigger de la canasta: contenido sin duplicados y peso
 │   │   ├── GrabberArm.cs        Brazo y mano: área limitada, agarrar, soltar y lanzar
-│   │   └── CameraController.cs  Cámara en tercera persona con órbita, suavizado y anticolisión
+│   │   └── CameraController.cs  Cámara en tercera persona (órbita, suavizado, anticolisión) y primera persona del Empujador
 │   ├── Shopping/
 │   │   ├── Product.cs           Tipos de producto (enum estable), catálogo y producto físico
 │   │   ├── ShoppingList.cs      Lista del Agarrador: requeridas, conseguidas y faltantes
@@ -308,11 +359,12 @@ Assets/_CarritoCaotico/
 │   ├── ProductModels.cs     Modelos de producto hechos con varias primitivas
 │   ├── CharacterModels.cs   Importación y colocación de los personajes con modelo 3D
 │   ├── SoundAssets.cs       Rellena la biblioteca de sonidos con los archivos de 05_Audio
-│   └── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo) y texturas de UI
+│   ├── HudBuilder.cs        Interfaz (tarjetas, teclas, lista, recibo, panel LAN) y texturas de UI
+│   └── PlayerBuilder.cs     Menú Carrito > Compilar para Windows (LAN)
 ├── Resources/Carga/         imágenes de las pantallas de carga (capturas generadas e ilustraciones con IA)
 └── Tests/
-    ├── EditMode/            Pruebas de reglas de la lista y de la evaluación
-    └── PlayMode/            Pruebas de integración sobre la escena generada
+    ├── EditMode/            Reglas de la lista, evaluación, protocolo LAN y controles por rol
+    └── PlayMode/            Integración sobre la escena generada, incluida la LAN por 127.0.0.1
 ```
 
 Las carpetas siguen la numeración de la asignatura (`00_Scenes`, `01_Scripts`, `02_Prefabs`, `03_Materials`, `04_Fonts`/`04_Shaders`, `05_Audio`, `06_Models`, `07_Sprites`). Las que aún no tienen contenido se crean cuando hagan falta. `Editor` y `Resources` conservan su nombre porque Unity los trata de forma especial. Los scripts se agrupan por responsabilidad, no por tipo técnico.
@@ -333,6 +385,8 @@ Diseñada con la skill *UI/UX Pro Max*, que recomendó un estilo claymorphism pa
 
 Desde Unity, abre *Window → General → Test Runner* y ejecuta las pestañas **EditMode** y **PlayMode**. Las pruebas PlayMode necesitan la escena generada.
 
+Las pruebas LAN (`CarritoLanTests`) abren conexiones reales en `127.0.0.1` (puertos 47811 y 47812): una sesión hace de este PC y otra, sin escena, hace del otro PC.
+
 Desde la línea de comandos:
 
 ```bash
@@ -346,8 +400,13 @@ Desde la línea de comandos:
 ## Compilación para Windows
 
 1. Genera la escena con **Carrito → Construir escena de prueba**. Así queda como escena 0 en *Build Settings*.
-2. Abre *File → Build Profiles*, elige **Windows** y pulsa **Build**.
-3. Elige una carpeta `Builds/`, que está excluida de Git.
+2. Ejecuta **Carrito → Compilar para Windows (LAN)**. El juego queda en `Builds/Windows/CarritoCaotico.exe` (carpeta excluida de Git).
+
+El comando activa *Run In Background*: en LAN el anfitrión debe seguir simulando aunque su ventana no tenga el foco. Desde la línea de comandos:
+
+```bash
+"C:/Program Files/Unity/Hub/Editor/6000.5.6f1/Editor/Unity.exe" -batchmode -projectPath . -executeMethod CarritoCaotico.EditorTools.PlayerBuilder.BuildWindowsFromCommandLine -logFile build-player.log
+```
 
 ## Estado del desarrollo
 
@@ -356,14 +415,15 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Problemas conocidos
 
 - Los rivales siguen una red fija de pasillos sin NavMesh: no esquivan el carrito de los jugadores, lo empujan.
-- La separación de la lista entre jugadores es solo visual: la lista está en el lado derecho de la pantalla y el Empujador no debe mirarla.
+- En un solo PC la separación de la lista es solo visual: está en el lado derecho de la pantalla y el Empujador no debe mirarla. En LAN el Empujador no la ve.
+- La LAN es para dos PC en la misma red; no hay juego por Internet. El Empujador del PC cliente nota unos 100 ms de retraso al conducir, porque la física la calcula el anfitrión.
 - Los productos dentro de la canasta pueden salir volando en curvas muy cerradas o al derrapar. Es intencionado, pero todavía no está equilibrado.
 - Los personajes y el brazo son solo visuales, sin colisión, y pueden atravesar los estantes.
 - La UI usa `UnityEngine.UI.Text` con la fuente integrada en lugar de TextMeshPro, para no tener que importar recursos.
 
 ## Próximas tareas
 
-- Pantalla dividida o UI separada para ocultar de verdad la lista al Empujador.
+- Juego por Internet (Unity Relay) además de la LAN.
 - Sonido: carrito, caja registradora y música.
 - Más productos, ofertas y obstáculos dinámicos, como clientes o reponedores.
 - Menú principal y selección de dificultad.
