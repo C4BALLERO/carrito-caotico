@@ -130,7 +130,7 @@ namespace CarritoCaotico
             if (cartContents != null) cartCount = cartContents.Count;
 
             // Todos los botones (menú, pausa, recibo, tutorial) suenan al pulsarlos.
-            foreach (Button button in FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (Button button in FindObjectsByType<Button>(FindObjectsInactive.Include))
                 button.onClick.AddListener(() => PlayInterface(library != null ? library.uiConfirmar : null));
 
             if (gameManager != null) OnStateChanged(gameManager.State);
