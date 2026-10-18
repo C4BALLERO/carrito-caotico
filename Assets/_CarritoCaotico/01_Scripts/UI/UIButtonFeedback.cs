@@ -23,6 +23,8 @@ namespace CarritoCaotico
         [Tooltip("Botón principal: late suavemente cuando no se toca.")]
         [SerializeField] bool idlePulse;
         [SerializeField] UISound clickSound = UISound.Click;
+        [Tooltip("Al pasar el mouse se convierte en la opción elegida (menús en lista).")]
+        [SerializeField] bool selectOnHover;
 
         RectTransform rect;
         Selectable selectable;
@@ -97,6 +99,7 @@ namespace CarritoCaotico
         {
             if (!hovered && Interactable) GameAudio.PlayUI(UISound.Hover);
             hovered = true;
+            if (selectOnHover && Interactable && EventSystem.current != null) EventSystem.current.SetSelectedGameObject(gameObject);
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -137,6 +140,15 @@ namespace CarritoCaotico
         {
             idlePulse = pulse;
             clickSound = sound;
+        }
+
+        /// <summary>Opción de un menú en lista: se elige al pasar el mouse, crece poco y no sube.</summary>
+        public void ConfigureListItem()
+        {
+            selectOnHover = true;
+            hoverScale = 1.04f;
+            hoverLift = 0f;
+            idlePulse = false;
         }
     }
 }
