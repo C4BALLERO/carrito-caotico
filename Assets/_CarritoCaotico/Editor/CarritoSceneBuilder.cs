@@ -293,10 +293,11 @@ namespace CarritoCaotico.EditorTools
             SetRefs(shoppingList, ("cartContents", cart.Contents));
             SetRefs(checkout, ("gameManager", manager));
             SetRefs(cameraController, ("target", cart.Controller.transform), ("targetBody", cart.Body));
+            CartHealth cartHealth = cart.Controller.GetComponent<CartHealth>();
             SetRefs(manager,
                 ("timer", timer), ("shoppingList", shoppingList), ("cartContents", cart.Contents),
                 ("cart", cart.Controller), ("grabber", cart.Arm), ("cameraController", cameraController),
-                ("rivals", rivalManager));
+                ("rivals", rivalManager), ("cartHealth", cartHealth));
             SetRefs(ui,
                 ("gameManager", manager), ("timer", timer), ("shoppingList", shoppingList),
                 ("checkout", checkout), ("rivals", rivalManager));
@@ -306,7 +307,7 @@ namespace CarritoCaotico.EditorTools
                 ("cartContents", cart.Contents), ("shoppingList", shoppingList), ("cameraController", cameraController));
             ConfigureStore(manager, shoppingList);
             ConfigureRivals(rivalManager, rivalPrefab, shoppingList, cart.Contents);
-            AudioBuilder.Build(current.Id, manager, cart.Arm, shoppingList, timer, rivalManager, checkout);
+            AudioBuilder.Build(current.Id, manager, cart.Arm, shoppingList, timer, rivalManager, checkout, cartHealth);
             Count("Audio (GameAudio con música y efectos)");
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -1020,6 +1021,7 @@ namespace CarritoCaotico.EditorTools
             GameObject shadow = Prim(PrimitiveType.Cylinder, "Sombra_Mano", null, Vector3.zero, new Vector3(0.3f, 0.005f, 0.3f), "SombraMano", false);
             shadow.transform.SetParent(root.transform.parent, true);
 
+            root.AddComponent<CartHealth>();
             var grabber = root.AddComponent<GrabberArm>();
             SetRefs(grabber,
                 ("cartRoot", t), ("cartBody", body), ("shoulder", shoulder.transform), ("hand", hand.transform),

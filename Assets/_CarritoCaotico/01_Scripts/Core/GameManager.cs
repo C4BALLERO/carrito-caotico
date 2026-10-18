@@ -12,7 +12,9 @@ namespace CarritoCaotico
         Preparacion,
         EnJuego,
         CompraEntregada,
-        TiempoAgotado
+        TiempoAgotado,
+        /// <summary>El carrito explotó por los golpes.</summary>
+        CarritoDestruido
     }
 
     public enum CheckoutAttempt
@@ -38,6 +40,7 @@ namespace CarritoCaotico
         [SerializeField] GrabberArm grabber;
         [SerializeField] CameraController cameraController;
         [SerializeField] RivalManager rivals;
+        [SerializeField] CartHealth cartHealth;
 
         [Header("Supermercado")]
         [Tooltip("Supermercado que representa esta escena.")]
@@ -61,7 +64,7 @@ namespace CarritoCaotico
         public LevelConfig CurrentConfig { get; private set; }
         public int CurrentLevel => CurrentConfig != null ? CurrentConfig.Level : GameSession.CurrentLevel;
         public bool IsPaused { get; private set; }
-        public bool IsGameOver => State == GameState.CompraEntregada || State == GameState.TiempoAgotado;
+        public bool IsGameOver => State == GameState.CompraEntregada || State == GameState.TiempoAgotado || State == GameState.CarritoDestruido;
         public bool CanAdvance => !IsTutorial && State == GameState.CompraEntregada && LastReceipt != null && LastReceipt.IsComplete;
         public bool IsTutorial { get; private set; }
         public StoreId Store => store;
@@ -73,6 +76,7 @@ namespace CarritoCaotico
         public GrabberArm Grabber => grabber;
         public CameraController CameraRig => cameraController;
         public RivalManager Rivals => rivals;
+        public CartHealth Health => cartHealth;
 
         public bool IsLanHost => LanSession.IsHostActive;
         public bool IsLanClient => LanSession.IsClientActive;
@@ -87,16 +91,19 @@ namespace CarritoCaotico
         void Awake()
         {
             Time.timeScale = 1f;
+            if (cartHealth == null && cart != null) cartHealth = cart.GetComponent<CartHealth>();
         }
 
         void OnEnable()
         {
             if (timer != null) timer.Expired += OnTimerExpired;
+            if (cartHealth != null) cartHealth.Exploded += OnCartExploded;
         }
 
         void OnDisable()
         {
             if (timer != null) timer.Expired -= OnTimerExpired;
+            if (cartHealth != null) cartHealth.Exploded -= OnCartExploded;
             SetCursorLocked(false);
         }
 
@@ -249,6 +256,7 @@ namespace CarritoCaotico
         {
             if (State != GameState.Preparacion) return;
             SetPlayersEnabled(true);
+            if (cartHealth != null) cartHealth.SetDamageEnabled(true);
             SetCursorLocked(lockCursorWhilePlaying);
             if (timer != null) timer.StartTimer();
             if (rivals != null && CurrentConfig != null) rivals.Begin(CurrentConfig);
@@ -362,8 +370,21 @@ namespace CarritoCaotico
             EndGame(GameState.TiempoAgotado);
         }
 
+        /// <summary>El carrito explotó: la compra no se entrega.</summary>
+        void OnCartExploded()
+        {
+            if (IsLanClient || State != GameState.EnJuego) return;
+            if (timer != null) timer.StopTimer();
+            SetPlayersEnabled(false);
+            float elapsed = timer != null ? timer.Elapsed : 0f;
+            float remaining = timer != null ? timer.Remaining : 0f;
+            LastReceipt = ShoppingRules.Evaluate(shoppingList.Required, null, elapsed, remaining, false);
+            EndGame(GameState.CarritoDestruido);
+        }
+
         void EndGame(GameState finalState)
         {
+            if (cartHealth != null) cartHealth.SetDamageEnabled(false);
             if (rivals != null) rivals.Stop();
             SetCursorLocked(false);
             ChangeState(finalState);
@@ -423,6 +444,8 @@ namespace CarritoCaotico
             LastReceipt = receipt;
             SetPlayersEnabled(false);
             if (receipt.IsComplete) GameSession.Unlock(CurrentLevel + 1);
+            // En el cliente la explosión es solo visual: el anfitrión ya decidió el final.
+            if (finalState == GameState.CarritoDestruido && cartHealth != null && !cartHealth.IsDestroyed) cartHealth.Explode();
             EndGame(finalState);
         }
 

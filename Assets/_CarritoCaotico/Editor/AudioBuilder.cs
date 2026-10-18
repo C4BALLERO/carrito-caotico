@@ -47,7 +47,7 @@ namespace CarritoCaotico.EditorTools
         }
 
         public static GameAudio Build(StoreId store, GameManager manager, GrabberArm grabber, ShoppingList list,
-            GameTimer timer, RivalManager rivals, Checkout checkout)
+            GameTimer timer, RivalManager rivals, Checkout checkout, CartHealth health)
         {
             var go = new GameObject("Audio");
             var audio = go.AddComponent<GameAudio>();
@@ -66,6 +66,7 @@ namespace CarritoCaotico.EditorTools
             Set("timer", timer);
             Set("rivals", rivals);
             Set("checkout", checkout);
+            Set("cartHealth", health);
             Set("music", LoadClip(MusicFile(store), true));
             foreach (var (field, file) in Effects) Set(field, LoadClip(file, false));
             serialized.ApplyModifiedPropertiesWithoutUndo();

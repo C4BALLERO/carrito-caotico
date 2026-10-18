@@ -104,6 +104,7 @@ namespace CarritoCaotico.EditorTools
             Transform game = Container(root, "Juego");
             refs["hudRoot"] = game.gameObject;
             ShoppingListRow[] rows = BuildListPanel(game, refs);
+            BuildHealthBar(game, refs);
             BuildMessage(game, refs);
 
             BuildTutorial(root, tutorialRefs);
@@ -189,6 +190,26 @@ namespace CarritoCaotico.EditorTools
             refs["listProgressText"] = progress;
             refs["listProgressFill"] = bar.rectTransform;
             return rows;
+        }
+
+        /// <summary>Vida del carrito: abajo a la izquierda, con número y color (verde, ámbar, rojo).</summary>
+        static void BuildHealthBar(Transform root, Dictionary<string, object> refs)
+        {
+            Image fill = CardBox(root, "Vida_Carrito", new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(380f, 96f), Card, 1f);
+            Text title = Label(fill.transform, "Titulo", "Vida del carrito", 22, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Place(title.rectTransform, new Vector2(18f, -10f), new Vector2(240f, 32f));
+            Text value = Label(fill.transform, "Valor", "100%", 24, Ink, TextAnchor.MiddleRight, FontStyle.Bold);
+            Place(value.rectTransform, new Vector2(230f, -10f), new Vector2(126f, 32f));
+
+            Image track = Box(fill.transform, "Barra", Neutral, circleSprite: false, ppu: 2.5f);
+            Place(track.rectTransform, new Vector2(18f, -50f), new Vector2(338f, 28f));
+            Image bar = Box(track.transform, "Relleno", Success, circleSprite: false, ppu: 2.5f);
+            Anchor(bar.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            refs["healthPanel"] = (RectTransform)fill.transform.parent;
+            refs["healthFill"] = bar.rectTransform;
+            refs["healthFillImage"] = bar;
+            refs["healthText"] = value;
         }
 
         static ShoppingListRow ListRow(Transform parent, int index, float y)
@@ -571,8 +592,25 @@ namespace CarritoCaotico.EditorTools
             InputField address = AddressField(setup, new Vector2(-130f, -458f), new Vector2(460f, 76f));
             Button join = CardButton(setup, "Boton_Unirse", "Unirse", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(240f, -458f), new Vector2(220f, 76f), 30, 1f);
 
+            // IP grande mientras se espera al otro PC (ocupa el sitio del formulario, que se oculta).
+            var bigGo = new GameObject("IP_Grande", typeof(RectTransform));
+            bigGo.transform.SetParent(c, false);
+            Anchor((RectTransform)bigGo.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Text bigCaption = Label(bigGo.transform, "Titulo", "TU IP: ESCRÍBELA EN EL OTRO PC", 22, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(bigCaption.rectTransform, new Vector2(20f, -200f), new Vector2(940f, 30f));
+            Image bigBack = Box(bigGo.transform, "Fondo", KeyCap, circleSprite: false, ppu: 1.2f);
+            Place(bigBack.rectTransform, new Vector2(140f, -240f), new Vector2(700f, 190f));
+            Text bigAddress = Label(bigBack.transform, "IP", "192.168.0.10", 104, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Anchor(bigAddress.rectTransform, Vector2.zero, Vector2.one, new Vector2(16f, 0f), new Vector2(-16f, 0f));
+            bigAddress.resizeTextForBestFit = true;
+            bigAddress.resizeTextMinSize = 40;
+            bigAddress.resizeTextMaxSize = 104;
+            Text bigPort = Label(bigGo.transform, "Puerto", $"puerto {LanProtocol.DefaultPort} · misma wifi", 20, MutedInk, TextAnchor.MiddleCenter, FontStyle.Normal);
+            Place(bigPort.rectTransform, new Vector2(20f, -440f), new Vector2(940f, 28f));
+            bigGo.SetActive(false);
+
             Text status = Label(c, "Estado", "", 24, Ink, TextAnchor.MiddleCenter, FontStyle.Normal);
-            Place(status.rectTransform, new Vector2(40f, -556f), new Vector2(900f, 120f));
+            Place(status.rectTransform, new Vector2(40f, -546f), new Vector2(900f, 140f));
             status.horizontalOverflow = HorizontalWrapMode.Wrap;
             status.lineSpacing = 1.2f;
 
@@ -590,6 +628,8 @@ namespace CarritoCaotico.EditorTools
             refs["lanAddressField"] = address;
             refs["lanJoinButton"] = join;
             refs["lanStatusText"] = status;
+            refs["lanBigAddressGroup"] = bigGo;
+            refs["lanBigAddressText"] = bigAddress;
             refs["lanCancelButton"] = cancel;
             refs["lanCancelText"] = cancel.GetComponentInChildren<Text>(true);
             refs["lanBackButton"] = back;

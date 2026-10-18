@@ -24,7 +24,9 @@ namespace CarritoCaotico
         Go,
         Pause,
         Connected,
-        Disconnected
+        Disconnected,
+        Hit,
+        Explosion
     }
 
     /// <summary>Qué suena: todo, solo efectos o nada. Se guarda entre partidas.</summary>
@@ -52,6 +54,7 @@ namespace CarritoCaotico
         [SerializeField] GameTimer timer;
         [SerializeField] RivalManager rivals;
         [SerializeField] Checkout checkout;
+        [SerializeField] CartHealth cartHealth;
 
         [Header("Música")]
         [SerializeField] AudioClip music;
@@ -182,6 +185,11 @@ namespace CarritoCaotico
             if (timer != null) timer.SecondsChanged += OnSecondsChanged;
             if (rivals != null) rivals.ProductTaken += OnRivalTook;
             if (checkout != null) checkout.EmptyCartRejected += OnEmptyCart;
+            if (cartHealth != null)
+            {
+                cartHealth.Damaged += OnCartDamaged;
+                cartHealth.Exploded += OnCartExploded;
+            }
             LanSession.AnyStatusChanged += OnLanStatus;
         }
 
@@ -202,6 +210,11 @@ namespace CarritoCaotico
             if (timer != null) timer.SecondsChanged -= OnSecondsChanged;
             if (rivals != null) rivals.ProductTaken -= OnRivalTook;
             if (checkout != null) checkout.EmptyCartRejected -= OnEmptyCart;
+            if (cartHealth != null)
+            {
+                cartHealth.Damaged -= OnCartDamaged;
+                cartHealth.Exploded -= OnCartExploded;
+            }
             LanSession.AnyStatusChanged -= OnLanStatus;
         }
 
@@ -292,6 +305,8 @@ namespace CarritoCaotico
                 case GameSound.Pause: a.PlayClip(a.pause, "Pause", 0.7f); break;
                 case GameSound.Connected: a.PlayClip(a.connected, "Connected", 0.9f); break;
                 case GameSound.Disconnected: a.PlayClip(a.disconnected, "Disconnected", 0.9f); break;
+                case GameSound.Hit: a.PlayClip(ProceduralSounds.Hit(), "Hit", 0.9f); break;
+                case GameSound.Explosion: a.PlayClip(ProceduralSounds.Explosion(), "Explosion", 1f); break;
             }
         }
 
@@ -375,6 +390,13 @@ namespace CarritoCaotico
         void OnRivalTook(Product product) => Play(GameSound.RivalTook);
 
         void OnEmptyCart() => Play(GameSound.EmptyCart);
+
+        void OnCartDamaged(float amount)
+        {
+            if (cartHealth == null || !cartHealth.IsDestroyed) Play(GameSound.Hit);
+        }
+
+        void OnCartExploded() => Play(GameSound.Explosion);
 
         void OnLanStatus()
         {

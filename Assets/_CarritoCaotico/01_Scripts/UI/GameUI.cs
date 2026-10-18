@@ -50,6 +50,12 @@ namespace CarritoCaotico
         [SerializeField] Text listProgressText;
         [SerializeField] RectTransform listProgressFill;
 
+        [Header("Vida del carrito")]
+        [SerializeField] RectTransform healthPanel;
+        [SerializeField] RectTransform healthFill;
+        [SerializeField] Image healthFillImage;
+        [SerializeField] Text healthText;
+
         [Header("Avisos, preparación y pausa")]
         [SerializeField] GameObject messagePanel;
         [SerializeField] Text messageText;
@@ -108,6 +114,17 @@ namespace CarritoCaotico
         /// <summary>true en el PC del Empujador en LAN: la lista no se muestra.</summary>
         public bool IsListHidden => hideList;
 
+        // Barra de vida: se mueve suave hacia el valor real y tiembla con cada golpe.
+        float shownHealth = 1f;
+        float shakeUntil = -1f;
+        Vector2 healthPanelPosition;
+        bool healthPositionCaptured;
+        bool lowHealthWarned;
+
+        /// <summary>Fracción que muestra la barra de vida ahora mismo.</summary>
+        public float ShownHealth => shownHealth;
+        CartHealth Health => gameManager != null ? gameManager.Health : null;
+
         bool IsTutorial => gameManager != null && gameManager.IsTutorial;
 
         void OnEnable()
@@ -128,6 +145,7 @@ namespace CarritoCaotico
                 rivals.Changed += RefreshSubtitle;
                 rivals.ProductTaken += OnRivalTookProduct;
             }
+            if (Health != null) Health.Damaged += OnCartDamaged;
             if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
             if (nextLevelButton != null) nextLevelButton.onClick.AddListener(OnNextLevelClicked);
             if (menuButton != null) menuButton.onClick.AddListener(OnMenuClicked);
@@ -150,6 +168,7 @@ namespace CarritoCaotico
                 rivals.Changed -= RefreshSubtitle;
                 rivals.ProductTaken -= OnRivalTookProduct;
             }
+            if (Health != null) Health.Damaged -= OnCartDamaged;
             if (restartButton != null) restartButton.onClick.RemoveListener(OnRestartClicked);
             if (nextLevelButton != null) nextLevelButton.onClick.RemoveListener(OnNextLevelClicked);
             if (menuButton != null) menuButton.onClick.RemoveListener(OnMenuClicked);
@@ -185,6 +204,59 @@ namespace CarritoCaotico
             }
 
             UpdateTimerPulse();
+            UpdateHealthBar();
+        }
+
+        // ---------- Vida del carrito ----------
+
+        void UpdateHealthBar()
+        {
+            CartHealth health = Health;
+            if (healthPanel == null) return;
+            bool visible = health != null && !IsTutorial && gameManager.State != GameState.Menu;
+            if (healthPanel.gameObject.activeSelf != visible) healthPanel.gameObject.SetActive(visible);
+            if (!visible) return;
+            if (!healthPositionCaptured)
+            {
+                healthPanelPosition = healthPanel.anchoredPosition;
+                healthPositionCaptured = true;
+            }
+
+            float target = health.Fraction;
+            shownHealth = Mathf.MoveTowards(shownHealth, target, Time.unscaledDeltaTime * 1.5f);
+            if (healthFill != null) healthFill.anchorMax = new Vector2(Mathf.Clamp01(shownHealth), 1f);
+            if (healthText != null) healthText.text = health.IsDestroyed ? "¡BUM!" : $"{Mathf.CeilToInt(target * 100f)}%";
+
+            // Color y texto: el estado no depende solo del color.
+            Color color = target > 0.6f ? success : target > 0.3f ? warning : danger;
+            if (healthFillImage != null) healthFillImage.color = color;
+            if (healthText != null) healthText.color = target > 0.3f ? ink : danger;
+
+            Vector2 offset = Vector2.zero;
+            if (Time.unscaledTime < shakeUntil)
+            {
+                float strength = 9f * (shakeUntil - Time.unscaledTime) / 0.35f;
+                offset = new Vector2(Mathf.Sin(Time.unscaledTime * 90f), Mathf.Cos(Time.unscaledTime * 70f)) * strength;
+            }
+            else if (target <= 0.3f && !health.IsDestroyed)
+            {
+                // Con poca vida la tarjeta late.
+                float pulse = 1f + 0.05f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f));
+                healthPanel.localScale = new Vector3(pulse, pulse, 1f);
+            }
+            if (target > 0.3f || health.IsDestroyed) healthPanel.localScale = Vector3.one;
+            healthPanel.anchoredPosition = healthPanelPosition + offset;
+        }
+
+        void OnCartDamaged(float amount)
+        {
+            shakeUntil = Time.unscaledTime + 0.35f;
+            CartHealth health = Health;
+            if (health != null && !health.IsDestroyed && health.Fraction <= 0.3f && !lowHealthWarned)
+            {
+                lowHealthWarned = true;
+                ShowMessage("¡Cuidado! El carrito está a punto de explotar", 2.5f, MessageKind.Danger);
+            }
         }
 
         // ---------- Temporizador (dentro de la cabecera de la lista) ----------
@@ -354,6 +426,7 @@ namespace CarritoCaotico
                     RefreshSubtitle();
                     break;
                 case GameState.TiempoAgotado:
+                case GameState.CarritoDestruido:
                 case GameState.CompraEntregada:
                     if (messagePanel != null) messagePanel.SetActive(false);
                     messageHideTime = -1f;
@@ -485,7 +558,8 @@ namespace CarritoCaotico
             if (preparationPanel != null) preparationPanel.SetActive(false);
 
             if (receiptTitleText != null)
-                receiptTitleText.text = receipt.TimedOut ? "¡La tienda cerró!" : $"Recibo · {StoreCatalog.DisplayName(gameManager.Store)}";
+                receiptTitleText.text = gameManager.State == GameState.CarritoDestruido ? "¡El carrito explotó!"
+                    : receipt.TimedOut ? "¡La tienda cerró!" : $"Recibo · {StoreCatalog.DisplayName(gameManager.Store)}";
             if (receiptTimeText != null)
                 receiptTimeText.text = $"Tiempo empleado  <b>{GameTimer.Format(receipt.ElapsedSeconds)}</b>     ·     Tiempo restante  <b>{GameTimer.Format(receipt.RemainingSeconds)}</b>";
 
