@@ -166,6 +166,16 @@ Mientras se juega solo se ve la **Lista del Agarrador**, con el reloj y el nivel
 | Ambiente | Luminoso, colores frescos | Oscuro con niebla morada, calabazas iluminadas, murciélagos, telarañas y un caldero en la caja |
 | Obstáculos móviles | Reponedor en la entrada | Dos fantasmas flotando por los pasillos transversales |
 
+### Personajes
+
+En el menú, la fila **Jugador 1 · Empujador** / **Jugador 2 · Agarrador** permite que cada jugador elija su personaje: **pingüino**, **zorro** o **cerdo**. La elección se guarda entre partidas y el carrito cambia al momento. Pueden elegir el mismo.
+
+- **Empujador:** de pie detrás del asa. Se bambolea al ritmo del carrito, se inclina en las curvas y, si el modelo venía en pose T (pingüino y cerdo), mueve los brazos.
+- **Agarrador:** de pie en el asiento, visible de pecho para arriba. Señala con el brazo derecho la mano extensible mientras la mueve.
+- Por defecto: pingüino Empujador y zorro Agarrador.
+
+Los tres personajes están colocados en los dos puestos de las dos escenas; `CartCrew` activa solo los elegidos. La posición se calcula con las medidas de cada modelo para que ninguno atraviese el carrito.
+
 ### Obstáculos
 
 - **Charcos** (azules o de baba verde): el carrito pierde casi todo el agarre lateral y patina (`SlipperyZone`).
@@ -263,9 +273,11 @@ Assets/_CarritoCaotico/
 │   │   ├── RivalManager.cs      Red de pasillos, objetivos y regla justa de los rivales
 │   │   └── RivalShopper.cs      IA de un comprador rival
 │   ├── Characters/
+│   │   ├── CharacterChoice.cs   Personaje elegido por cada jugador (guardado en PlayerPrefs)
+│   │   ├── CartCrew.cs          Activa en el carrito los personajes elegidos
 │   │   ├── CharacterWaddle.cs   Bamboleo de los personajes del carrito según su velocidad
-│   │   ├── FlipperFlap.cs       Aleteo del pingüino Empujador
-│   │   └── ArmReach.cs          Brazo del zorro Agarrador que señala la mano extensible
+│   │   ├── FlipperFlap.cs       Brazos que se agitan al empujar (modelos en pose T)
+│   │   └── ArmReach.cs          Brazo del Agarrador que señala la mano extensible
 │   ├── Obstacles/
 │   │   ├── SlipperyZone.cs      Charcos resbaladizos
 │   │   └── MovingObstacle.cs    Reponedor y fantasmas que van y vienen
@@ -277,8 +289,9 @@ Assets/_CarritoCaotico/
 ├── 02_Prefabs/              (generado) Producto_*.prefab, uno por tipo, y Comprador_Rival.prefab
 ├── 03_Materials/            (generado) materiales M_* y materiales físicos PM_*
 ├── 06_Models/
-│   ├── Pinguino/            Empujador: modelo FBX con huesos y textura de color
-│   └── Zorro/               Agarrador: modelo FBX con huesos y textura de color
+│   ├── Pinguino/            personaje: modelo FBX con huesos y textura de color
+│   ├── Zorro/               personaje con pose propia (no en pose T)
+│   └── Cerdo/               personaje con esqueleto de nombres Mixamo
 ├── 07_Sprites/              (generado) texturas de esquinas redondeadas, círculo y check
 ├── Editor/                  (CarritoCaotico.Editor.asmdef)
 │   ├── CarritoSceneBuilder.cs  Menú Carrito > Construir escena de prueba
@@ -348,7 +361,7 @@ MVP jugable de principio a fin: preparación, lista aleatoria, conducción, braz
 ## Créditos
 
 - Diseño y desarrollo: equipo de Carrito Caótico (Game Jam Better Together).
-- Modelos 3D del pingüino Empujador y del zorro Agarrador generados con [Tripo AI](https://studio.tripo3d.ai/).
+- Modelos 3D de los personajes (pingüino, zorro y cerdo) generados con [Tripo AI](https://studio.tripo3d.ai/).
 - Desarrollado con la ayuda de Claude Code.
 
 ## Licencia

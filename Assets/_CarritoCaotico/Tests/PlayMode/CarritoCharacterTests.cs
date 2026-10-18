@@ -7,10 +7,30 @@ using UnityEngine.TestTools;
 
 namespace CarritoCaotico.Tests
 {
-    /// <summary>Pruebas de los personajes del carrito: pingüino Empujador y zorro Agarrador.</summary>
+    /// <summary>Pruebas de los personajes del carrito: modelos, bamboleo, brazo que señala y selector.</summary>
     public class CarritoCharacterTests
     {
         const string ScenePath = "Assets/_CarritoCaotico/00_Scenes/CarritoCaotico_Prueba.unity";
+
+        CharacterId savedPusher;
+        CharacterId savedGrabber;
+
+        [SetUp]
+        public void SetUp()
+        {
+            // La elección se guarda en PlayerPrefs: se fija para la prueba y se restaura después.
+            savedPusher = CharacterChoice.Pusher;
+            savedGrabber = CharacterChoice.Grabber;
+            CharacterChoice.Pusher = CharacterChoice.DefaultPusher;
+            CharacterChoice.Grabber = CharacterChoice.DefaultGrabber;
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            CharacterChoice.Pusher = savedPusher;
+            CharacterChoice.Grabber = savedGrabber;
+        }
 
         IEnumerator Load()
         {
@@ -43,6 +63,16 @@ namespace CarritoCaotico.Tests
                 if (found != null) return found;
             }
             return null;
+        }
+
+        /// <summary>Ángulo entre el brazo derecho del Agarrador activo y la mano extensible.</summary>
+        static float GrabberArmAngle(GameObject grabber, string upperArmBone, string handBone)
+        {
+            Transform upperArm = FindDeep(grabber.transform, upperArmBone);
+            Transform hand = FindDeep(grabber.transform, handBone);
+            Transform target = FindDeep(Object.FindAnyObjectByType<CartController>().transform, "Mano");
+            Assert.IsNotNull(target, "Falta la mano extensible del carrito.");
+            return Vector3.Angle(hand.position - upperArm.position, target.position - upperArm.position);
         }
 
         [UnityTest]
@@ -85,13 +115,28 @@ namespace CarritoCaotico.Tests
             Assert.IsNotNull(fox.GetComponent<ArmReach>(), "El zorro señala su mano extensible.");
 
             yield return null;
-            Transform upperArm = FindDeep(fox.transform, "Right_UpperArm");
-            Transform hand = FindDeep(fox.transform, "Right_Hand");
-            Transform target = FindDeep(Object.FindAnyObjectByType<CartController>().transform, "Mano");
-            Assert.IsNotNull(target, "Falta la mano extensible del carrito.");
+            Assert.Less(GrabberArmAngle(fox, "Right_UpperArm", "Right_Hand"), 5f, "El brazo derecho apunta a la mano extensible.");
+        }
 
-            float angle = Vector3.Angle(hand.position - upperArm.position, target.position - upperArm.position);
-            Assert.Less(angle, 5f, "El brazo derecho apunta a la mano extensible.");
+        [UnityTest]
+        public IEnumerator Selector_SwapsCharactersLive()
+        {
+            yield return Load();
+            var crew = Object.FindAnyObjectByType<CartCrew>();
+            Assert.IsNotNull(crew, "El carrito tiene su tripulación.");
+            Assert.AreEqual("Empujador_Pinguino", crew.ActivePusher.name);
+            Assert.AreEqual("Agarrador_Zorro", crew.ActiveGrabber.name);
+
+            // Se cambia en el menú: el carrito cambia al momento y solo hay uno activo por puesto.
+            CharacterChoice.Pusher = CharacterId.Zorro;
+            CharacterChoice.Grabber = CharacterId.Cerdo;
+            yield return null;
+
+            Assert.IsTrue(GameObject.Find("Empujador_Zorro") != null && GameObject.Find("Empujador_Pinguino") == null);
+            GameObject pig = GameObject.Find("Agarrador_Cerdo");
+            CheckModel(pig, "cerdo");
+            Assert.IsNull(GameObject.Find("Agarrador_Zorro"));
+            Assert.Less(GrabberArmAngle(pig, "mixamorig:RightArm", "mixamorig:RightHand"), 5f, "El cerdo también señala su mano extensible.");
         }
     }
 }

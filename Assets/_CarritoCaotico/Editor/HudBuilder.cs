@@ -475,7 +475,7 @@ namespace CarritoCaotico.EditorTools
                 Anchor(stripe.rectTransform, new Vector2(i / 8f, 0f), new Vector2(i / 8f + 0.0625f, 1f), Vector2.zero, Vector2.zero);
             }
 
-            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(1000f, 960f), Card, 1f);
+            Image card = CardBox(overlay, "Tarjeta", new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(1000f, 1030f), Card, 1f);
             Image band = Box(card.transform, "Cabecera", store == StoreId.Halloween ? (Color)theme.Accent : (Color)Success, circleSprite: false, ppu: 1f);
             Anchor(band.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(10f, -176f), new Vector2(-10f, -10f));
             Text title = Label(band.transform, "Titulo", "Carrito Caótico", 86, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -483,20 +483,24 @@ namespace CarritoCaotico.EditorTools
             Text subtitle = Label(band.transform, "Subtitulo", "Cooperativo local para dos  ·  Better Together", 26, theme.MenuSubtitle, TextAnchor.MiddleCenter, FontStyle.Bold);
             Anchor(subtitle.rectTransform, Vector2.zero, new Vector2(1f, 0.36f), new Vector2(0f, 12f), Vector2.zero);
 
-            // Selectores de supermercado, nivel y mando.
+            // Selectores de supermercado, nivel, personajes y mando.
             var (previousStore, storeText, nextStore, storeDetail) = Selector(card.transform, "SUPERMERCADO", -190f, StoreCatalog.DisplayName(store), 420f);
             var (previousLevel, levelText, nextLevel, levelDetail) = Selector(card.transform, "NIVEL", -332f, "Nivel 1", 300f);
-            var (previousPad, padText, nextPad, padDetail) = Selector(card.transform, "MANDO (UN JUGADOR CON TECLADO Y OTRO CON MANDO)", -474f, "Mando: automático", 420f);
+            var (previousPusher, pusherText, nextPusher) = HalfSelector(card.transform, "JUGADOR 1 · EMPUJADOR", -474f, -250f,
+                CharacterChoice.DisplayName(CharacterChoice.DefaultPusher));
+            var (previousGrabber, grabberText, nextGrabber) = HalfSelector(card.transform, "JUGADOR 2 · AGARRADOR", -474f, 250f,
+                CharacterChoice.DisplayName(CharacterChoice.DefaultGrabber));
+            var (previousPad, padText, nextPad, padDetail) = Selector(card.transform, "MANDO (UN JUGADOR CON TECLADO Y OTRO CON MANDO)", -596f, "Mando: automático", 420f);
 
-            Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -634f), new Vector2(420f, 92f), 40, 1f);
-            Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -634f), new Vector2(240f, 92f), 30, 1f);
-            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -742f), new Vector2(240f, 58f), 24, 1.5f);
+            Button play = CardButton(card.transform, "Boton_Jugar", "Jugar", "Enter", Warning, Ink, new Vector2(0.5f, 1f), new Vector2(-130f, -756f), new Vector2(420f, 92f), 40, 1f);
+            Button tutorial = CardButton(card.transform, "Boton_Tutorial", "Tutorial", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(220f, -756f), new Vector2(240f, 92f), 30, 1f);
+            Button quit = CardButton(card.transform, "Boton_Salir", "Salir", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(0f, -864f), new Vector2(240f, 58f), 24, 1.5f);
 
             Text roles = Label(card.transform, "Roles",
                 "<b>Jugador 1 · Empujador:</b> conduce el carrito.   <b>Jugador 2 · Agarrador:</b> lee la lista y agarra.\n" +
                 "¿Primera vez? Hagan el <b>Tutorial</b>: en partida solo se ve la lista de compras.",
                 20, Ink, TextAnchor.UpperCenter, FontStyle.Normal);
-            Place(roles.rectTransform, new Vector2(40f, -820f), new Vector2(920f, 110f));
+            Place(roles.rectTransform, new Vector2(40f, -940f), new Vector2(920f, 80f));
             roles.lineSpacing = 1.25f;
             roles.horizontalOverflow = HorizontalWrapMode.Wrap;
 
@@ -512,6 +516,12 @@ namespace CarritoCaotico.EditorTools
             refs["nextLevelButton"] = nextLevel;
             refs["levelText"] = levelText;
             refs["levelDetailText"] = levelDetail;
+            refs["previousPusherButton"] = previousPusher;
+            refs["nextPusherButton"] = nextPusher;
+            refs["pusherText"] = pusherText;
+            refs["previousGrabberButton"] = previousGrabber;
+            refs["nextGrabberButton"] = nextGrabber;
+            refs["grabberText"] = grabberText;
             refs["previousPadButton"] = previousPad;
             refs["nextPadButton"] = nextPad;
             refs["padText"] = padText;
@@ -540,6 +550,25 @@ namespace CarritoCaotico.EditorTools
             Place(detail.rectTransform, new Vector2(40f, top - 108f), new Vector2(920f, 28f));
             detail.horizontalOverflow = HorizontalWrapMode.Wrap;
             return (previous, value, next, detail);
+        }
+
+        /// <summary>Selector compacto "&lt; valor &gt;" de media anchura, sin línea de detalle.</summary>
+        static (Button previous, Text value, Button next) HalfSelector(Transform parent, string caption, float top, float centerX, string initial)
+        {
+            const float half = 120f;
+            Text captionText = Label(parent, "Titulo_" + caption, caption, 19, MutedInk, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(captionText.rectTransform, new Vector2(500f + centerX - 230f, top), new Vector2(460f, 26f));
+
+            Button previous = CardButton(parent, "Anterior_" + caption, "<", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(centerX - half - 52f, top - 32f), new Vector2(70f, 70f), 36, 1.5f);
+            Image box = Box(parent, "Valor_" + caption, KeyCap, circleSprite: false, ppu: 1.5f);
+            Anchor(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(centerX - half, top - 102f), new Vector2(centerX + half, top - 32f));
+            Text value = Label(box.transform, "Texto", initial, 36, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Anchor(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+            value.resizeTextForBestFit = true;
+            value.resizeTextMinSize = 20;
+            value.resizeTextMaxSize = 36;
+            Button next = CardButton(parent, "Siguiente_" + caption, ">", null, Card, Ink, new Vector2(0.5f, 1f), new Vector2(centerX + half + 52f, top - 32f), new Vector2(70f, 70f), 36, 1.5f);
+            return (previous, value, next);
         }
 
         // ======================================================================

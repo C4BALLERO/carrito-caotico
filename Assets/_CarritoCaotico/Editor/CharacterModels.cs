@@ -6,47 +6,42 @@ using Object = UnityEngine.Object;
 namespace CarritoCaotico.EditorTools
 {
     /// <summary>
-    /// Personajes con modelo 3D importado (FBX de Tripo con huesos de nombres humanoides). Los
-    /// ajustes de importación se fijan desde código para que el resultado no dependa del
-    /// Inspector de cada equipo. El frente de cada modelo mira hacia +Z y su base queda en y = 0.
+    /// Personajes con modelo 3D importado (FBX de Tripo con huesos). Los ajustes de importación
+    /// se fijan desde código para que el resultado no dependa del Inspector de cada equipo. El
+    /// frente de cada modelo mira hacia +Z.
     /// </summary>
     internal static class CharacterModels
     {
         public const string ModelsFolder = CarritoSceneBuilder.RootFolder + "/06_Models";
 
-        /// <summary>Datos de un personaje: archivos, altura en la escena y pose de los brazos.</summary>
+        /// <summary>Datos de un personaje: archivos, nombres de sus huesos y si conserva su pose.</summary>
         internal sealed class Definition
         {
-            public string DisplayName;
-            public string ModelPath;
-            public string TexturePath;
-            /// <summary>Altura en la escena (metros).</summary>
-            public float Height;
-            /// <summary>
-            /// Dirección de reposo del brazo derecho (espacio del personaje); el izquierdo es su
-            /// reflejo. Vector3.zero conserva la pose del modelo.
-            /// </summary>
-            public Vector3 ArmRestDirection;
+            public CharacterId Id;
+            public string Folder;
+            /// <summary>true si el modelo ya viene posado (no en pose T): no se le bajan los brazos.</summary>
+            public bool KeepPose;
+            public string LeftUpperArm = "Left_UpperArm";
+            public string LeftHand = "Left_Hand";
+            public string RightUpperArm = "Right_UpperArm";
+            public string RightHand = "Right_Hand";
+
+            public string ModelPath => $"{ModelsFolder}/{Folder}/{Folder}.fbx";
+            public string TexturePath => $"{ModelsFolder}/{Folder}/{Folder}_BaseColor.jpg";
+            public string DisplayName => CharacterChoice.DisplayName(Id);
         }
 
-        /// <summary>Empujador: aletas abajo, algo abiertas y hacia el asa.</summary>
-        public static readonly Definition Penguin = new Definition
+        /// <summary>Todos los personajes, en el orden de <see cref="CharacterId"/>.</summary>
+        public static readonly Definition[] All =
         {
-            DisplayName = "pingüino",
-            ModelPath = ModelsFolder + "/Pinguino/Pinguino.fbx",
-            TexturePath = ModelsFolder + "/Pinguino/Pinguino_BaseColor.jpg",
-            Height = 1.25f,
-            ArmRestDirection = new Vector3(0.45f, -0.75f, 0.5f),
-        };
-
-        /// <summary>Agarrador: conserva su pose (señala con la mano derecha).</summary>
-        public static readonly Definition Fox = new Definition
-        {
-            DisplayName = "zorro",
-            ModelPath = ModelsFolder + "/Zorro/Zorro.fbx",
-            TexturePath = ModelsFolder + "/Zorro/Zorro_BaseColor.jpg",
-            Height = 1f,
-            ArmRestDirection = Vector3.zero,
+            new Definition { Id = CharacterId.Pinguino, Folder = "Pinguino" },
+            new Definition { Id = CharacterId.Zorro, Folder = "Zorro", KeepPose = true },
+            new Definition
+            {
+                Id = CharacterId.Cerdo, Folder = "Cerdo",
+                LeftUpperArm = "mixamorig:LeftArm", LeftHand = "mixamorig:LeftHand",
+                RightUpperArm = "mixamorig:RightArm", RightHand = "mixamorig:RightHand",
+            },
         };
 
         internal struct Character
@@ -56,6 +51,8 @@ namespace CarritoCaotico.EditorTools
             public Transform LeftArm;
             public Transform RightArm;
             public Transform RightHand;
+            /// <summary>Límites de la malla posada, en el espacio local del padre.</summary>
+            public Bounds LocalBounds;
         }
 
         /// <summary>
@@ -97,10 +94,13 @@ namespace CarritoCaotico.EditorTools
         }
 
         /// <summary>
-        /// Coloca el personaje como hijo de <paramref name="parent"/>, escalado a su altura, con
-        /// la base en <paramref name="localPosition"/> y los brazos bajados desde la pose T.
+        /// Coloca el personaje como hijo de <paramref name="parent"/> con la altura indicada, la
+        /// base en <paramref name="localPosition"/> y centrado en X y Z. Si el modelo viene en
+        /// pose T, gira los brazos hacia <paramref name="armRestDirection"/> (brazo derecho,
+        /// espacio del personaje; el izquierdo es su reflejo).
         /// </summary>
-        public static Character Build(Definition definition, string name, Transform parent, Vector3 localPosition, Material material)
+        public static Character Build(Definition definition, string name, Transform parent, Vector3 localPosition,
+            float height, Vector3 armRestDirection, Material material)
         {
             ConfigureImport(definition);
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(definition.ModelPath);
@@ -123,19 +123,19 @@ namespace CarritoCaotico.EditorTools
             if (skin == null) throw new InvalidOperationException($"El {definition.DisplayName} no tiene SkinnedMeshRenderer: revisa el rig del FBX.");
             skin.sharedMaterial = material;
 
-            Transform left = FindDeep(model.transform, "Left_UpperArm");
-            Transform right = FindDeep(model.transform, "Right_UpperArm");
-            Transform rightHand = FindDeep(model.transform, "Right_Hand");
-            if (definition.ArmRestDirection != Vector3.zero)
+            Transform left = FindBone(model.transform, definition.LeftUpperArm);
+            Transform right = FindBone(model.transform, definition.RightUpperArm);
+            Transform rightHand = FindBone(model.transform, definition.RightHand);
+            if (!definition.KeepPose)
             {
-                LowerArm(left, FindDeep(model.transform, "Left_Hand"), root.transform, definition.ArmRestDirection, -1f);
-                LowerArm(right, rightHand, root.transform, definition.ArmRestDirection, 1f);
+                LowerArm(left, FindBone(model.transform, definition.LeftHand), root.transform, armRestDirection, -1f);
+                LowerArm(right, rightHand, root.transform, armRestDirection, 1f);
             }
 
             // Escala a la altura deseada y apoya la base. Se mide la malla ya posada: los límites
             // de un SkinnedMeshRenderer no se actualizan en el editor.
             Bounds bounds = PosedBounds(skin);
-            model.transform.localScale = Vector3.one * (definition.Height / Mathf.Max(0.01f, bounds.size.y));
+            model.transform.localScale = Vector3.one * (height / Mathf.Max(0.01f, bounds.size.y));
             bounds = PosedBounds(skin);
             model.transform.position += new Vector3(
                 root.transform.position.x - bounds.center.x,
@@ -148,7 +148,11 @@ namespace CarritoCaotico.EditorTools
             Vector3 localSize = skin.transform.InverseTransformVector(bounds.size);
             skin.localBounds = new Bounds(localCenter, new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z)) * 1.3f);
 
-            return new Character { Root = root, Model = model.transform, LeftArm = left, RightArm = right, RightHand = rightHand };
+            return new Character
+            {
+                Root = root, Model = model.transform, LeftArm = left, RightArm = right, RightHand = rightHand,
+                LocalBounds = new Bounds(parent.InverseTransformPoint(bounds.center), bounds.size),
+            };
         }
 
         /// <summary>Límites en el mundo de la malla deformada por los huesos en su pose actual.</summary>
@@ -168,12 +172,18 @@ namespace CarritoCaotico.EditorTools
         /// <summary>Gira el hueso del brazo para que apunte a la dirección de reposo.</summary>
         static void LowerArm(Transform upperArm, Transform hand, Transform character, Vector3 restDirection, float side)
         {
-            if (upperArm == null || hand == null) return;
             Vector3 current = hand.position - upperArm.position;
             Vector3 local = restDirection;
             local.x *= side;
             Vector3 desired = character.TransformDirection(local.normalized);
             upperArm.rotation = Quaternion.FromToRotation(current, desired) * upperArm.rotation;
+        }
+
+        static Transform FindBone(Transform root, string name)
+        {
+            Transform bone = FindDeep(root, name);
+            if (bone == null) throw new InvalidOperationException($"No se encontró el hueso '{name}' en {root.name}.");
+            return bone;
         }
 
         static Transform FindDeep(Transform root, string name)
